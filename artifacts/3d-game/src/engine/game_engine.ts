@@ -10,19 +10,23 @@
 //     1. Add it to game_config.json (ball_rules section)
 //     2. Add a handler function below
 //     3. Register it in registerAllHandlers()
-// - BounceCondition enum drives ALL wall/ball collision logic:
-//     against_wall     → bounce walls only, exit through balls
-//     against_ball     → bounce balls only, exit through walls
-//     against_obstacle → bounce obstacles only (future)
-//     against_all      → bounce everything
-//   This is read from bounce_conditions.ball_bounce_conditions in config.
+// - BounceCondition enum drives ALL wall/ball collision logic.
 // - 3D graphics are completely decoupled: this file has zero
 //   imports from Three.js or React.
 // - Physics is resolved in 2D (X/Y plane only).
 // ============================================================
 
 import { Ball } from "./Ball";
-import type { BallColor, BallRule, GameConfig, GameEvent, GameState, Vec2 } from "./types";
+import type {
+  BallColor,
+  BallRule,
+  GameConfig,
+  GameEvent,
+  GameState,
+  ShotKind,
+  ShotTypeConfig,
+  Vec2,
+} from "./types";
 import { BallSize, BounceCondition } from "./types";
 
 type RuleHandler = (ball: Ball, delta: number, context: RuleContext) => void;
@@ -32,8 +36,16 @@ interface RuleContext {
   config: GameConfig;
   events: GameEvent[];
   arena: Arena2D;
-  spawnBall: (color: BallColor, size: BallSize, position: Vec2, velocity: Vec2) => Ball;
+  spawnBall: (
+    color: BallColor,
+    size: BallSize,
+    position: Vec2,
+    velocity: Vec2,
+    overrideRule?: BallRule,
+    overrideHp?: { hp: number; maxHp: number }
+  ) => Ball;
   despawnBall: (ball: Ball, reason: string) => void;
+  damageBall: (ball: Ball, amount: number, reason?: string) => boolean;
 }
 
 interface Arena2D {
@@ -57,8 +69,11 @@ export class GameEngine {
   private ruleHandlers = new Map<BallRule, RuleHandler>();
   private config: GameConfig;
   private orangeSpawnTimer = 0;
+  private launchedCount = 0;
   private pendingEvents: GameEvent[] = [];
   private logEnabled: boolean;
+  private elapsedTime = 0;
+  private sessionCleared = false;
 
   constructor(config: GameConfig) {
     this.config = config;
@@ -68,7 +83,6 @@ export class GameEngine {
 
   // --------------------------------------------------------
   // Handler Registration
-  // To add a new rule: implement handler, call registerRuleHandler().
   // --------------------------------------------------------
   private registerAllHandlers(): void {
     this.registerRuleHandler("bounce",            this.handleBounce.bind(this));
@@ -83,6 +97,8 @@ export class GameEngine {
     this.registerRuleHandler("gravity_sink",      this.handleGravitySink.bind(this));
     this.registerRuleHandler("neutral",           this.handleNeutral.bind(this));
     this.registerRuleHandler("absorb",            this.handleAbsorb.bind(this));
+    this.registerRuleHandler("hp_grow_bouncer",   this.handleHpGrowBouncer.bind(this));
+    this.registerRuleHandler("player_projectile", this.handlePlayerProjectile.bind(this));
   }
 
   registerRuleHandler(rule: BallRule, handler: RuleHandler): void {
@@ -99,9 +115,12 @@ export class GameEngine {
     return {
       balls,
       events: [...this.pendingEvents],
-      time: 0,
+      time: this.elapsedTime,
       orangeSpawnTimer: this.orangeSpawnTimer,
       score: 0,
+      launchedCount: this.launchedCount,
+      maxBallsSpawned: this.config.game_session?.max_balls_spawned ?? 20,
+      sessionCleared: this.sessionCleared,
     };
   }
 
@@ -110,14 +129,108 @@ export class GameEngine {
     this.logEnabled = config.debug?.log_rule_changes ?? false;
   }
 
+  getLaunchedCount(): number {
+    return this.launchedCount;
+  }
+
+  /** Number of "enemy" balls currently alive (excludes orange launchers and player projectiles). */
+  getEnemyBallCount(): number {
+    let n = 0;
+    this.balls.forEach((b) => {
+      if (!b.isAlive) return;
+      if (b.color === "orange") return;
+      if (b.isProjectile()) return;
+      n++;
+    });
+    return n;
+  }
+
+  /** Has the session reached its spawn cap AND is now cleared? */
+  isSessionFinished(): boolean {
+    const max = this.config.game_session?.max_balls_spawned ?? 20;
+    return this.launchedCount >= max && this.getEnemyBallCount() === 0;
+  }
+
   // --------------------------------------------------------
-  // Main Update Loop — call every frame with delta in seconds
+  // Player Shooting API
+  // --------------------------------------------------------
+
+  /**
+   * Fire a player projectile from the bottom-center of the arena toward
+   * the given target point (in game coordinates: x = horizontal, y = vertical).
+   * holdSeconds determines the shot kind via gameplay_controls.shot_types.
+   * color is the next ball from the player's queue.
+   */
+  playerShoot(targetX: number, targetY: number, holdSeconds: number, color: BallColor): Ball | null {
+    const controls = this.config.gameplay_controls;
+    if (!controls) return null;
+    const shotKind = this.classifyShot(holdSeconds);
+    const shotCfg = controls.shot_types[shotKind];
+    if (!shotCfg) return null;
+
+    const arena = this.getArena();
+    const inset = (controls.shot_origin?.inset_factor ?? 0.04) * arena.halfH * 2;
+    const origin: Vec2 = { x: 0, y: -arena.halfH + inset };
+
+    const dx = targetX - origin.x;
+    const dy = targetY - origin.y;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len < 0.001) return null;
+    const dir: Vec2 = { x: dx / len, y: dy / len };
+
+    const baseSize = controls.queue_ball_size ?? BallSize.SMALL;
+    const baseDiameter = this.config.graphics.ball_sizes[baseSize]?.diameter ?? 1.0;
+    const projectileDiameter = baseDiameter * shotCfg.diameter_multiplier;
+    const speed = shotCfg.speed;
+
+    const projectile = new Ball(
+      color,
+      baseSize,
+      origin,
+      { x: dir.x * speed, y: dir.y * speed },
+      projectileDiameter,
+      "player_projectile",
+      BounceCondition.AGAINST_OBSTACLE,
+      999, 999
+    );
+    projectile.metadata = {
+      isProjectile: true,
+      shotKind,
+      damage: shotCfg.damage,
+      passesThroughBalls: shotCfg.passes_through_balls,
+      remainingWallBounces: shotCfg.wall_bounces,
+      lifetime: 0,
+      damagedIds: new Set<string>(),
+      colorTint: shotCfg.color_tint ?? null,
+    };
+    this.balls.set(projectile.id, projectile);
+    this.pendingEvents.push({ type: "ball_spawned", ball: projectile.getState() });
+    this.pendingEvents.push({ type: "player_shot", projectileId: projectile.id, shotKind });
+    return projectile;
+  }
+
+  classifyShot(holdSeconds: number): ShotKind {
+    const types = this.config.gameplay_controls?.shot_types;
+    if (!types) return "light";
+    // Return the highest tier whose min_hold_seconds is satisfied
+    if (holdSeconds >= types.mega.min_hold_seconds) return "mega";
+    if (holdSeconds >= types.heavy.min_hold_seconds) return "heavy";
+    return "light";
+  }
+
+  getShotConfig(kind: ShotKind): ShotTypeConfig | null {
+    return this.config.gameplay_controls?.shot_types?.[kind] ?? null;
+  }
+
+  // --------------------------------------------------------
+  // Main Update Loop
   // --------------------------------------------------------
   update(delta: number): GameState {
     this.pendingEvents = [];
+    this.elapsedTime += delta;
     const arena = this.getArena();
 
-    // Spawn orange launchers
+    // Spawn orange launchers (capped by max_balls_spawned)
     this.updateOrangeSpawn(delta, arena);
 
     // Update freeze timers
@@ -134,14 +247,16 @@ export class GameEngine {
       config: this.config,
       events: this.pendingEvents,
       arena,
-      spawnBall: this.spawnBall.bind(this),
+      spawnBall: (c, s, p, v, overrideRule, overrideHp) =>
+        this.spawnBall(c, s, p, v, overrideRule, overrideHp),
       despawnBall: (ball, reason) => {
         ball.isAlive = false;
         this.pendingEvents.push({ type: "ball_despawned", ballId: ball.id, reason });
       },
+      damageBall: (ball, amount, reason = "damaged") => this.damageBall(ball, amount, reason),
     };
 
-    // Step 1: Apply rule handlers (movement + rule-specific behavior)
+    // Step 1: Apply rule handlers
     for (const ball of allBalls) {
       if (!ball.isAlive || ball.isFrozen) continue;
       const handler = this.ruleHandlers.get(ball.rule);
@@ -149,7 +264,7 @@ export class GameEngine {
       else this.applyMovement(ball, delta, arena);
     }
 
-    // Step 2: Resolve ball-to-ball collisions based on BounceCondition
+    // Step 2: Resolve ball-to-ball collisions (skip projectiles — they handle their own)
     this.resolveBallCollisions(allBalls, arena);
 
     // Step 3: Remove dead balls
@@ -157,20 +272,73 @@ export class GameEngine {
       if (!ball.isAlive) this.balls.delete(id);
     });
 
+    // Step 4: Session-clear flag
+    this.sessionCleared = this.isSessionFinished();
+
     return this.getState();
+  }
+
+  /** Apply damage and despawn at 0 HP. Returns true if killed. */
+  private damageBall(ball: Ball, amount: number, reason = "damaged"): boolean {
+    if (!ball.isAlive) return false;
+    const died = ball.takeDamage(amount);
+    this.pendingEvents.push({
+      type: "ball_damaged",
+      ballId: ball.id,
+      amount,
+      remainingHp: ball.hp,
+    });
+    if (died) {
+      ball.isAlive = false;
+      this.pendingEvents.push({ type: "ball_despawned", ballId: ball.id, reason });
+    }
+    return died;
   }
 
   // --------------------------------------------------------
   // Ball Spawning
   // --------------------------------------------------------
-  spawnBall(color: BallColor, size: BallSize, position: Vec2, velocity: Vec2): Ball {
+  spawnBall(
+    color: BallColor,
+    size: BallSize,
+    position: Vec2,
+    velocity: Vec2,
+    overrideRule?: BallRule,
+    overrideHp?: { hp: number; maxHp: number }
+  ): Ball {
     const diameter = this.config.graphics.ball_sizes[size]?.diameter ?? 0.5;
-    const rule = this.config.ball_rules[color]?.rule ?? "neutral";
+    const rule = overrideRule ?? this.config.ball_rules[color]?.rule ?? "neutral";
     const bounceCondition = this.getBounceCondition(color);
-    const ball = new Ball(color, size, position, velocity, diameter, rule, bounceCondition);
+
+    // HP defaults: 1 / 1, but dark_green (hp_grow_bouncer) reads from rule_parameters
+    let hp = 1;
+    let maxHp = 1;
+    if (overrideHp) {
+      hp = overrideHp.hp;
+      maxHp = overrideHp.maxHp;
+    } else if (rule === "hp_grow_bouncer") {
+      const p = this.config.rule_parameters.hp_grow_bouncer;
+      hp = p?.default_hp ?? 2;
+      maxHp = p?.max_hp ?? 5;
+    }
+
+    const ball = new Ball(color, size, position, velocity, diameter, rule, bounceCondition, hp, maxHp);
+
+    // Initial diameter scaling for hp_grow_bouncer
+    if (rule === "hp_grow_bouncer") {
+      ball.diameter = this.computeHpGrowDiameter(ball);
+    }
+
     this.balls.set(ball.id, ball);
     this.pendingEvents.push({ type: "ball_spawned", ball: ball.getState() });
     return ball;
+  }
+
+  private computeHpGrowDiameter(ball: Ball): number {
+    const p = this.config.rule_parameters.hp_grow_bouncer;
+    if (!p) return ball.baseDiameter;
+    const factor = 1 + (ball.hp - p.default_hp) * p.diameter_per_extra_hp;
+    return ball.baseDiameter * Math.max(0.4, factor);
   }
 
   private getBounceCondition(color: BallColor): BounceCondition {
@@ -189,30 +357,19 @@ export class GameEngine {
   }
 
   // --------------------------------------------------------
-  // Physics Helpers — BounceCondition-aware
+  // Physics Helpers
   // --------------------------------------------------------
 
-  /**
-   * Move ball and resolve wall bounce based on its BounceCondition.
-   * Returns whether a wall was hit.
-   */
   private applyMovement(ball: Ball, delta: number, arena: Arena2D): boolean {
     ball.position.x += ball.velocity.x * delta;
     ball.position.y += ball.velocity.y * delta;
     return this.resolveWallBounce(ball, arena);
   }
 
-  /**
-   * Resolve wall collisions according to BounceCondition.
-   * - against_wall / against_all  → reflect velocity, clamp position
-   * - against_ball / against_obstacle → do nothing (ball exits through walls)
-   * Returns true if a wall was hit and the ball bounced.
-   */
   private resolveWallBounce(ball: Ball, arena: Arena2D): boolean {
     const canBounceWall =
       ball.bounceCondition === BounceCondition.AGAINST_WALL ||
       ball.bounceCondition === BounceCondition.AGAINST_ALL;
-
     if (!canBounceWall) return false;
 
     const r = ball.diameter / 2;
@@ -222,6 +379,14 @@ export class GameEngine {
     if (ball.position.y - r < -arena.halfH) { ball.position.y = -arena.halfH + r; ball.velocity.y = Math.abs(ball.velocity.y); hit = true; }
     if (ball.position.y + r > arena.halfH)  { ball.position.y = arena.halfH - r;  ball.velocity.y = -Math.abs(ball.velocity.y); hit = true; }
     return hit;
+  }
+
+  /** Check which wall (if any) the ball is currently outside; returns axis of impact for projectiles. */
+  private detectWallHit(ball: Ball, arena: Arena2D): "x" | "y" | null {
+    const r = ball.diameter / 2;
+    if (ball.position.x - r < -arena.halfW || ball.position.x + r > arena.halfW) return "x";
+    if (ball.position.y - r < -arena.halfH || ball.position.y + r > arena.halfH) return "y";
+    return null;
   }
 
   private isOutOfBounds(ball: Ball, arena: Arena2D): boolean {
@@ -234,11 +399,7 @@ export class GameEngine {
     );
   }
 
-  /**
-   * Global ball-to-ball elastic collision pass.
-   * Only applied when BOTH balls have bounceCondition that includes balls
-   * (against_ball or against_all).
-   */
+  /** Global ball-to-ball elastic collision pass — projectiles excluded. */
   private resolveBallCollisions(balls: Ball[], _arena: Arena2D): void {
     const restitution = this.config.rule_parameters.ball_collision?.restitution ?? 0.95;
 
@@ -247,6 +408,7 @@ export class GameEngine {
         const a = balls[i];
         const b = balls[j];
         if (!a.isAlive || !b.isAlive) continue;
+        if (a.isProjectile() || b.isProjectile()) continue; // projectiles handle their own
         if (a.isFrozen && b.isFrozen) continue;
 
         const aBouncesBalls =
@@ -262,7 +424,6 @@ export class GameEngine {
         const minDist = (a.diameter + b.diameter) / 2;
         if (dist >= minDist || dist < 0.001) continue;
 
-        // Separate overlapping balls
         const nx = (b.position.x - a.position.x) / dist;
         const ny = (b.position.y - a.position.y) / dist;
         const overlap = minDist - dist;
@@ -271,11 +432,10 @@ export class GameEngine {
         if (aBouncesBalls && !a.isFrozen) { a.position.x -= nx * correction; a.position.y -= ny * correction; }
         if (bBouncesBalls && !b.isFrozen) { b.position.x += nx * correction; b.position.y += ny * correction; }
 
-        // Elastic collision impulse (1D along normal)
         const dvx = a.velocity.x - b.velocity.x;
         const dvy = a.velocity.y - b.velocity.y;
         const dot = dvx * nx + dvy * ny;
-        if (dot <= 0) continue; // Moving apart
+        if (dot <= 0) continue;
 
         const impulse = dot * restitution;
         if (aBouncesBalls && !a.isFrozen) { a.velocity.x -= impulse * nx; a.velocity.y -= impulse * ny; }
@@ -290,6 +450,9 @@ export class GameEngine {
   // Orange Launcher Spawn Logic
   // --------------------------------------------------------
   private updateOrangeSpawn(delta: number, arena: Arena2D): void {
+    const max = this.config.game_session?.max_balls_spawned ?? 20;
+    if (this.launchedCount >= max) return; // hard cap
+
     const interval = this.config.gameplay.orange.spawn.interval_seconds;
     this.orangeSpawnTimer += delta;
     if (this.orangeSpawnTimer >= interval) {
@@ -335,6 +498,7 @@ export class GameEngine {
 
     void arena;
     const launched = this.spawnBall(color, size, { ...launcher.position }, { x: dir.x * speed, y: dir.y * speed });
+    this.launchedCount++;
     this.pendingEvents.push({ type: "orange_launched", launcherId: launcher.id, launchedId: launched.id });
 
     launcher.isAlive = false;
@@ -345,13 +509,13 @@ export class GameEngine {
   // Rule Handlers
   // --------------------------------------------------------
 
-  /** WHITE — bounce: wall-bouncing, no special effect */
+  /** WHITE — bounce */
   private handleBounce(ball: Ball, delta: number, ctx: RuleContext): void {
     this.applyMovement(ball, delta, ctx.arena);
     if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
   }
 
-  /** YELLOW — accelerate: speeds up over time */
+  /** YELLOW — accelerate */
   private handleAccelerate(ball: Ball, delta: number, ctx: RuleContext): void {
     const accel = ctx.config.rule_parameters.accelerate?.acceleration_per_second ?? 0.4;
     const speed = Math.sqrt(ball.velocity.x ** 2 + ball.velocity.y ** 2);
@@ -363,7 +527,7 @@ export class GameEngine {
     if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
   }
 
-  /** ORANGE — launcher: handled by spawn system, not per-frame */
+  /** ORANGE — launcher */
   private handleLauncher(ball: Ball, _delta: number, ctx: RuleContext): void {
     ctx.despawnBall(ball, "after_launch");
   }
@@ -372,7 +536,7 @@ export class GameEngine {
   private handleDestroyOnContact(ball: Ball, delta: number, ctx: RuleContext): void {
     this.applyMovement(ball, delta, ctx.arena);
     for (const other of ctx.allBalls) {
-      if (other.id === ball.id || !other.isAlive || other.color === "orange") continue;
+      if (other.id === ball.id || !other.isAlive || other.color === "orange" || other.isProjectile()) continue;
       if (ball.isCollidingWith(other)) {
         ctx.events.push({ type: "collision", ballAId: ball.id, ballBId: other.id });
         ctx.despawnBall(other, "destroyed_by_red");
@@ -383,12 +547,12 @@ export class GameEngine {
     if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
   }
 
-  /** LIGHT_GREEN — slow_nearby: slows nearby balls */
+  /** LIGHT_GREEN — slow_nearby */
   private handleSlowNearby(ball: Ball, delta: number, ctx: RuleContext): void {
     this.applyMovement(ball, delta, ctx.arena);
     const p = ctx.config.rule_parameters.slow_nearby ?? { radius: 2.0, slow_factor: 0.5 };
     for (const other of ctx.allBalls) {
-      if (other.id === ball.id || !other.isAlive) continue;
+      if (other.id === ball.id || !other.isAlive || other.isProjectile()) continue;
       if (ball.distanceTo(other) < p.radius) {
         const drag = 1 - (1 - p.slow_factor) * delta;
         other.velocity.x *= drag;
@@ -398,12 +562,12 @@ export class GameEngine {
     if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
   }
 
-  /** DARK_GREEN — attract: pulls nearby balls */
+  /** Old DARK_GREEN attract handler (kept for backward compatibility / runtime swaps). */
   private handleAttract(ball: Ball, delta: number, ctx: RuleContext): void {
     this.applyMovement(ball, delta, ctx.arena);
     const p = ctx.config.rule_parameters.attract ?? { radius: 3.0, strength: 0.8 };
     for (const other of ctx.allBalls) {
-      if (other.id === ball.id || !other.isAlive) continue;
+      if (other.id === ball.id || !other.isAlive || other.isProjectile()) continue;
       const d = ball.distanceTo(other);
       if (d < p.radius && d > 0.01) {
         const dir = normalize({ x: ball.position.x - other.position.x, y: ball.position.y - other.position.y });
@@ -414,7 +578,7 @@ export class GameEngine {
     if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
   }
 
-  /** TURQUOISE — split: splits into 2 on wall contact */
+  /** TURQUOISE — split */
   private handleSplit(ball: Ball, delta: number, ctx: RuleContext): void {
     ball.position.x += ball.velocity.x * delta;
     ball.position.y += ball.velocity.y * delta;
@@ -438,12 +602,12 @@ export class GameEngine {
     if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
   }
 
-  /** CYAN — freeze_nearby: freezes nearby balls */
+  /** CYAN — freeze_nearby */
   private handleFreezeNearby(ball: Ball, delta: number, ctx: RuleContext): void {
     this.applyMovement(ball, delta, ctx.arena);
     const p = ctx.config.rule_parameters.freeze_nearby ?? { radius: 2.5, freeze_duration_seconds: 1.5 };
     for (const other of ctx.allBalls) {
-      if (other.id === ball.id || !other.isAlive) continue;
+      if (other.id === ball.id || !other.isAlive || other.isProjectile()) continue;
       if (ball.distanceTo(other) < p.radius && !other.isFrozen) {
         other.freeze(p.freeze_duration_seconds);
       }
@@ -451,7 +615,7 @@ export class GameEngine {
     if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
   }
 
-  /** BLUE — transfer_rule: passes its rule to first contacted ball */
+  /** BLUE — transfer_rule */
   private handleTransferRule(ball: Ball, delta: number, ctx: RuleContext): void {
     this.applyMovement(ball, delta, ctx.arena);
     if (ball.ruleTransferred) {
@@ -459,7 +623,7 @@ export class GameEngine {
       return;
     }
     for (const other of ctx.allBalls) {
-      if (other.id === ball.id || !other.isAlive || other.color === "orange") continue;
+      if (other.id === ball.id || !other.isAlive || other.color === "orange" || other.isProjectile()) continue;
       if (ball.isCollidingWith(other)) {
         const transferred = other.rule;
         ball.passRuleTo(other, this.logEnabled);
@@ -472,12 +636,12 @@ export class GameEngine {
     if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
   }
 
-  /** DARK_BLUE — gravity_sink: pulls all balls toward center */
+  /** DARK_BLUE — gravity_sink */
   private handleGravitySink(ball: Ball, delta: number, ctx: RuleContext): void {
     this.applyMovement(ball, delta, ctx.arena);
     const p = ctx.config.rule_parameters.gravity_sink ?? { strength: 0.6 };
     for (const other of ctx.allBalls) {
-      if (other.id === ball.id || !other.isAlive) continue;
+      if (other.id === ball.id || !other.isAlive || other.isProjectile()) continue;
       const toCenter = normalize({ x: -other.position.x, y: -other.position.y });
       other.velocity.x += toCenter.x * p.strength * delta;
       other.velocity.y += toCenter.y * p.strength * delta;
@@ -485,19 +649,19 @@ export class GameEngine {
     if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
   }
 
-  /** GRAY — neutral: move and bounce, no effect */
+  /** GRAY — neutral */
   private handleNeutral(ball: Ball, delta: number, ctx: RuleContext): void {
     this.applyMovement(ball, delta, ctx.arena);
     if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
   }
 
-  /** BLACK — absorb: eats other balls and grows */
+  /** BLACK — absorb */
   private handleAbsorb(ball: Ball, delta: number, ctx: RuleContext): void {
     this.applyMovement(ball, delta, ctx.arena);
     const p = ctx.config.rule_parameters.absorb ?? { max_diameter_multiplier: 3.0 };
     const maxDiam = ball.baseDiameter * p.max_diameter_multiplier;
     for (const other of ctx.allBalls) {
-      if (other.id === ball.id || !other.isAlive || other.color === "black") continue;
+      if (other.id === ball.id || !other.isAlive || other.color === "black" || other.isProjectile()) continue;
       if (ball.isCollidingWith(other)) {
         ctx.events.push({ type: "collision", ballAId: ball.id, ballBId: other.id });
         ctx.despawnBall(other, "absorbed_by_black");
@@ -510,5 +674,119 @@ export class GameEngine {
       }
     }
     if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
+  }
+
+  /**
+   * DARK_GREEN — hp_grow_bouncer.
+   * Bounces on walls. On entering overlap with another (non-projectile, non-orange) ball:
+   *   - +1 HP (capped at max_hp)
+   *   - diameter recomputed from current HP
+   * Tracks "touched" set in metadata to avoid double-counting per overlap event.
+   */
+  private handleHpGrowBouncer(ball: Ball, delta: number, ctx: RuleContext): void {
+    this.applyMovement(ball, delta, ctx.arena);
+    const p = ctx.config.rule_parameters.hp_grow_bouncer;
+    if (!p) return;
+
+    if (!(ball.metadata.touched instanceof Set)) ball.metadata.touched = new Set<string>();
+    const touched = ball.metadata.touched as Set<string>;
+
+    for (const other of ctx.allBalls) {
+      if (other.id === ball.id || !other.isAlive) continue;
+      if (other.color === "orange" || other.isProjectile()) continue;
+      const overlapping = ball.isCollidingWith(other);
+      if (overlapping && !touched.has(other.id)) {
+        touched.add(other.id);
+        if (ball.hp < ball.maxHp) {
+          const healed = ball.heal(p.hp_gained_per_traversal ?? 1);
+          if (healed > 0) ball.diameter = this.computeHpGrowDiameter(ball);
+        }
+      } else if (!overlapping && touched.has(other.id)) {
+        touched.delete(other.id);
+      }
+    }
+
+    // Clean up touched IDs that no longer exist
+    for (const id of Array.from(touched)) {
+      const exists = ctx.allBalls.find((b) => b.id === id && b.isAlive);
+      if (!exists) touched.delete(id);
+    }
+
+    // Out of bounds shouldn't really happen (against_wall), but safety
+    if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
+  }
+
+  /**
+   * PLAYER PROJECTILE — straight-line shot fired by player click.
+   * Behavior driven by metadata (set in playerShoot):
+   *   shotKind, damage, passesThroughBalls, remainingWallBounces, lifetime, damagedIds
+   * - light: stops on first ball OR first wall
+   * - heavy: passes balls, stops on wall
+   * - mega:  passes balls, bounces N times on walls then despawns
+   */
+  private handlePlayerProjectile(ball: Ball, delta: number, ctx: RuleContext): void {
+    const meta = ball.metadata as {
+      damage: number;
+      passesThroughBalls: boolean;
+      remainingWallBounces: number;
+      lifetime: number;
+      damagedIds: Set<string>;
+    };
+
+    // Lifetime safety
+    meta.lifetime += delta;
+    const maxLife = ctx.config.rule_parameters.player_projectile?.max_lifetime_seconds ?? 4.0;
+    if (meta.lifetime > maxLife) {
+      ctx.despawnBall(ball, "projectile_expired");
+      return;
+    }
+
+    // Move
+    ball.position.x += ball.velocity.x * delta;
+    ball.position.y += ball.velocity.y * delta;
+
+    // --- Wall handling ---
+    const wallAxis = this.detectWallHit(ball, ctx.arena);
+    if (wallAxis) {
+      if (meta.remainingWallBounces > 0) {
+        // Bounce: clamp position back inside, flip velocity
+        const r = ball.diameter / 2;
+        if (wallAxis === "x") {
+          if (ball.position.x - r < -ctx.arena.halfW) ball.position.x = -ctx.arena.halfW + r;
+          if (ball.position.x + r >  ctx.arena.halfW) ball.position.x =  ctx.arena.halfW - r;
+          ball.velocity.x = -ball.velocity.x;
+        } else {
+          if (ball.position.y - r < -ctx.arena.halfH) ball.position.y = -ctx.arena.halfH + r;
+          if (ball.position.y + r >  ctx.arena.halfH) ball.position.y =  ctx.arena.halfH - r;
+          ball.velocity.y = -ball.velocity.y;
+        }
+        meta.remainingWallBounces--;
+      } else {
+        // No bounces left → stop / despawn
+        ctx.despawnBall(ball, "projectile_hit_wall");
+        return;
+      }
+    }
+
+    // --- Ball collisions ---
+    for (const other of ctx.allBalls) {
+      if (other.id === ball.id || !other.isAlive) continue;
+      if (other.color === "orange" || other.isProjectile()) continue;
+      if (meta.damagedIds.has(other.id)) continue;
+
+      if (ball.isCollidingWith(other)) {
+        meta.damagedIds.add(other.id);
+        ctx.events.push({ type: "collision", ballAId: ball.id, ballBId: other.id });
+        ctx.damageBall(other, meta.damage, "killed_by_player");
+
+        if (!meta.passesThroughBalls) {
+          // Light shot: stop after first ball contact
+          ctx.despawnBall(ball, "projectile_hit_ball");
+          return;
+        }
+      }
+    }
+
+    if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "projectile_out_of_bounds");
   }
 }

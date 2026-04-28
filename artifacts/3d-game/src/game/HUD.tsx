@@ -1,7 +1,6 @@
 // ============================================================
 // HUD — Heads-Up Display (pure UI, no game logic)
-// Shows ball count, controls, and menu button.
-// The ball legend has been removed — colors on screen speak.
+// Shows ball count, session progress (X/20), pause/reset/menu.
 // ============================================================
 
 import type { GameConfig, GameState } from "../engine/types";
@@ -29,8 +28,14 @@ const BTN: React.CSSProperties = {
   letterSpacing: 1,
 };
 
-export function HUD({ gameState, isRunning, onPause, onResume, onReset, onMenu }: HUDProps) {
-  const activeBalls = Array.from(gameState.balls.values()).filter((b) => b.isAlive).length;
+export function HUD({ gameState, config, isRunning, onPause, onResume, onReset, onMenu }: HUDProps) {
+  const activeBalls = Array.from(gameState.balls.values()).filter(
+    (b) => b.isAlive && b.color !== "orange" && b.metadata?.isProjectile !== true
+  ).length;
+
+  const launched = gameState.launchedCount;
+  const max = gameState.maxBallsSpawned;
+  const sessionPct = max > 0 ? Math.min(1, launched / max) : 0;
 
   return (
     <div
@@ -55,14 +60,33 @@ export function HUD({ gameState, isRunning, onPause, onResume, onReset, onMenu }
           alignItems: "center",
           background: "rgba(0,8,24,0.72)",
           borderRadius: 10,
-          padding: "6px 14px",
+          padding: "8px 14px",
           backdropFilter: "blur(6px)",
           border: "1px solid rgba(30,144,255,0.25)",
+          gap: 14,
         }}
       >
         <div>
-          <div style={{ fontSize: 9, color: "#445", textTransform: "uppercase", letterSpacing: 3 }}>Balles</div>
-          <div style={{ fontSize: 22, fontWeight: "bold", color: "#1e90ff", lineHeight: 1 }}>{activeBalls}</div>
+          <div style={{ fontSize: 9, color: "#445", textTransform: "uppercase", letterSpacing: 3 }}>Restantes</div>
+          <div style={{ fontSize: 20, fontWeight: "bold", color: "#1e90ff", lineHeight: 1 }}>{activeBalls}</div>
+        </div>
+
+        {/* Session progress */}
+        <div style={{ flex: 1, minWidth: 80 }}>
+          <div style={{ fontSize: 9, color: "#445", textTransform: "uppercase", letterSpacing: 3, marginBottom: 3 }}>
+            Vague {launched}/{max}
+          </div>
+          <div style={{
+            height: 5, background: "rgba(30,144,255,0.15)",
+            borderRadius: 3, overflow: "hidden",
+          }}>
+            <div style={{
+              height: "100%", width: `${sessionPct * 100}%`,
+              background: launched >= max ? "#5EFF5E" : "#1e90ff",
+              transition: "width 0.3s",
+              boxShadow: launched >= max ? "0 0 8px #5EFF5E" : "0 0 6px #1e90ff",
+            }} />
+          </div>
         </div>
 
         <button
@@ -88,6 +112,9 @@ export function HUD({ gameState, isRunning, onPause, onResume, onReset, onMenu }
         </button>
         <button onClick={onReset} style={BTN}>↺</button>
       </div>
+
+      {/* config-driven keepalive */}
+      <span style={{ display: "none" }}>{config.game_session.max_balls_spawned}</span>
     </div>
   );
 }

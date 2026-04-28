@@ -15,6 +15,8 @@
 //   change rules.
 // - A ball's bounceCondition comes from bounce_conditions.ball_bounce_conditions
 //   in game_config.json. Do NOT set it directly — use the config.
+// - HP system: every ball has hp/maxHp. Damage is applied by the
+//   engine's damageBall() helper. Despawned at 0 HP.
 // ============================================================
 
 import { v4 as uuidv4 } from "uuid";
@@ -35,6 +37,8 @@ export class Ball {
   ruleTransferred: boolean;
   diameter: number;
   baseDiameter: number;
+  hp: number;
+  maxHp: number;
   metadata: Record<string, unknown>;
 
   constructor(
@@ -44,7 +48,9 @@ export class Ball {
     velocity: Vec2,
     diameter: number,
     rule: BallRule,
-    bounceCondition: BounceCondition = BounceCondition.AGAINST_WALL
+    bounceCondition: BounceCondition = BounceCondition.AGAINST_WALL,
+    hp = 1,
+    maxHp = 1
   ) {
     this.id = uuidv4();
     this.color = color;
@@ -59,14 +65,12 @@ export class Ball {
     this.isFrozen = false;
     this.frozenTimer = 0;
     this.ruleTransferred = false;
+    this.hp = hp;
+    this.maxHp = maxHp;
     this.metadata = {};
   }
 
-  /**
-   * Transfer this ball's rule to another ball.
-   * The other ball adopts the rule; this ball's rule becomes "neutral".
-   * This is the ONLY sanctioned way to pass a rule between balls.
-   */
+  /** Transfer this ball's rule to another. The other adopts the rule; this becomes "neutral". */
   passRuleTo(other: Ball, logEnabled = false): void {
     if (logEnabled) {
       console.log(`[RULE TRANSFER] Ball ${this.id} (${this.color}) passes '${this.rule}' → Ball ${other.id} (${other.color})`);
@@ -76,11 +80,7 @@ export class Ball {
     this.changeRule("neutral", logEnabled);
   }
 
-  /**
-   * Change this ball's rule.
-   * This is the ONLY sanctioned way to change a ball's rule.
-   * All rule modifications must pass through this method.
-   */
+  /** ONLY sanctioned way to change a ball's rule. */
   changeRule(newRule: BallRule, logEnabled = false): void {
     if (logEnabled) {
       console.log(`[RULE CHANGE] Ball ${this.id} (${this.color}): '${this.rule}' → '${newRule}'`);
@@ -88,17 +88,25 @@ export class Ball {
     this.rule = newRule;
   }
 
-  /**
-   * Freeze this ball for a given duration in seconds.
-   */
   freeze(durationSeconds: number): void {
     this.isFrozen = true;
     this.frozenTimer = durationSeconds;
   }
 
-  /**
-   * Snapshot of the ball's state for the React layer.
-   */
+  /** Apply damage. Returns true if the ball died (hp ≤ 0). */
+  takeDamage(amount: number): boolean {
+    this.hp = Math.max(0, this.hp - amount);
+    return this.hp <= 0;
+  }
+
+  /** Heal up to maxHp. Returns the amount actually healed. */
+  heal(amount: number): number {
+    const before = this.hp;
+    this.hp = Math.min(this.maxHp, this.hp + amount);
+    return this.hp - before;
+  }
+
+  /** Snapshot for the React layer. */
   getState(): BallState {
     return {
       id: this.id,
@@ -113,6 +121,8 @@ export class Ball {
       frozenTimer: this.frozenTimer,
       ruleTransferred: this.ruleTransferred,
       diameter: this.diameter,
+      hp: this.hp,
+      maxHp: this.maxHp,
       metadata: { ...this.metadata },
     };
   }
@@ -126,5 +136,9 @@ export class Ball {
   isCollidingWith(other: Ball): boolean {
     const minDist = (this.diameter + other.diameter) / 2;
     return this.distanceTo(other) < minDist;
+  }
+
+  isProjectile(): boolean {
+    return this.rule === "player_projectile" || this.metadata.isProjectile === true;
   }
 }

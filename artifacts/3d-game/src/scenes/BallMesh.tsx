@@ -1,13 +1,10 @@
 // ============================================================
 // BallMesh — 3D visual representation of a Ball
 //
-// ARCHITECTURE NOTE:
-// - Purely visual. Reads BallState, renders a metallic sphere.
-// - All visual parameters (color, roughness, metalness) come
-//   from game_config.json via props. Nothing hard-coded.
-// - Physics stays in 2D (X/Y). Y-axis in Three.js = Z in game.
-// - Balls are lit with metallic shiny material (PBR).
-// - Scale is driven by ball.diameter, geometry uses unit radius.
+// - Reads BallState, renders a metallic sphere.
+// - Visual params come from config (no hard-coded values).
+// - Player projectiles get an extra glow + colored aura tint.
+// - HP > 0 dark_green balls show a subtle ring proportional to HP.
 // ============================================================
 
 import { useRef } from "react";
@@ -20,36 +17,42 @@ interface BallMeshProps {
   config: GameConfig;
 }
 
-const UNIT_RADIUS = 0.5; // geometry built at radius=0.5, scaled by diameter
+const UNIT_RADIUS = 0.5;
 
 export function BallMesh({ ball, config }: BallMeshProps) {
-  const meshRef = useRef<THREE.Mesh>(null);
-  const glowRef = useRef<THREE.Mesh>(null);
+  const meshRef  = useRef<THREE.Mesh>(null);
+  const glowRef  = useRef<THREE.Mesh>(null);
+  const trailRef = useRef<THREE.Mesh>(null);
   const pulseRef = useRef(0);
 
-  // Color from config
   const colorEntry = config.ball_colors[ball.color];
-  const hexColor = colorEntry?.hex ?? "#ffffff";
+  const hexColor   = colorEntry?.hex ?? "#ffffff";
   const threeColor = new THREE.Color(hexColor);
 
-  // Material params from config
   const matCfg = config.graphics.ball_material ?? { roughness: 0.05, metalness: 0.85, emissive_intensity: 0.25 };
+  const isProjectile = ball.metadata?.isProjectile === true;
+  const tint = (ball.metadata?.colorTint as string | null | undefined) ?? null;
+  const tintColor = tint ? new THREE.Color(tint) : null;
 
   useFrame((_, delta) => {
     if (!meshRef.current) return;
 
-    // Move to game position (game x,y → Three x,z)
     const targetX = ball.position.x;
     const targetZ = -ball.position.y;
-    meshRef.current.position.x += (targetX - meshRef.current.position.x) * Math.min(1, delta * 40);
-    meshRef.current.position.z += (targetZ - meshRef.current.position.z) * Math.min(1, delta * 40);
 
-    // Scale by current diameter (handles absorb growth)
-    const s = ball.diameter;
-    meshRef.current.scale.setScalar(s);
+    // Projectiles teleport (no smoothing) to keep aim feel sharp; others lerp.
+    if (isProjectile) {
+      meshRef.current.position.x = targetX;
+      meshRef.current.position.z = targetZ;
+    } else {
+      meshRef.current.position.x += (targetX - meshRef.current.position.x) * Math.min(1, delta * 40);
+      meshRef.current.position.z += (targetZ - meshRef.current.position.z) * Math.min(1, delta * 40);
+    }
 
-    // Frozen pulse glow
+    meshRef.current.scale.setScalar(ball.diameter);
+
     pulseRef.current += delta * 4;
+
     if (glowRef.current) {
       const pulsed = ball.isFrozen ? 0.15 + 0.1 * Math.sin(pulseRef.current) : 0;
       const mat = glowRef.current.material as THREE.MeshBasicMaterial;
@@ -58,9 +61,19 @@ export function BallMesh({ ball, config }: BallMeshProps) {
       glowRef.current.position.x = meshRef.current.position.x;
       glowRef.current.position.z = meshRef.current.position.z;
     }
+
+    if (trailRef.current && isProjectile) {
+      const mat = trailRef.current.material as THREE.MeshBasicMaterial;
+      mat.opacity = 0.55 + 0.2 * Math.sin(pulseRef.current * 2);
+      trailRef.current.scale.setScalar(ball.diameter * 1.8);
+      trailRef.current.position.x = meshRef.current.position.x;
+      trailRef.current.position.z = meshRef.current.position.z;
+    }
   });
 
-  const emissiveIntensity = ball.isFrozen ? 0 : matCfg.emissive_intensity;
+  // Projectile gets boosted emissive
+  const emissiveIntensity = ball.isFrozen ? 0 : (isProjectile ? 0.9 : matCfg.emissive_intensity);
+  const emissiveColor = tintColor ?? threeColor;
 
   return (
     <group>
@@ -70,32 +83,36 @@ export function BallMesh({ ball, config }: BallMeshProps) {
         position={[ball.position.x, ball.diameter * UNIT_RADIUS, -ball.position.y]}
         castShadow
       >
-        {/* Unit sphere: radius=0.5, scaled by diameter in useFrame */}
         <sphereGeometry args={[UNIT_RADIUS, 32, 24]} />
         <meshStandardMaterial
           color={threeColor}
-          emissive={threeColor}
+          emissive={emissiveColor}
           emissiveIntensity={emissiveIntensity}
-          roughness={matCfg.roughness}
+          roughness={isProjectile ? 0.15 : matCfg.roughness}
           metalness={matCfg.metalness}
           envMapIntensity={1.5}
         />
       </mesh>
 
       {/* Frozen ice glow */}
-      <mesh
-        ref={glowRef}
-        position={[ball.position.x, ball.diameter * UNIT_RADIUS, -ball.position.y]}
-      >
+      <mesh ref={glowRef} position={[ball.position.x, ball.diameter * UNIT_RADIUS, -ball.position.y]}>
         <sphereGeometry args={[UNIT_RADIUS, 16, 12]} />
-        <meshBasicMaterial
-          color="#88ddff"
-          transparent
-          opacity={0}
-          side={THREE.BackSide}
-          depthWrite={false}
-        />
+        <meshBasicMaterial color="#88ddff" transparent opacity={0} side={THREE.BackSide} depthWrite={false} />
       </mesh>
+
+      {/* Projectile aura (colored by shot tint) */}
+      {isProjectile && (
+        <mesh ref={trailRef} position={[ball.position.x, ball.diameter * UNIT_RADIUS, -ball.position.y]}>
+          <sphereGeometry args={[UNIT_RADIUS, 16, 12]} />
+          <meshBasicMaterial
+            color={tintColor ?? threeColor}
+            transparent
+            opacity={0.55}
+            side={THREE.BackSide}
+            depthWrite={false}
+          />
+        </mesh>
+      )}
 
       {/* Ground shadow disc */}
       <mesh

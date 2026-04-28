@@ -1,20 +1,23 @@
 // ============================================================
-// Menu — Game menu with 3 sub-menus:
-//   1. Règles du jeu — concept overview
-//   2. Détail des balles — carousel of ball identity cards
-//   3. Terrain — aspect ratio (chips) + resolution snap slider
-//                 height = width × (ratio.h / ratio.w)
+// Menu — Game menu with sub-menus:
+//   1. Règles du jeu        — concept overview
+//   2. Détail des balles    — carousel of ball identity cards
+//   3. Terrain              — aspect ratio + resolution
+//   4. Couleur lancée       — color spawned by orange launcher
+//   5. Couleur joueur       — pool of colors used in player queue
 // ============================================================
 
 import { useState, useRef, useCallback } from "react";
-import type { GameConfig } from "../engine/types";
+import type { BallColor, GameConfig } from "../engine/types";
 
-type MenuView = "main" | "rules" | "balls" | "terrain";
+type MenuView = "main" | "rules" | "balls" | "terrain" | "launcher_color" | "player_colors";
 
 interface MenuProps {
   config: GameConfig;
   onClose: () => void;
   onArenaChange: (width: number, height: number) => void;
+  onLauncherColorChange: (color: BallColor) => void;
+  onPlayerColorsChange: (colors: BallColor[]) => void;
 }
 
 // ---- Shared styles ----
@@ -81,8 +84,14 @@ const MENU_BTN: React.CSSProperties = {
   gap: 12,
 };
 
+// Colors available for the launcher / player pool (orange excluded — special role)
+const SELECTABLE_COLORS: BallColor[] = [
+  "white", "yellow", "red", "light_green", "dark_green",
+  "turquoise", "cyan", "blue", "dark_blue", "gray", "black",
+];
+
 // ============================================================
-// Snap Slider — N magnetic levels, NO labels on the track
+// Snap Slider — unchanged
 // ============================================================
 interface SnapSliderProps {
   count: number;
@@ -110,14 +119,8 @@ function SnapSlider({ count, selected, onChange, defaultIndex, accentColor = "#1
     (e: React.MouseEvent) => {
       isDragging.current = true;
       onChange(indexFromX(e.clientX));
-      const onMove = (ev: MouseEvent) => {
-        if (isDragging.current) onChange(indexFromX(ev.clientX));
-      };
-      const onUp = () => {
-        isDragging.current = false;
-        window.removeEventListener("mousemove", onMove);
-        window.removeEventListener("mouseup", onUp);
-      };
+      const onMove = (ev: MouseEvent) => { if (isDragging.current) onChange(indexFromX(ev.clientX)); };
+      const onUp = () => { isDragging.current = false; window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
       window.addEventListener("mousemove", onMove);
       window.addEventListener("mouseup", onUp);
     },
@@ -128,14 +131,8 @@ function SnapSlider({ count, selected, onChange, defaultIndex, accentColor = "#1
     (e: React.TouchEvent) => {
       isDragging.current = true;
       onChange(indexFromX(e.touches[0].clientX));
-      const onMove = (ev: TouchEvent) => {
-        if (isDragging.current && ev.touches[0]) onChange(indexFromX(ev.touches[0].clientX));
-      };
-      const onEnd = () => {
-        isDragging.current = false;
-        window.removeEventListener("touchmove", onMove);
-        window.removeEventListener("touchend", onEnd);
-      };
+      const onMove = (ev: TouchEvent) => { if (isDragging.current && ev.touches[0]) onChange(indexFromX(ev.touches[0].clientX)); };
+      const onEnd = () => { isDragging.current = false; window.removeEventListener("touchmove", onMove); window.removeEventListener("touchend", onEnd); };
       window.addEventListener("touchmove", onMove);
       window.addEventListener("touchend", onEnd);
     },
@@ -169,8 +166,6 @@ function SnapSlider({ count, selected, onChange, defaultIndex, accentColor = "#1
             transition: "width 0.08s",
           }}
         />
-
-        {/* Snap dots — no labels */}
         {Array.from({ length: count }).map((_, i) => {
           const pct = count > 1 ? (i / (count - 1)) * 100 : 50;
           const isActive = i === selected;
@@ -197,8 +192,6 @@ function SnapSlider({ count, selected, onChange, defaultIndex, accentColor = "#1
             />
           );
         })}
-
-        {/* Thumb (magnet) */}
         <div
           style={{
             position: "absolute",
@@ -233,7 +226,6 @@ function TerrainMenu({ config, onArenaChange, onBack }: TerrainMenuProps) {
   const aspectRule = config.level_rules.aspect_ratio;
   const resRule    = config.level_rules.arena_resolution;
 
-  // Init from current arena (find closest matching ratio + width)
   const [ratioIdx, setRatioIdx] = useState(() => {
     const currentR = config.graphics.arena.height / config.graphics.arena.width;
     let best = aspectRule.default_index, bestDiff = Infinity;
@@ -278,28 +270,12 @@ function TerrainMenu({ config, onArenaChange, onBack }: TerrainMenuProps) {
         <div style={{ fontSize: 18, fontWeight: "bold", color: "#1e90ff" }}>Ratio &amp; Résolution</div>
       </div>
 
-      {/* === RATIO CHIPS === */}
-      <div
-        style={{
-          background: "rgba(6,16,48,0.8)",
-          border: "1px solid rgba(30,144,255,0.2)",
-          borderRadius: 12,
-          padding: "14px 14px 16px",
-        }}
-      >
+      <div style={{ background: "rgba(6,16,48,0.8)", border: "1px solid rgba(30,144,255,0.2)", borderRadius: 12, padding: "14px 14px 16px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
           <div style={{ ...TITLE, marginBottom: 0 }}>Ratio d'aspect</div>
-          <div style={{ fontSize: 11, color: "#556" }}>
-            {ratio._market}
-          </div>
+          <div style={{ fontSize: 11, color: "#556" }}>{ratio._market}</div>
         </div>
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 6,
-          }}
-        >
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
           {aspectRule.ratios.map((r, i) => {
             const isActive = i === ratioIdx;
             return (
@@ -310,11 +286,8 @@ function TerrainMenu({ config, onArenaChange, onBack }: TerrainMenuProps) {
                   background: isActive ? "rgba(30,144,255,0.25)" : "rgba(12,28,72,0.5)",
                   border: isActive ? "1px solid #1e90ff" : "1px solid rgba(30,144,255,0.2)",
                   color: isActive ? "#fff" : "#7a9fcc",
-                  borderRadius: 8,
-                  padding: "7px 12px",
-                  cursor: "pointer",
-                  fontSize: 12,
-                  fontFamily: "inherit",
+                  borderRadius: 8, padding: "7px 12px", cursor: "pointer",
+                  fontSize: 12, fontFamily: "inherit",
                   fontWeight: isActive ? "bold" : "normal",
                   boxShadow: isActive ? "0 0 8px rgba(30,144,255,0.4)" : "none",
                   transition: "all 0.15s",
@@ -327,48 +300,22 @@ function TerrainMenu({ config, onArenaChange, onBack }: TerrainMenuProps) {
         </div>
       </div>
 
-      {/* === RESOLUTION DISPLAY === */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          gap: 16,
-          background: "rgba(6,16,48,0.6)",
-          borderRadius: 10,
-          padding: "12px 18px",
-          border: "1px solid rgba(30,144,255,0.12)",
-        }}
-      >
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 16, background: "rgba(6,16,48,0.6)", borderRadius: 10, padding: "12px 18px", border: "1px solid rgba(30,144,255,0.12)" }}>
         <div style={{ textAlign: "center" }}>
           <div style={{ fontSize: 9, color: "#334", letterSpacing: 2, textTransform: "uppercase" }}>Largeur</div>
-          <div style={{ fontSize: 26, fontWeight: "bold", color: "#1e90ff", lineHeight: 1.1 }}>
-            {Math.round(width)}
-          </div>
+          <div style={{ fontSize: 26, fontWeight: "bold", color: "#1e90ff", lineHeight: 1.1 }}>{Math.round(width)}</div>
         </div>
         <div style={{ color: "#223", fontSize: 22 }}>×</div>
         <div style={{ textAlign: "center" }}>
           <div style={{ fontSize: 9, color: "#334", letterSpacing: 2, textTransform: "uppercase" }}>Hauteur</div>
-          <div style={{ fontSize: 26, fontWeight: "bold", color: "#1e90ff", lineHeight: 1.1 }}>
-            {Math.round(height)}
-          </div>
+          <div style={{ fontSize: 26, fontWeight: "bold", color: "#1e90ff", lineHeight: 1.1 }}>{Math.round(height)}</div>
         </div>
       </div>
 
-      {/* === RESOLUTION SNAP SLIDER === */}
-      <div
-        style={{
-          background: "rgba(6,16,48,0.8)",
-          border: "1px solid rgba(30,144,255,0.2)",
-          borderRadius: 12,
-          padding: "14px 16px 8px",
-        }}
-      >
+      <div style={{ background: "rgba(6,16,48,0.8)", border: "1px solid rgba(30,144,255,0.2)", borderRadius: 12, padding: "14px 16px 8px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
           <div style={{ ...TITLE, marginBottom: 0 }}>Résolution</div>
-          <div style={{ fontSize: 10, color: "#334" }}>
-            {resRule.widths.length} niveaux · aimantés
-          </div>
+          <div style={{ fontSize: 10, color: "#334" }}>{resRule.widths.length} niveaux · aimantés</div>
         </div>
         <SnapSlider
           count={resRule.widths.length}
@@ -386,7 +333,6 @@ function TerrainMenu({ config, onArenaChange, onBack }: TerrainMenuProps) {
         </div>
       </div>
 
-      {/* Reset */}
       <button
         style={{ ...CLOSE_BTN, color: "#6fa8dc", borderColor: "rgba(30,144,255,0.35)" }}
         onClick={() => {
@@ -404,15 +350,162 @@ function TerrainMenu({ config, onArenaChange, onBack }: TerrainMenuProps) {
 }
 
 // ============================================================
+// Launcher Color Sub-Menu (single-pick: orange spawns this color)
+// ============================================================
+function LauncherColorMenu({
+  config, onLauncherColorChange, onBack,
+}: {
+  config: GameConfig;
+  onLauncherColorChange: (color: BallColor) => void;
+  onBack: () => void;
+}) {
+  const current = config.gameplay.orange.launch_config.color as BallColor | "random";
+  const [selected, setSelected] = useState<BallColor | "random">(current);
+
+  const pick = (c: BallColor | "random") => {
+    setSelected(c);
+    if (c === "random") {
+      // Use first available as fallback (engine handles "random" via allow_colors)
+      onLauncherColorChange("dark_green");
+    } else {
+      onLauncherColorChange(c);
+    }
+  };
+
+  return (
+    <div style={PANEL}>
+      <div>
+        <div style={TITLE}>Couleur lancée</div>
+        <div style={{ fontSize: 18, fontWeight: "bold", color: "#1e90ff" }}>Spawn du lanceur orange</div>
+      </div>
+
+      <div style={{ fontSize: 12, color: "#7a9fcc", lineHeight: 1.5 }}>
+        Choisis la couleur des balles que la balle orange (lanceur) fait apparaître. Appliqué au runtime.
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+        {SELECTABLE_COLORS.map((c) => {
+          const entry = config.ball_colors[c];
+          const isActive = selected === c;
+          return (
+            <button
+              key={c}
+              onClick={() => pick(c)}
+              style={{
+                display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
+                background: isActive ? "rgba(30,144,255,0.2)" : "rgba(8,18,40,0.7)",
+                border: isActive ? `2px solid ${entry?.hex ?? "#1e90ff"}` : "1px solid rgba(30,144,255,0.18)",
+                borderRadius: 10, padding: "10px 6px", cursor: "pointer",
+                fontFamily: "inherit", color: isActive ? "#fff" : "#7a9fcc",
+                boxShadow: isActive ? `0 0 8px ${entry?.hex ?? "#1e90ff"}55` : "none",
+                transition: "all 0.15s",
+              }}
+            >
+              <div style={{
+                width: 26, height: 26, borderRadius: "50%",
+                background: entry?.hex ?? "#888",
+                boxShadow: `0 0 8px ${entry?.hex ?? "#888"}77`,
+                border: c === "white" ? "1px solid #444" : "none",
+              }} />
+              <div style={{ fontSize: 10, textAlign: "center" }}>{entry?._label}</div>
+            </button>
+          );
+        })}
+      </div>
+
+      <button style={CLOSE_BTN} onClick={onBack}>← Retour</button>
+    </div>
+  );
+}
+
+// ============================================================
+// Player Colors Sub-Menu (multi-pick: pool for player queue)
+// ============================================================
+function PlayerColorsMenu({
+  config, onPlayerColorsChange, onBack,
+}: {
+  config: GameConfig;
+  onPlayerColorsChange: (colors: BallColor[]) => void;
+  onBack: () => void;
+}) {
+  const [selected, setSelected] = useState<BallColor[]>(
+    config.gameplay_controls.queue_ball_colors as BallColor[]
+  );
+
+  const toggle = (c: BallColor) => {
+    setSelected((prev) => {
+      const has = prev.includes(c);
+      const next = has ? prev.filter((x) => x !== c) : [...prev, c];
+      const safe = next.length > 0 ? next : (["gray"] as BallColor[]);
+      onPlayerColorsChange(safe);
+      return safe;
+    });
+  };
+
+  return (
+    <div style={PANEL}>
+      <div>
+        <div style={TITLE}>Couleur joueur</div>
+        <div style={{ fontSize: 18, fontWeight: "bold", color: "#1e90ff" }}>File d'attente du joueur</div>
+      </div>
+
+      <div style={{ fontSize: 12, color: "#7a9fcc", lineHeight: 1.5 }}>
+        Choisis les couleurs disponibles pour les balles que le joueur tire. Plusieurs couleurs = tirage aléatoire.
+        Au moins une couleur doit rester active.
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+        {SELECTABLE_COLORS.map((c) => {
+          const entry = config.ball_colors[c];
+          const isActive = selected.includes(c);
+          return (
+            <button
+              key={c}
+              onClick={() => toggle(c)}
+              style={{
+                display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
+                background: isActive ? "rgba(30,144,255,0.2)" : "rgba(8,18,40,0.7)",
+                border: isActive ? `2px solid ${entry?.hex ?? "#1e90ff"}` : "1px solid rgba(30,144,255,0.18)",
+                borderRadius: 10, padding: "10px 6px", cursor: "pointer",
+                fontFamily: "inherit", color: isActive ? "#fff" : "#556",
+                boxShadow: isActive ? `0 0 8px ${entry?.hex ?? "#1e90ff"}55` : "none",
+                opacity: isActive ? 1 : 0.55,
+                transition: "all 0.15s",
+              }}
+            >
+              <div style={{
+                width: 26, height: 26, borderRadius: "50%",
+                background: entry?.hex ?? "#888",
+                boxShadow: isActive ? `0 0 8px ${entry?.hex ?? "#888"}77` : "none",
+                border: c === "white" ? "1px solid #444" : "none",
+              }} />
+              <div style={{ fontSize: 10, textAlign: "center" }}>{entry?._label}</div>
+            </button>
+          );
+        })}
+      </div>
+
+      <div style={{ fontSize: 11, color: "#445", textAlign: "center" }}>
+        {selected.length} couleur(s) active(s)
+      </div>
+
+      <button style={CLOSE_BTN} onClick={onBack}>← Retour</button>
+    </div>
+  );
+}
+
+// ============================================================
 // Main Menu
 // ============================================================
 function MainMenu({
-  onRules, onBalls, onTerrain, onClose,
+  onRules, onBalls, onTerrain, onLauncherColor, onPlayerColors, onClose,
 }: {
-  onRules:   () => void;
-  onBalls:   () => void;
-  onTerrain: () => void;
-  onClose:   () => void;
+  onRules:          () => void;
+  onBalls:          () => void;
+  onTerrain:        () => void;
+  onLauncherColor:  () => void;
+  onPlayerColors:   () => void;
+  onClose:          () => void;
 }) {
   return (
     <div style={PANEL}>
@@ -432,6 +525,20 @@ function MainMenu({
         <div>
           <div style={{ fontWeight: "bold" }}>Détail des balles</div>
           <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Carte d'identité de chaque couleur</div>
+        </div>
+      </button>
+      <button style={MENU_BTN} onClick={onLauncherColor}>
+        <span style={{ fontSize: 20 }}>🟠</span>
+        <div>
+          <div style={{ fontWeight: "bold" }}>Couleur lancée</div>
+          <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Spawn du lanceur orange</div>
+        </div>
+      </button>
+      <button style={MENU_BTN} onClick={onPlayerColors}>
+        <span style={{ fontSize: 20 }}>🎯</span>
+        <div>
+          <div style={{ fontWeight: "bold" }}>Couleur joueur</div>
+          <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>File d'attente du joueur (multi-couleur)</div>
         </div>
       </button>
       <button style={MENU_BTN} onClick={onTerrain}>
@@ -494,6 +601,13 @@ function BallCard({ colorKey, config }: { colorKey: string; config: GameConfig }
 
   const isWhite = colorKey === "white";
 
+  // HP info for hp_grow_bouncer
+  let hpInfo: string | null = null;
+  if (ruleEntry?.rule === "hp_grow_bouncer") {
+    const p = config.rule_parameters.hp_grow_bouncer;
+    if (p) hpInfo = `${p.default_hp} PV (max ${p.max_hp}) · +${p.hp_gained_per_traversal} PV par traversée`;
+  }
+
   return (
     <div
       style={{
@@ -533,6 +647,13 @@ function BallCard({ colorKey, config }: { colorKey: string; config: GameConfig }
         <div style={{ fontSize: 12, color: "#99b0d4", lineHeight: 1.6 }}>{ruleEntry?._description}</div>
       </div>
 
+      {hpInfo && (
+        <div>
+          <div style={TITLE}>Points de vie</div>
+          <div style={{ fontSize: 12, color: "#88dd88" }}>{hpInfo}</div>
+        </div>
+      )}
+
       <div>
         <div style={TITLE}>Condition de rebond</div>
         <div style={{
@@ -566,12 +687,11 @@ function BallCard({ colorKey, config }: { colorKey: string; config: GameConfig }
 // Balls Carousel
 // ============================================================
 function BallsCarousel({ config, onBack }: { config: GameConfig; onBack: () => void }) {
-  const colors = Object.keys(config.ball_colors);
+  const colors = Object.keys(config.ball_colors).filter((c) => c !== "_description" && c !== "_color_format");
   const [index, setIndex] = useState(0);
   const prev = () => setIndex((i) => (i - 1 + colors.length) % colors.length);
   const next = () => setIndex((i) => (i + 1) % colors.length);
-  const colorKey   = colors[index];
-  const colorEntry = config.ball_colors[colorKey as keyof typeof config.ball_colors];
+  const colorKey = colors[index];
 
   return (
     <div style={PANEL}>
@@ -615,15 +735,26 @@ function BallsCarousel({ config, onBack }: { config: GameConfig; onBack: () => v
 // ============================================================
 // Root Menu Component
 // ============================================================
-export function Menu({ config, onClose, onArenaChange }: MenuProps) {
+export function Menu({ config, onClose, onArenaChange, onLauncherColorChange, onPlayerColorsChange }: MenuProps) {
   const [view, setView] = useState<MenuView>("main");
 
   return (
     <div style={OVERLAY} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      {view === "main"    && <MainMenu onRules={() => setView("rules")} onBalls={() => setView("balls")} onTerrain={() => setView("terrain")} onClose={onClose} />}
-      {view === "rules"   && <RulesView config={config} onBack={() => setView("main")} />}
-      {view === "balls"   && <BallsCarousel config={config} onBack={() => setView("main")} />}
-      {view === "terrain" && <TerrainMenu config={config} onArenaChange={onArenaChange} onBack={() => setView("main")} />}
+      {view === "main" && (
+        <MainMenu
+          onRules={() => setView("rules")}
+          onBalls={() => setView("balls")}
+          onTerrain={() => setView("terrain")}
+          onLauncherColor={() => setView("launcher_color")}
+          onPlayerColors={() => setView("player_colors")}
+          onClose={onClose}
+        />
+      )}
+      {view === "rules"          && <RulesView      config={config} onBack={() => setView("main")} />}
+      {view === "balls"          && <BallsCarousel  config={config} onBack={() => setView("main")} />}
+      {view === "terrain"        && <TerrainMenu    config={config} onArenaChange={onArenaChange} onBack={() => setView("main")} />}
+      {view === "launcher_color" && <LauncherColorMenu config={config} onLauncherColorChange={onLauncherColorChange} onBack={() => setView("main")} />}
+      {view === "player_colors"  && <PlayerColorsMenu  config={config} onPlayerColorsChange={onPlayerColorsChange}   onBack={() => setView("main")} />}
     </div>
   );
 }

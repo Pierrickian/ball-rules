@@ -5,8 +5,8 @@
 // - This component is purely graphical.
 // - The orthographic camera dynamically computes its zoom to
 //   fit the arena to the viewport (with a small padding).
-// - Arena dimensions come from game_config.json (graphics.arena),
-//   which is updated live by useGameEngine.setArena().
+// - An invisible click plane catches player pointer input and
+//   converts it to game (x, y) coordinates.
 // ============================================================
 
 import { Canvas, useThree } from "@react-three/fiber";
@@ -20,13 +20,13 @@ import type { BallState, GameConfig, GameState } from "../engine/types";
 interface GameSceneProps {
   gameState: GameState;
   config: GameConfig;
+  onPointerDown?: () => void;
+  onPointerUp?: (gameX: number, gameY: number) => void;
+  onPointerCancel?: () => void;
 }
 
 // ============================================================
-// FitCamera — viewport-aware orthographic camera
-// Picks the zoom that makes the arena fill the viewport with
-// the configured padding. Re-evaluates on viewport / config
-// changes (React component re-renders when config changes).
+// FitCamera
 // ============================================================
 function FitCamera({ config }: { config: GameConfig }) {
   const { size } = useThree();
@@ -35,9 +35,6 @@ function FitCamera({ config }: { config: GameConfig }) {
   const padding = config.graphics.camera?.fit_padding ?? 0.94;
   const camY    = config.graphics.camera?.height ?? 200;
 
-  // Drei OrthographicCamera with `zoom`: visible_world = viewport_pixels / zoom
-  // We want arena_dim to fit viewport_dim with padding, so:
-  //   zoom = (viewport / arena_dim) * padding
   const zoomX = (size.width  / Math.max(arenaW, 0.1)) * padding;
   const zoomY = (size.height / Math.max(arenaH, 0.1)) * padding;
   const zoom  = Math.min(zoomX, zoomY);
@@ -55,6 +52,42 @@ function FitCamera({ config }: { config: GameConfig }) {
 }
 
 // ============================================================
+// ClickPlane — invisible plane covering arena to capture input
+// e.point gives the world-space hit. Game coords: x = e.point.x,
+// y = -e.point.z (we flip Z when rendering balls).
+// ============================================================
+function ClickPlane({
+  config, onPointerDown, onPointerUp, onPointerCancel,
+}: {
+  config: GameConfig;
+  onPointerDown?: () => void;
+  onPointerUp?: (gameX: number, gameY: number) => void;
+  onPointerCancel?: () => void;
+}) {
+  const w = config.graphics.arena.width;
+  const h = config.graphics.arena.height;
+
+  return (
+    <mesh
+      position={[0, 0.04, 0]}
+      rotation={[-Math.PI / 2, 0, 0]}
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        onPointerDown?.();
+      }}
+      onPointerUp={(e) => {
+        e.stopPropagation();
+        if (onPointerUp) onPointerUp(e.point.x, -e.point.z);
+      }}
+      onPointerLeave={() => onPointerCancel?.()}
+    >
+      <planeGeometry args={[w * 1.5, h * 1.5]} />
+      <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+    </mesh>
+  );
+}
+
+// ============================================================
 // Arena floor + grid + walls
 // ============================================================
 function Arena({ config }: { config: GameConfig }) {
@@ -63,7 +96,6 @@ function Arena({ config }: { config: GameConfig }) {
 
   const gridLines = useMemo(() => {
     const lines: ReactElement[] = [];
-    // Adaptive spacing — keep ~10–14 lines per axis regardless of arena size
     const xSpacing = Math.max(1, Math.ceil(w / 12));
     const ySpacing = Math.max(1, Math.ceil(h / 18));
 
@@ -91,16 +123,11 @@ function Arena({ config }: { config: GameConfig }) {
 
   return (
     <group>
-      {/* Floor */}
       <mesh position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[w, h]} />
         <meshStandardMaterial color="#0a1520" roughness={0.9} metalness={0.0} />
       </mesh>
-
-      {/* Grid overlay */}
       {gridLines}
-
-      {/* Border walls (visible glow) */}
       <mesh position={[0, wallHeight / 2, -h / 2 - wallThick / 2]}>
         <boxGeometry args={[w + wallThick * 2, wallHeight, wallThick]} />
         <meshStandardMaterial color="#1e90ff" emissive="#1e90ff" emissiveIntensity={0.8} />
@@ -121,7 +148,7 @@ function Arena({ config }: { config: GameConfig }) {
   );
 }
 
-function Scene({ gameState, config }: GameSceneProps) {
+function Scene({ gameState, config, onPointerDown, onPointerUp, onPointerCancel }: GameSceneProps) {
   const balls: BallState[] = Array.from(gameState.balls.values()).filter((b) => b.isAlive);
   const w = config.graphics.arena.width;
   const h = config.graphics.arena.height;
@@ -130,11 +157,7 @@ function Scene({ gameState, config }: GameSceneProps) {
   return (
     <>
       <FitCamera config={config} />
-
-      {/* Ambient light */}
       <ambientLight intensity={0.4} />
-
-      {/* Key directional light (shadows fitted to arena) */}
       <directionalLight
         position={[w * 0.15, lightHeight, h * 0.2]}
         intensity={1.2}
@@ -148,22 +171,20 @@ function Scene({ gameState, config }: GameSceneProps) {
         shadow-camera-near={1}
         shadow-camera-far={lightHeight * 2}
       />
-
-      {/* Subtle fill light from below */}
       <pointLight position={[0, -10, 0]} intensity={0.15} color="#4488ff" />
-
-      {/* Arena */}
       <Arena config={config} />
-
-      {/* Balls */}
-      {balls.map((ball) => (
-        <BallMesh key={ball.id} ball={ball} config={config} />
-      ))}
+      {balls.map((ball) => <BallMesh key={ball.id} ball={ball} config={config} />)}
+      <ClickPlane
+        config={config}
+        onPointerDown={onPointerDown}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerCancel}
+      />
     </>
   );
 }
 
-export function GameScene({ gameState, config }: GameSceneProps) {
+export function GameScene({ gameState, config, onPointerDown, onPointerUp, onPointerCancel }: GameSceneProps) {
   return (
     <Canvas
       shadows
@@ -174,7 +195,13 @@ export function GameScene({ gameState, config }: GameSceneProps) {
       }}
       style={{ width: "100%", height: "100%" }}
     >
-      <Scene gameState={gameState} config={config} />
+      <Scene
+        gameState={gameState}
+        config={config}
+        onPointerDown={onPointerDown}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerCancel}
+      />
     </Canvas>
   );
 }

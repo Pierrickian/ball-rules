@@ -38,7 +38,9 @@ export type BallRule =
   | "transfer_rule"
   | "gravity_sink"
   | "neutral"
-  | "absorb";
+  | "absorb"
+  | "hp_grow_bouncer"
+  | "player_projectile";
 
 // ---- Bounce Condition Enum ----
 export enum BounceCondition {
@@ -46,6 +48,22 @@ export enum BounceCondition {
   AGAINST_BALL     = "against_ball",
   AGAINST_OBSTACLE = "against_obstacle",
   AGAINST_ALL      = "against_all",
+}
+
+// ---- Player Shot Types ----
+export type ShotKind = "light" | "heavy" | "mega";
+
+export interface ShotTypeConfig {
+  _label: string;
+  min_hold_seconds: number;
+  max_hold_seconds: number;
+  damage: number;
+  passes_through_balls: boolean;
+  wall_bounces: number;
+  diameter_multiplier: number;
+  speed: number;
+  color_tint?: string;
+  _description?: string;
 }
 
 export interface Vec2 {
@@ -66,6 +84,8 @@ export interface BallState {
   frozenTimer: number;
   ruleTransferred: boolean;
   diameter: number;
+  hp: number;
+  maxHp: number;
   metadata: Record<string, unknown>;
 }
 
@@ -75,7 +95,11 @@ export type GameEvent =
   | { type: "rule_transferred"; fromId: string; toId: string; rule: BallRule }
   | { type: "ball_split"; originalId: string; newIds: string[] }
   | { type: "collision"; ballAId: string; ballBId: string }
-  | { type: "orange_launched"; launcherId: string; launchedId: string };
+  | { type: "orange_launched"; launcherId: string; launchedId: string }
+  | { type: "ball_damaged"; ballId: string; amount: number; remainingHp: number }
+  | { type: "player_shot"; projectileId: string; shotKind: ShotKind }
+  | { type: "session_clear"; launchedCount: number }
+  | { type: "session_reboot" };
 
 export interface GameState {
   balls: Map<string, BallState>;
@@ -83,11 +107,12 @@ export interface GameState {
   time: number;
   orangeSpawnTimer: number;
   score: number;
+  launchedCount: number;
+  maxBallsSpawned: number;
+  sessionCleared: boolean;
 }
 
 // ---- Level Rules ----
-// Defined in game_config.json > level_rules
-// Interpreted by Menu.tsx (UI) and useGameEngine.ts (application)
 
 export interface AspectRatio {
   id: string;
@@ -125,13 +150,34 @@ export interface ArenaSettings {
   max_width: number;
 }
 
-// ---- Config shapes (mirror of game_config.json) ----
+// ---- Gameplay Controls ----
+export interface GameplayControlsConfig {
+  _description?: string;
+  queue_size: number;
+  queue_ball_colors: BallColor[];
+  queue_ball_size: BallSize;
+  shot_origin: {
+    mode: string;
+    inset_factor: number;
+  };
+  shot_types: Record<ShotKind, ShotTypeConfig>;
+}
 
+// ---- Game Session ----
+export interface GameSessionConfig {
+  _description?: string;
+  max_balls_spawned: number;
+  auto_reboot_on_clear: boolean;
+  reboot_delay_seconds: number;
+}
+
+// ---- Bounce Conditions Config ----
 export interface BounceConditionsConfig {
   _enum_values: Record<string, string>;
   ball_bounce_conditions: Record<string, BounceCondition>;
 }
 
+// ---- Top-Level Config ----
 export interface GameConfig {
   graphics: {
     ball_sizes: Record<BallSize, { diameter: number; _label?: string }>;
@@ -153,6 +199,15 @@ export interface GameConfig {
     freeze_nearby?: { radius: number; freeze_duration_seconds: number };
     gravity_sink?: { strength: number };
     absorb?: { max_diameter_multiplier: number };
+    hp_grow_bouncer?: {
+      default_hp: number;
+      max_hp: number;
+      hp_gained_per_traversal: number;
+      diameter_per_extra_hp: number;
+    };
+    player_projectile?: {
+      max_lifetime_seconds: number;
+    };
   };
   gameplay: {
     orange: {
@@ -172,6 +227,8 @@ export interface GameConfig {
       launch_config?: unknown;
     };
   };
+  gameplay_controls: GameplayControlsConfig;
+  game_session: GameSessionConfig;
   game_rules_concept: {
     title: string;
     concept: string;

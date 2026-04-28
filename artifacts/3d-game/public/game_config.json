@@ -81,13 +81,13 @@
   },
 
   "ball_rules": {
-    "_description": "Règle de comportement de chaque couleur. IMPORTANT: toute modification de règle doit passer par ce fichier. Les handlers sont dans game_engine.ts.",
+    "_description": "Règle de comportement de chaque couleur. IMPORTANT: toute modification de règle doit passer par ce fichier. Les handlers sont dans game_engine.ts. La règle 'player_projectile' est attribuée dynamiquement aux tirs du joueur.",
     "white":       { "rule": "bounce",            "_description": "Rebondit sur les murs sans perdre de vitesse." },
     "yellow":      { "rule": "accelerate",         "_description": "Accélère progressivement. Devient rapide avec le temps." },
-    "orange":      { "rule": "launcher",           "_description": "Balle lanceur: apparaît sur un bord et tire une balle blanche." },
+    "orange":      { "rule": "launcher",           "_description": "Balle lanceur: apparaît sur un bord et tire une balle." },
     "red":         { "rule": "destroy_on_contact", "_description": "Détruit toute balle qu'elle touche (et disparaît aussi)." },
     "light_green": { "rule": "slow_nearby",        "_description": "Ralentit les balles proches dans un rayon donné." },
-    "dark_green":  { "rule": "attract",            "_description": "Attire doucement les autres balles vers elle." },
+    "dark_green":  { "rule": "hp_grow_bouncer",    "_description": "Rebondit sur les murs. Démarre avec 2 PV (5 PV max). Disparaît à 0 PV. Gagne 1 PV en traversant une autre balle. Sa taille augmente avec les PV." },
     "turquoise":   { "rule": "split",              "_description": "Se divise en 2 balles plus petites au contact d'un mur." },
     "cyan":        { "rule": "freeze_nearby",      "_description": "Gèle momentanément les balles proches." },
     "blue":        { "rule": "transfer_rule",      "_description": "Transmet sa règle à la première balle qu'elle touche." },
@@ -112,7 +112,7 @@
       "orange":      "against_wall",
       "red":         "against_ball",
       "light_green": "against_all",
-      "dark_green":  "against_all",
+      "dark_green":  "against_wall",
       "turquoise":   "against_wall",
       "cyan":        "against_all",
       "blue":        "against_ball",
@@ -123,7 +123,7 @@
   },
 
   "rule_parameters": {
-    "_description": "Paramètres fins pour chaque règle. Les distances et vitesses sont en unités du monde (~×10 par rapport à l'échelle précédente).",
+    "_description": "Paramètres fins pour chaque règle. Distances et vitesses en unités du monde (~×10 par rapport à l'échelle précédente).",
     "bounce":         { "restitution": 1.0 },
     "ball_collision": { "restitution": 0.95 },
     "accelerate":     { "acceleration_per_second": 4.0 },
@@ -131,7 +131,20 @@
     "attract":        { "radius": 30.0, "strength": 8.0 },
     "freeze_nearby":  { "radius": 25.0, "freeze_duration_seconds": 1.5 },
     "gravity_sink":   { "strength": 6.0 },
-    "absorb":         { "max_diameter_multiplier": 3.0 }
+    "absorb":         { "max_diameter_multiplier": 3.0 },
+    "hp_grow_bouncer": {
+      "_description": "Paramètres de la règle dark_green: PV de départ, PV maxi, gain par traversée, et facteur de croissance de diamètre.",
+      "default_hp": 2,
+      "max_hp": 5,
+      "hp_gained_per_traversal": 1,
+      "diameter_per_extra_hp": 0.18,
+      "_diameter_per_extra_hp_comment": "À 2 PV (défaut): ×1.0. À 5 PV: ×1 + (5-2)×0.18 = ×1.54. À 1 PV: ×0.82."
+    },
+    "player_projectile": {
+      "_description": "Paramètres globaux des projectiles du joueur. Voir gameplay_controls.shot_types pour les variantes par type de tir.",
+      "max_lifetime_seconds": 4.0,
+      "_max_lifetime_comment": "Sécurité: tout projectile disparaît après ce délai même s'il n'a rien touché."
+    }
   },
 
   "gameplay": {
@@ -146,8 +159,8 @@
       },
       "despawn": { "condition": "after_launch" },
       "launch_config": {
-        "_description": "Paramètres de la balle lancée par orange",
-        "color": "white",
+        "_description": "Paramètres de la balle lancée par orange. Modifiable via le menu 'Couleur lancée'.",
+        "color": "dark_green",
         "size": "small",
         "speed": 45.0,
         "direction": "random",
@@ -159,7 +172,7 @@
     "yellow":      { "spawn": { "condition": "launched_by_orange" }, "despawn": { "condition": "out_of_bounds" } },
     "red":         { "spawn": { "condition": "launched_by_orange" }, "despawn": { "condition": "destroys_self_after_contact" } },
     "light_green": { "spawn": { "condition": "launched_by_orange" }, "despawn": { "condition": "out_of_bounds" } },
-    "dark_green":  { "spawn": { "condition": "launched_by_orange" }, "despawn": { "condition": "out_of_bounds" } },
+    "dark_green":  { "spawn": { "condition": "launched_by_orange" }, "despawn": { "condition": "killed_at_zero_hp" } },
     "turquoise":   { "spawn": { "condition": "launched_by_orange" }, "despawn": { "condition": "split_completed" } },
     "cyan":        { "spawn": { "condition": "launched_by_orange" }, "despawn": { "condition": "out_of_bounds" } },
     "blue":        { "spawn": { "condition": "launched_by_orange" }, "despawn": { "condition": "rule_transferred" } },
@@ -168,15 +181,88 @@
     "black":       { "spawn": { "condition": "launched_by_orange" }, "despawn": { "condition": "max_size_reached" } }
   },
 
+  "gameplay_controls": {
+    "_description": "Système de tir du joueur. File d'attente de balles visible sous le terrain et types de tir basés sur la durée de pression.",
+
+    "queue_size": 3,
+    "_queue_size_comment": "Nombre de balles visibles dans la file d'attente sous l'écran. La gauche = prochaine à tirer.",
+
+    "queue_ball_colors": ["gray"],
+    "_queue_ball_colors_comment": "Pool de couleurs disponibles pour les balles du joueur (tirage aléatoire à chaque réapprovisionnement). Liste d'une seule couleur = toujours cette couleur. Modifiable via le menu 'Couleur joueur'.",
+
+    "queue_ball_size": "small",
+    "_queue_ball_size_comment": "Taille des balles de joueur (small/medium/large).",
+
+    "shot_origin": {
+      "_description": "Position d'origine du tir. screen_bottom_center = milieu en bas du terrain, juste à l'intérieur.",
+      "mode": "screen_bottom_center",
+      "inset_factor": 0.04,
+      "_inset_factor_comment": "Décalage vers l'intérieur depuis le mur du bas, en pourcentage de la hauteur du terrain."
+    },
+
+    "shot_types": {
+      "_description": "3 types de tir, déterminés par la durée de maintien du clic. Le premier dont 'min_hold_seconds' est dépassé S'APPLIQUE — chercher du plus exigeant au plus simple.",
+
+      "light": {
+        "_label": "Tir léger",
+        "min_hold_seconds": 0.0,
+        "max_hold_seconds": 0.5,
+        "damage": 1,
+        "passes_through_balls": false,
+        "wall_bounces": 0,
+        "diameter_multiplier": 1.0,
+        "speed": 80,
+        "color_tint": "#cccccc",
+        "_description": "Maintien < 0.5s. -1 PV. S'arrête à la 1ère balle ou au mur."
+      },
+
+      "heavy": {
+        "_label": "Tir appuyé",
+        "min_hold_seconds": 0.5,
+        "max_hold_seconds": 1.0,
+        "damage": 2,
+        "passes_through_balls": true,
+        "wall_bounces": 0,
+        "diameter_multiplier": 1.3,
+        "speed": 90,
+        "color_tint": "#ffaa44",
+        "_description": "Maintien 0.5–1.0s. -2 PV. Traverse les balles. S'arrête au mur."
+      },
+
+      "mega": {
+        "_label": "Méga tir",
+        "min_hold_seconds": 1.0,
+        "max_hold_seconds": 999,
+        "damage": 2,
+        "passes_through_balls": true,
+        "wall_bounces": 2,
+        "diameter_multiplier": 1.6,
+        "speed": 100,
+        "color_tint": "#ff66ff",
+        "_description": "Maintien > 1.0s. -2 PV. Traverse les balles. Rebondit 2× sur les murs avant de disparaître."
+      }
+    }
+  },
+
+  "game_session": {
+    "_description": "Conditions de fin de partie et redémarrage automatique.",
+    "max_balls_spawned": 20,
+    "_max_balls_spawned_comment": "Nombre total de balles que le lanceur orange générera dans une partie. Au-delà, plus aucun spawn.",
+    "auto_reboot_on_clear": true,
+    "_auto_reboot_comment": "Si vrai, redémarre une nouvelle partie quand max_balls_spawned est atteint ET que toutes les balles sont détruites.",
+    "reboot_delay_seconds": 1.5,
+    "_reboot_delay_comment": "Délai (en secondes) avant de redémarrer une nouvelle partie après le clear."
+  },
+
   "game_rules_concept": {
     "_description": "Texte de présentation des règles du jeu (affiché dans le menu).",
     "title": "Comment jouer",
-    "concept": "Des balles colorées apparaissent et se déplacent librement dans l'arène. Chaque couleur a un comportement unique — certaines rebondissent, d'autres accélèrent, gèlent ou absorbent leurs voisines. Observer les interactions et comprendre comment les règles s'enchaînent.",
+    "concept": "Détruisez toutes les balles colorées qui apparaissent dans l'arène. Vous tirez depuis le bas de l'écran avec la balle indiquée à gauche de votre file d'attente. Plus vous maintenez le clic appuyé, plus le tir est puissant — mais le risque de gaspiller un méga tir augmente.",
     "sections": [
-      { "heading": "Les lanceurs", "text": "Les balles orange apparaissent sur les bords toutes les secondes et tirent une balle dans l'arène avant de disparaître." },
-      { "heading": "Les règles", "text": "Chaque couleur obéit à une règle unique. Certaines balles peuvent transmettre leur règle à une autre, ou en changer suite à une collision." },
-      { "heading": "Les rebonds", "text": "Chaque balle a une condition de rebond : contre les murs, contre les autres balles, contre les obstacles, ou contre tout. Certaines traversent les murs et disparaissent en sortant." },
-      { "heading": "Le terrain", "text": "Choisissez un ratio d'aspect mobile (9:16, 9:19.5, etc.) et faites glisser le curseur de résolution pour redimensionner l'arène. La hauteur est calculée automatiquement à partir du ratio." }
+      { "heading": "La file d'attente", "text": "3 balles sont visibles en bas. La balle la plus à GAUCHE est celle qui partira au prochain tir. Les autres avancent d'un cran et une nouvelle apparaît à droite." },
+      { "heading": "Les types de tir", "text": "Clic court (<0.5s) = tir léger (-1 PV, s'arrête sur la 1ère cible). Clic 0.5–1s = tir appuyé (-2 PV, traverse les balles, s'arrête au mur). Clic >1s = méga tir (-2 PV, traverse + 2 rebonds sur les murs)." },
+      { "heading": "Les cibles", "text": "Chaque balle a des PV. Les balles vert foncé démarrent à 2 PV (5 max) et grossissent en traversant d'autres balles. Détruisez-les avant qu'elles ne deviennent trop grosses." },
+      { "heading": "Fin de partie", "text": "Le lanceur orange spawn 20 balles maximum par partie. Une fois la 20e détruite, la partie redémarre automatiquement." }
     ]
   },
 
