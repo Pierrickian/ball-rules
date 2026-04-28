@@ -43,12 +43,11 @@ export type BallRule =
 // ---- Bounce Condition Enum ----
 // Defined globally in game_config.json > bounce_conditions._enum_values
 // Assigned per-color in bounce_conditions.ball_bounce_conditions
-// Handler: game_engine.ts > resolveWallBounce / resolveBallCollision
 export enum BounceCondition {
-  AGAINST_WALL     = "against_wall",     // Bounces only off arena walls
-  AGAINST_BALL     = "against_ball",     // Bounces only off other balls (exits through walls)
-  AGAINST_OBSTACLE = "against_obstacle", // Bounces only off obstacles (future feature)
-  AGAINST_ALL      = "against_all",      // Bounces off walls, balls, and obstacles
+  AGAINST_WALL     = "against_wall",
+  AGAINST_BALL     = "against_ball",
+  AGAINST_OBSTACLE = "against_obstacle",
+  AGAINST_ALL      = "against_all",
 }
 
 export interface Vec2 {
@@ -88,6 +87,36 @@ export interface GameState {
   score: number;
 }
 
+// ---- Level Rules ----
+// Defined in game_config.json > level_rules
+// Interpreted by Menu.tsx (UI) and useGameEngine.ts (application)
+
+export interface ArenaRatioLevel {
+  id: string;
+  scale: number;
+  _comment?: string;
+}
+
+export interface ArenaRatioRule {
+  _description?: string;
+  _rule_type: string;
+  default_index: number;
+  levels: ArenaRatioLevel[];
+}
+
+export interface LevelRules {
+  arena_ratio: ArenaRatioRule;
+}
+
+// ---- Arena Settings ----
+export interface ArenaSettings {
+  _description?: string;
+  base_width: number;
+  base_height: number;
+  width_range:  { min: number; max: number; step: number };
+  height_range: { min: number; max: number; step: number };
+}
+
 // ---- Config shapes (mirror of game_config.json) ----
 
 export interface BounceConditionsConfig {
@@ -102,6 +131,8 @@ export interface GameConfig {
     camera: { height: number; field_of_view_deg: number };
     arena: { width: number; height: number };
   };
+  arena_settings: ArenaSettings;
+  level_rules: LevelRules;
   ball_colors: Record<BallColor, { hex: string; rgb: [number, number, number]; _label?: string }>;
   ball_rules: Record<BallColor, { rule: BallRule; _description?: string }>;
   bounce_conditions: BounceConditionsConfig;

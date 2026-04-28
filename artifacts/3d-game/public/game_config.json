@@ -22,9 +22,35 @@
       "field_of_view_deg": 60
     },
     "arena": {
-      "_description": "Taille du terrain de jeu (en unités du monde). Mode portrait: height > width.",
+      "_description": "Taille du terrain de jeu (en unités du monde). Mode portrait: height > width. Ces valeurs sont pilotées dynamiquement par arena_settings + level_rules.arena_ratio.",
       "width": 9,
       "height": 16
+    }
+  },
+
+  "arena_settings": {
+    "_description": "Paramètres du terrain. base_width/base_height = dimensions par défaut (ratio ×1.0). Les plages width_range/height_range définissent les bornes des curseurs manuels.",
+    "base_width": 9,
+    "base_height": 16,
+    "width_range":  { "min": 4.0, "max": 22.0, "step": 0.5 },
+    "height_range": { "min": 8.0, "max": 38.0, "step": 0.5 }
+  },
+
+  "level_rules": {
+    "_description": "Règles de niveau — paramètres globaux affectant l'ensemble de la partie. Distinct des règles de balles individuelles.",
+    "arena_ratio": {
+      "_description": "Scale appliqué en même temps à la largeur et à la hauteur de base du terrain. 7 niveaux aimantés, aucun label. L'index par défaut est centré (index 3 = niveau 4/7). Interprété par : Menu.tsx (UI) et useGameEngine.ts (application à l'arène).",
+      "_rule_type": "arena_scale",
+      "default_index": 3,
+      "levels": [
+        { "id": "xxs", "scale": 0.45, "_comment": "Micro — terrain très petit" },
+        { "id": "xs",  "scale": 0.65, "_comment": "Petit terrain" },
+        { "id": "sm",  "scale": 0.82, "_comment": "Terrain réduit" },
+        { "id": "md",  "scale": 1.00, "_comment": "Standard — défaut centré" },
+        { "id": "lg",  "scale": 1.28, "_comment": "Grand terrain" },
+        { "id": "xl",  "scale": 1.60, "_comment": "Très grand terrain" },
+        { "id": "xxl", "scale": 2.00, "_comment": "Terrain immense" }
+      ]
     }
   },
 
@@ -62,11 +88,11 @@
   },
 
   "bounce_conditions": {
-    "_description": "Définition globale des types de rebond. Chaque balle se voit attribuer l'un de ces 4 types. Les handlers dans game_engine.ts respectent ces conditions.",
+    "_description": "Définition globale des types de rebond. Chaque balle se voit attribuer l'un de ces 4 types.",
     "_enum_values": {
       "against_wall":     "La balle rebondit uniquement contre les murs de l'arène.",
-      "against_ball":     "La balle rebondit uniquement contre les autres balles (traverse les murs et disparaît en sortant).",
-      "against_obstacle": "La balle rebondit uniquement contre les obstacles placés sur le terrain (fonctionnalité future).",
+      "against_ball":     "La balle rebondit uniquement contre les autres balles (traverse les murs).",
+      "against_obstacle": "La balle rebondit uniquement contre les obstacles (fonctionnalité future).",
       "against_all":      "La balle rebondit contre tout: murs, balles et obstacles."
     },
     "_note": "Pour modifier le rebond d'une couleur, changez la valeur dans ball_bounce_conditions ci-dessous.",
@@ -88,40 +114,15 @@
   },
 
   "rule_parameters": {
-    "_description": "Paramètres fins pour chaque règle. Modifiable sans connaissance en code.",
-    "bounce": {
-      "restitution": 1.0,
-      "_comment": "1.0 = rebond parfait sans perte d'énergie. 0.8 = perd 20% à chaque rebond."
-    },
-    "ball_collision": {
-      "_description": "Paramètres globaux pour les collisions balle-à-balle.",
-      "restitution": 0.95,
-      "_comment": "Coefficient de rebond entre balles. 1.0 = élastique parfait."
-    },
-    "accelerate": {
-      "acceleration_per_second": 0.4,
-      "_comment": "Vitesse ajoutée par seconde"
-    },
-    "slow_nearby": {
-      "radius": 2.0,
-      "slow_factor": 0.5,
-      "_comment": "radius = rayon d'effet. slow_factor = 0.5 signifie 50% moins vite"
-    },
-    "attract": {
-      "radius": 3.0,
-      "strength": 0.8
-    },
-    "freeze_nearby": {
-      "radius": 2.5,
-      "freeze_duration_seconds": 1.5
-    },
-    "gravity_sink": {
-      "strength": 0.6
-    },
-    "absorb": {
-      "max_diameter_multiplier": 3.0,
-      "_comment": "La balle noire ne dépasse pas 3x sa taille initiale"
-    }
+    "_description": "Paramètres fins pour chaque règle.",
+    "bounce":         { "restitution": 1.0 },
+    "ball_collision": { "restitution": 0.95 },
+    "accelerate":     { "acceleration_per_second": 0.4 },
+    "slow_nearby":    { "radius": 2.0, "slow_factor": 0.5 },
+    "attract":        { "radius": 3.0, "strength": 0.8 },
+    "freeze_nearby":  { "radius": 2.5, "freeze_duration_seconds": 1.5 },
+    "gravity_sink":   { "strength": 0.6 },
+    "absorb":         { "max_diameter_multiplier": 3.0 }
   },
 
   "gameplay": {
@@ -132,22 +133,16 @@
       "spawn": {
         "condition": "timer",
         "interval_seconds": 1.0,
-        "_interval_comment": "Une balle orange apparaît toutes les X secondes",
         "spawn_on_edge": true
       },
-      "despawn": {
-        "condition": "after_launch",
-        "_comment": "La balle orange disparaît après avoir lancé sa balle"
-      },
+      "despawn": { "condition": "after_launch" },
       "launch_config": {
         "_description": "Paramètres de la balle lancée par orange",
         "color": "white",
-        "_color_comment": "Couleur de la balle lancée. Options: 'white', 'yellow', 'red', etc., ou 'random'.",
         "size": "small",
-        "_size_comment": "Taille: 'small', 'medium', 'large'",
         "speed": 4.5,
         "direction": "random",
-        "allow_colors": ["white", "yellow", "red", "light_green", "dark_green", "turquoise", "cyan", "blue", "dark_blue", "gray", "black"]
+        "allow_colors": ["white","yellow","red","light_green","dark_green","turquoise","cyan","blue","dark_blue","gray","black"]
       }
     },
 
@@ -165,14 +160,14 @@
   },
 
   "game_rules_concept": {
-    "_description": "Texte de présentation des règles du jeu (affiché dans le menu). Ne décrit pas le fonctionnement technique des balles.",
+    "_description": "Texte de présentation des règles du jeu (affiché dans le menu).",
     "title": "Comment jouer",
     "concept": "Des balles colorées apparaissent et se déplacent librement dans l'arène. Chaque couleur a un comportement unique — certaines rebondissent, d'autres accélèrent, gèlent ou absorbent leurs voisines. Observer les interactions et comprendre comment les règles s'enchaînent.",
     "sections": [
       { "heading": "Les lanceurs", "text": "Les balles orange apparaissent sur les bords toutes les secondes et tirent une balle dans l'arène avant de disparaître." },
       { "heading": "Les règles", "text": "Chaque couleur obéit à une règle unique. Certaines balles peuvent transmettre leur règle à une autre, ou en changer suite à une collision." },
       { "heading": "Les rebonds", "text": "Chaque balle a une condition de rebond : contre les murs, contre les autres balles, contre les obstacles, ou contre tout. Certaines traversent les murs et disparaissent en sortant." },
-      { "heading": "Le terrain", "text": "L'arène est fermée par des murs lumineux. Les balles se déplacent uniquement dans le plan 2D, vues de dessus." }
+      { "heading": "Le terrain", "text": "L'arène est fermée par des murs lumineux. Ajustez ses dimensions depuis le menu Terrain. Le ratio redimensionne la largeur et la hauteur simultanément." }
     ]
   },
 

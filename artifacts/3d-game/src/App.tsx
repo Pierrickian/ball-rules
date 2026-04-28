@@ -5,7 +5,7 @@
 // 1. useGameEngine() — logic loop (config-driven, no Three.js)
 // 2. GameScene       — 3D Three.js rendering (no game logic)
 // 3. HUD             — 2D overlay (count + controls)
-// 4. Menu            — Game menu (rules + ball carousel)
+// 4. Menu            — Game menu (rules + ball carousel + terrain)
 // ============================================================
 
 import { useState } from "react";
@@ -15,7 +15,7 @@ import { HUD } from "./game/HUD";
 import { Menu } from "./game/Menu";
 
 function App() {
-  const { gameState, config, isRunning, pause, resume, reset } = useGameEngine();
+  const { gameState, config, isRunning, pause, resume, reset, setArena } = useGameEngine();
   const [menuOpen, setMenuOpen] = useState(false);
 
   const handleMenuOpen = () => {
@@ -32,19 +32,13 @@ function App() {
     return (
       <div
         style={{
-          width: "100vw",
-          height: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "#020810",
-          color: "#1e90ff",
-          fontFamily: "monospace",
-          flexDirection: "column",
-          gap: 12,
+          width: "100vw", height: "100vh",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          background: "#020810", color: "#1e90ff",
+          fontFamily: "monospace", flexDirection: "column", gap: 12,
         }}
       >
-        <div style={{ fontSize: 32, animation: "spin 1s linear infinite" }}>◉</div>
+        <div style={{ fontSize: 32 }}>◉</div>
         <div style={{ fontSize: 14, color: "#4466aa" }}>Chargement du moteur de jeu…</div>
       </div>
     );
@@ -53,13 +47,9 @@ function App() {
   return (
     <div
       style={{
-        width: "100vw",
-        height: "100vh",
-        maxWidth: "100vh",
-        margin: "0 auto",
-        background: "#020810",
-        position: "relative",
-        overflow: "hidden",
+        width: "100vw", height: "100vh",
+        maxWidth: "100vh", margin: "0 auto",
+        background: "#020810", position: "relative", overflow: "hidden",
       }}
     >
       {/* 3D Scene */}
@@ -79,7 +69,13 @@ function App() {
       />
 
       {/* Menu overlay */}
-      {menuOpen && <Menu config={config} onClose={handleMenuClose} />}
+      {menuOpen && (
+        <Menu
+          config={config}
+          onClose={handleMenuClose}
+          onArenaChange={setArena}
+        />
+      )}
     </div>
   );
 }
