@@ -15,11 +15,13 @@ import * as THREE from "three";
 import { useMemo } from "react";
 import type { ReactElement } from "react";
 import { BallMesh } from "./BallMesh";
-import type { BallState, GameConfig, GameState } from "../engine/types";
+import { HpPopups } from "./HpPopups";
+import type { BallState, GameConfig, GameEvent, GameState } from "../engine/types";
 
 interface GameSceneProps {
   gameState: GameState;
   config: GameConfig;
+  events: GameEvent[];
   onPointerDown?: () => void;
   onPointerUp?: (gameX: number, gameY: number) => void;
   onPointerCancel?: () => void;
@@ -148,7 +150,7 @@ function Arena({ config }: { config: GameConfig }) {
   );
 }
 
-function Scene({ gameState, config, onPointerDown, onPointerUp, onPointerCancel }: GameSceneProps) {
+function Scene({ gameState, config, events, onPointerDown, onPointerUp, onPointerCancel }: GameSceneProps) {
   const balls: BallState[] = Array.from(gameState.balls.values()).filter((b) => b.isAlive);
   const w = config.graphics.arena.width;
   const h = config.graphics.arena.height;
@@ -174,6 +176,7 @@ function Scene({ gameState, config, onPointerDown, onPointerUp, onPointerCancel 
       <pointLight position={[0, -10, 0]} intensity={0.15} color="#4488ff" />
       <Arena config={config} />
       {balls.map((ball) => <BallMesh key={ball.id} ball={ball} config={config} />)}
+      <HpPopups events={events} />
       <ClickPlane
         config={config}
         onPointerDown={onPointerDown}
@@ -184,7 +187,7 @@ function Scene({ gameState, config, onPointerDown, onPointerUp, onPointerCancel 
   );
 }
 
-export function GameScene({ gameState, config, onPointerDown, onPointerUp, onPointerCancel }: GameSceneProps) {
+export function GameScene({ gameState, config, events, onPointerDown, onPointerUp, onPointerCancel }: GameSceneProps) {
   return (
     <Canvas
       shadows
@@ -198,6 +201,7 @@ export function GameScene({ gameState, config, onPointerDown, onPointerUp, onPoi
       <Scene
         gameState={gameState}
         config={config}
+        events={events}
         onPointerDown={onPointerDown}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}

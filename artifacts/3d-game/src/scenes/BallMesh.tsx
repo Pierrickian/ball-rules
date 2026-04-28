@@ -9,6 +9,7 @@
 
 import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
+import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import type { BallState, GameConfig } from "../engine/types";
 
@@ -75,6 +76,13 @@ export function BallMesh({ ball, config }: BallMeshProps) {
   const emissiveIntensity = ball.isFrozen ? 0 : (isProjectile ? 0.9 : matCfg.emissive_intensity);
   const emissiveColor = tintColor ?? threeColor;
 
+  // HP label is shown on every gameplay ball (not on player projectiles
+  // and not on the orange launcher, which is HP-less by design).
+  const showHpLabel = !isProjectile && ball.color !== "orange" && ball.maxHp > 0;
+  // Slight screen-up offset so the label sits visually above the ball.
+  const hpLabelZ = -ball.position.y - ball.diameter * 0.65;
+  const hpLabelY = ball.diameter * 0.5 + 0.5;
+
   return (
     <group>
       {/* Main metallic ball */}
@@ -122,6 +130,31 @@ export function BallMesh({ ball, config }: BallMeshProps) {
         <circleGeometry args={[ball.diameter * 0.45, 20]} />
         <meshBasicMaterial color="#000000" transparent opacity={0.22} depthWrite={false} />
       </mesh>
+
+      {/* HP label above the ball (always faces the camera via Html) */}
+      {showHpLabel && (
+        <Html
+          position={[ball.position.x, hpLabelY, hpLabelZ]}
+          center
+          zIndexRange={[20, 0]}
+          style={{ pointerEvents: "none" }}
+        >
+          <div
+            style={{
+              fontFamily: "'Courier New', monospace",
+              fontWeight: "bold",
+              fontSize: 13,
+              lineHeight: 1,
+              color: "#ffffff",
+              textShadow: "0 0 4px #000, 0 0 6px rgba(0,0,0,0.9)",
+              whiteSpace: "nowrap",
+              userSelect: "none",
+            }}
+          >
+            {ball.hp}
+          </div>
+        </Html>
+      )}
     </group>
   );
 }

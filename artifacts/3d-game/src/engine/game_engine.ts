@@ -287,6 +287,7 @@ export class GameEngine {
       ballId: ball.id,
       amount,
       remainingHp: ball.hp,
+      position: { ...ball.position },
     });
     if (died) {
       ball.isAlive = false;
@@ -702,7 +703,16 @@ export class GameEngine {
         touched.add(other.id);
         if (ball.hp < ball.maxHp) {
           const healed = ball.heal(p.hp_gained_per_traversal ?? 1);
-          if (healed > 0) ball.diameter = this.computeHpGrowDiameter(ball);
+          if (healed > 0) {
+            ball.diameter = this.computeHpGrowDiameter(ball);
+            ctx.events.push({
+              type: "ball_healed",
+              ballId: ball.id,
+              amount: healed,
+              remainingHp: ball.hp,
+              position: { ...ball.position },
+            });
+          }
         }
       } else if (!overlapping && touched.has(other.id)) {
         touched.delete(other.id);

@@ -19,7 +19,7 @@ import type { BallColor, GameConfig, ShotKind } from "./engine/types";
 
 function App() {
   const {
-    gameState, config, isRunning, playerQueue,
+    gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
     shoot, setLauncherColor, setPlayerColors, classifyHold,
   } = useGameEngine();
@@ -101,6 +101,7 @@ function App() {
         <GameScene
           gameState={gameState}
           config={config}
+          events={lastEvents}
           onPointerDown={handlePointerDown}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerCancel}

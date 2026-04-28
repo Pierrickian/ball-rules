@@ -10,3 +10,15 @@ html, body, #root {
   overflow: hidden;
   background: #020810;
 }
+
+@keyframes ballGameFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes ballGameHpPopup {
+  0%   { opacity: 0;   transform: translate(-50%, 0)     scale(0.7); }
+  15%  { opacity: 1;   transform: translate(-50%, -10px) scale(1.15); }
+  60%  { opacity: 1;   transform: translate(-50%, -28px) scale(1.0); }
+  100% { opacity: 0;   transform: translate(-50%, -48px) scale(0.95); }
+}

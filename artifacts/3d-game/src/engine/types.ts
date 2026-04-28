@@ -96,7 +96,8 @@ export type GameEvent =
   | { type: "ball_split"; originalId: string; newIds: string[] }
   | { type: "collision"; ballAId: string; ballBId: string }
   | { type: "orange_launched"; launcherId: string; launchedId: string }
-  | { type: "ball_damaged"; ballId: string; amount: number; remainingHp: number }
+  | { type: "ball_damaged"; ballId: string; amount: number; remainingHp: number; position: Vec2 }
+  | { type: "ball_healed"; ballId: string; amount: number; remainingHp: number; position: Vec2 }
   | { type: "player_shot"; projectileId: string; shotKind: ShotKind }
   | { type: "session_clear"; launchedCount: number }
   | { type: "session_reboot" };
