@@ -4,10 +4,10 @@
   "graphics": {
     "_description": "Paramètres visuels des balles",
     "ball_sizes": {
-      "_description": "Diamètre de chaque taille de balle (en unités du monde). Taille finger-tip ≈ 0.5.",
-      "small":  { "diameter": 0.50, "_label": "Petite balle" },
-      "medium": { "diameter": 0.75, "_label": "Balle moyenne" },
-      "large":  { "diameter": 1.10, "_label": "Grande balle" }
+      "_description": "Diamètre de chaque taille de balle (en unités du monde).",
+      "small":  { "diameter": 5.0,  "_label": "Petite balle" },
+      "medium": { "diameter": 7.5,  "_label": "Balle moyenne" },
+      "large":  { "diameter": 11.0, "_label": "Grande balle" }
     },
     "ball_material": {
       "_description": "Paramètres du matériau 3D des balles. Plus metalness est élevé, plus la balle est brillante/métallique.",
@@ -16,41 +16,50 @@
       "emissive_intensity": 0.25
     },
     "camera": {
-      "_description": "Paramètres de la caméra vue du dessus",
-      "height": 14,
-      "_height_comment": "Hauteur de la caméra. Plus grand = vue plus large.",
-      "field_of_view_deg": 60
+      "_description": "Caméra orthographique vue du dessus. Le zoom s'ajuste dynamiquement pour faire tenir l'arène dans le viewport (voir GameScene.tsx).",
+      "fit_padding": 0.94,
+      "_fit_padding_comment": "Marge autour de l'arène (1.0 = remplit tout le viewport, 0.94 = 6% de marge).",
+      "height": 200,
+      "_height_comment": "Position Y de la caméra. Aucun impact projectif (orthographique), uniquement pour le culling."
     },
     "arena": {
-      "_description": "Taille du terrain de jeu (en unités du monde). Mode portrait: height > width. Ces valeurs sont pilotées dynamiquement par arena_settings + level_rules.arena_ratio.",
-      "width": 9,
-      "height": 16
+      "_description": "Taille du terrain (largeur × hauteur, en unités du monde). Mode portrait. Pilotée dynamiquement par level_rules.aspect_ratio + level_rules.arena_resolution.",
+      "width": 90,
+      "height": 195
     }
   },
 
   "arena_settings": {
-    "_description": "Paramètres du terrain. base_width/base_height = dimensions par défaut (ratio ×1.0). Les plages width_range/height_range définissent les bornes des curseurs manuels.",
-    "base_width": 9,
-    "base_height": 16,
-    "width_range":  { "min": 4.0, "max": 22.0, "step": 0.5 },
-    "height_range": { "min": 8.0, "max": 38.0, "step": 0.5 }
+    "_description": "Bornes globales du terrain. La largeur est l'axe primaire (mode portrait). La hauteur est dérivée du ratio choisi.",
+    "base_width": 90,
+    "base_height": 195,
+    "min_width": 40,
+    "max_width": 220
   },
 
   "level_rules": {
-    "_description": "Règles de niveau — paramètres globaux affectant l'ensemble de la partie. Distinct des règles de balles individuelles.",
-    "arena_ratio": {
-      "_description": "Scale appliqué en même temps à la largeur et à la hauteur de base du terrain. 7 niveaux aimantés, aucun label. L'index par défaut est centré (index 3 = niveau 4/7). Interprété par : Menu.tsx (UI) et useGameEngine.ts (application à l'arène).",
-      "_rule_type": "arena_scale",
+    "_description": "Règles de niveau — paramètres globaux affectant l'ensemble de la partie. Distinct des règles de balles individuelles. Interprété par : Menu.tsx (UI) et useGameEngine.ts (application).",
+
+    "aspect_ratio": {
+      "_description": "Ratio d'aspect (largeur:hauteur) du terrain — calqué sur les ratios typiques des écrans mobiles portrait. Le ratio contraint hauteur = largeur × (h/w). Sélection via chips dans le menu Terrain.",
+      "_rule_type": "aspect_ratio",
       "default_index": 3,
-      "levels": [
-        { "id": "xxs", "scale": 0.45, "_comment": "Micro — terrain très petit" },
-        { "id": "xs",  "scale": 0.65, "_comment": "Petit terrain" },
-        { "id": "sm",  "scale": 0.82, "_comment": "Terrain réduit" },
-        { "id": "md",  "scale": 1.00, "_comment": "Standard — défaut centré" },
-        { "id": "lg",  "scale": 1.28, "_comment": "Grand terrain" },
-        { "id": "xl",  "scale": 1.60, "_comment": "Très grand terrain" },
-        { "id": "xxl", "scale": 2.00, "_comment": "Terrain immense" }
+      "ratios": [
+        { "id": "3:4",    "w": 3, "h": 4,    "_label": "3:4",    "_market": "Tablette / iPad" },
+        { "id": "9:16",   "w": 9, "h": 16,   "_label": "9:16",   "_market": "iPhone 5 / classique" },
+        { "id": "9:18",   "w": 9, "h": 18,   "_label": "9:18",   "_market": "Android entrée de gamme" },
+        { "id": "9:19.5", "w": 9, "h": 19.5, "_label": "9:19.5", "_market": "iPhone moderne (X et plus)" },
+        { "id": "9:20",   "w": 9, "h": 20,   "_label": "9:20",   "_market": "Pixel / Samsung Galaxy" },
+        { "id": "9:21",   "w": 9, "h": 21,   "_label": "9:21",   "_market": "Sony Xperia (format cinéma)" }
       ]
+    },
+
+    "arena_resolution": {
+      "_description": "Résolutions de largeur disponibles, en unités du monde. 7 niveaux aimantés sans label sur le curseur. La hauteur réelle est calculée: hauteur = largeur × (ratio.h / ratio.w). Index par défaut centré.",
+      "_rule_type": "resolution_snap",
+      "default_index": 3,
+      "widths": [40, 60, 75, 90, 110, 140, 180],
+      "_widths_comment": "Liste de largeurs en unités du monde. Le défaut (index 3 = centré) est 90."
     }
   },
 
@@ -114,14 +123,14 @@
   },
 
   "rule_parameters": {
-    "_description": "Paramètres fins pour chaque règle.",
+    "_description": "Paramètres fins pour chaque règle. Les distances et vitesses sont en unités du monde (~×10 par rapport à l'échelle précédente).",
     "bounce":         { "restitution": 1.0 },
     "ball_collision": { "restitution": 0.95 },
-    "accelerate":     { "acceleration_per_second": 0.4 },
-    "slow_nearby":    { "radius": 2.0, "slow_factor": 0.5 },
-    "attract":        { "radius": 3.0, "strength": 0.8 },
-    "freeze_nearby":  { "radius": 2.5, "freeze_duration_seconds": 1.5 },
-    "gravity_sink":   { "strength": 0.6 },
+    "accelerate":     { "acceleration_per_second": 4.0 },
+    "slow_nearby":    { "radius": 20.0, "slow_factor": 0.5 },
+    "attract":        { "radius": 30.0, "strength": 8.0 },
+    "freeze_nearby":  { "radius": 25.0, "freeze_duration_seconds": 1.5 },
+    "gravity_sink":   { "strength": 6.0 },
     "absorb":         { "max_diameter_multiplier": 3.0 }
   },
 
@@ -140,7 +149,7 @@
         "_description": "Paramètres de la balle lancée par orange",
         "color": "white",
         "size": "small",
-        "speed": 4.5,
+        "speed": 45.0,
         "direction": "random",
         "allow_colors": ["white","yellow","red","light_green","dark_green","turquoise","cyan","blue","dark_blue","gray","black"]
       }
@@ -167,7 +176,7 @@
       { "heading": "Les lanceurs", "text": "Les balles orange apparaissent sur les bords toutes les secondes et tirent une balle dans l'arène avant de disparaître." },
       { "heading": "Les règles", "text": "Chaque couleur obéit à une règle unique. Certaines balles peuvent transmettre leur règle à une autre, ou en changer suite à une collision." },
       { "heading": "Les rebonds", "text": "Chaque balle a une condition de rebond : contre les murs, contre les autres balles, contre les obstacles, ou contre tout. Certaines traversent les murs et disparaissent en sortant." },
-      { "heading": "Le terrain", "text": "L'arène est fermée par des murs lumineux. Ajustez ses dimensions depuis le menu Terrain. Le ratio redimensionne la largeur et la hauteur simultanément." }
+      { "heading": "Le terrain", "text": "Choisissez un ratio d'aspect mobile (9:16, 9:19.5, etc.) et faites glisser le curseur de résolution pour redimensionner l'arène. La hauteur est calculée automatiquement à partir du ratio." }
     ]
   },
 

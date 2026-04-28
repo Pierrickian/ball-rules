@@ -2,15 +2,14 @@
 // GameScene — Three.js 3D Scene (top-down portrait view)
 //
 // ARCHITECTURE NOTE:
-// - This component is purely graphical. It renders the arena,
-//   balls, and lighting. It reads from GameState (logic layer)
-//   but never modifies it.
-// - Camera is fixed overhead (orthographic-style perspective)
-//   for the top-down portrait view.
-// - Arena dimensions come from game_config.json (graphics.arena).
+// - This component is purely graphical.
+// - The orthographic camera dynamically computes its zoom to
+//   fit the arena to the viewport (with a small padding).
+// - Arena dimensions come from game_config.json (graphics.arena),
+//   which is updated live by useGameEngine.setArena().
 // ============================================================
 
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useThree } from "@react-three/fiber";
 import { OrthographicCamera } from "@react-three/drei";
 import * as THREE from "three";
 import { useMemo } from "react";
@@ -23,32 +22,72 @@ interface GameSceneProps {
   config: GameConfig;
 }
 
+// ============================================================
+// FitCamera — viewport-aware orthographic camera
+// Picks the zoom that makes the arena fill the viewport with
+// the configured padding. Re-evaluates on viewport / config
+// changes (React component re-renders when config changes).
+// ============================================================
+function FitCamera({ config }: { config: GameConfig }) {
+  const { size } = useThree();
+  const arenaW = config.graphics.arena.width;
+  const arenaH = config.graphics.arena.height;
+  const padding = config.graphics.camera?.fit_padding ?? 0.94;
+  const camY    = config.graphics.camera?.height ?? 200;
+
+  // Drei OrthographicCamera with `zoom`: visible_world = viewport_pixels / zoom
+  // We want arena_dim to fit viewport_dim with padding, so:
+  //   zoom = (viewport / arena_dim) * padding
+  const zoomX = (size.width  / Math.max(arenaW, 0.1)) * padding;
+  const zoomY = (size.height / Math.max(arenaH, 0.1)) * padding;
+  const zoom  = Math.min(zoomX, zoomY);
+
+  return (
+    <OrthographicCamera
+      makeDefault
+      position={[0, camY, 0]}
+      rotation={[-Math.PI / 2, 0, 0]}
+      zoom={zoom}
+      near={0.1}
+      far={camY * 4}
+    />
+  );
+}
+
+// ============================================================
+// Arena floor + grid + walls
+// ============================================================
 function Arena({ config }: { config: GameConfig }) {
   const w = config.graphics.arena.width;
   const h = config.graphics.arena.height;
 
   const gridLines = useMemo(() => {
     const lines: ReactElement[] = [];
-    const cols = Math.floor(w);
-    const rows = Math.floor(h);
-    for (let i = -Math.floor(cols / 2); i <= Math.floor(cols / 2); i++) {
+    // Adaptive spacing — keep ~10–14 lines per axis regardless of arena size
+    const xSpacing = Math.max(1, Math.ceil(w / 12));
+    const ySpacing = Math.max(1, Math.ceil(h / 18));
+
+    for (let i = -Math.floor(w / 2); i <= Math.floor(w / 2); i += xSpacing) {
       lines.push(
-        <mesh key={`vl-${i}`} position={[i, 0.002, 0]}>
-          <boxGeometry args={[0.01, 0.001, h]} />
+        <mesh key={`vl-${i}`} position={[i, 0.02, 0]}>
+          <boxGeometry args={[Math.max(0.05, w * 0.002), 0.005, h]} />
           <meshBasicMaterial color="#1a2a3a" />
         </mesh>
       );
     }
-    for (let j = -Math.floor(rows / 2); j <= Math.floor(rows / 2); j++) {
+    for (let j = -Math.floor(h / 2); j <= Math.floor(h / 2); j += ySpacing) {
       lines.push(
-        <mesh key={`hl-${j}`} position={[0, 0.002, j]}>
-          <boxGeometry args={[w, 0.001, 0.01]} />
+        <mesh key={`hl-${j}`} position={[0, 0.02, j]}>
+          <boxGeometry args={[w, 0.005, Math.max(0.05, h * 0.002)]} />
           <meshBasicMaterial color="#1a2a3a" />
         </mesh>
       );
     }
     return lines;
   }, [w, h]);
+
+  const wallHeight = Math.max(1.0, Math.min(w, h) * 0.025);
+  const wallThick  = Math.max(0.2, Math.min(w, h) * 0.005);
 
   return (
     <group>
@@ -61,21 +100,21 @@ function Arena({ config }: { config: GameConfig }) {
       {/* Grid overlay */}
       {gridLines}
 
-      {/* Border walls (visible) */}
-      <mesh position={[0, 0.1, -h / 2 - 0.02]}>
-        <boxGeometry args={[w + 0.1, 0.2, 0.04]} />
+      {/* Border walls (visible glow) */}
+      <mesh position={[0, wallHeight / 2, -h / 2 - wallThick / 2]}>
+        <boxGeometry args={[w + wallThick * 2, wallHeight, wallThick]} />
         <meshStandardMaterial color="#1e90ff" emissive="#1e90ff" emissiveIntensity={0.8} />
       </mesh>
-      <mesh position={[0, 0.1, h / 2 + 0.02]}>
-        <boxGeometry args={[w + 0.1, 0.2, 0.04]} />
+      <mesh position={[0, wallHeight / 2, h / 2 + wallThick / 2]}>
+        <boxGeometry args={[w + wallThick * 2, wallHeight, wallThick]} />
         <meshStandardMaterial color="#1e90ff" emissive="#1e90ff" emissiveIntensity={0.8} />
       </mesh>
-      <mesh position={[-w / 2 - 0.02, 0.1, 0]}>
-        <boxGeometry args={[0.04, 0.2, h]} />
+      <mesh position={[-w / 2 - wallThick / 2, wallHeight / 2, 0]}>
+        <boxGeometry args={[wallThick, wallHeight, h]} />
         <meshStandardMaterial color="#1e90ff" emissive="#1e90ff" emissiveIntensity={0.8} />
       </mesh>
-      <mesh position={[w / 2 + 0.02, 0.1, 0]}>
-        <boxGeometry args={[0.04, 0.2, h]} />
+      <mesh position={[w / 2 + wallThick / 2, wallHeight / 2, 0]}>
+        <boxGeometry args={[wallThick, wallHeight, h]} />
         <meshStandardMaterial color="#1e90ff" emissive="#1e90ff" emissiveIntensity={0.8} />
       </mesh>
     </group>
@@ -83,43 +122,35 @@ function Arena({ config }: { config: GameConfig }) {
 }
 
 function Scene({ gameState, config }: GameSceneProps) {
-  const balls: BallState[] = Array.from(gameState.balls.values()).filter(
-    (b) => b.isAlive
-  );
-
-  const arenaH = config.graphics.arena.height;
-  const camY = config.graphics.camera.height ?? 12;
+  const balls: BallState[] = Array.from(gameState.balls.values()).filter((b) => b.isAlive);
+  const w = config.graphics.arena.width;
+  const h = config.graphics.arena.height;
+  const lightHeight = Math.max(80, Math.max(w, h) * 0.8);
 
   return (
     <>
-      {/* Overhead camera — portrait top-down */}
-      <OrthographicCamera
-        makeDefault
-        position={[0, camY, 0]}
-        rotation={[-Math.PI / 2, 0, 0]}
-        zoom={55 / arenaH}
-        near={0.1}
-        far={100}
-      />
+      <FitCamera config={config} />
 
       {/* Ambient light */}
       <ambientLight intensity={0.4} />
 
-      {/* Key light */}
+      {/* Key directional light (shadows fitted to arena) */}
       <directionalLight
-        position={[2, 10, 4]}
+        position={[w * 0.15, lightHeight, h * 0.2]}
         intensity={1.2}
         castShadow
         shadow-mapSize-width={1024}
         shadow-mapSize-height={1024}
-        shadow-camera-left={-8}
-        shadow-camera-right={8}
-        shadow-camera-top={10}
-        shadow-camera-bottom={-10}
+        shadow-camera-left={-w / 2 - 5}
+        shadow-camera-right={w / 2 + 5}
+        shadow-camera-top={h / 2 + 5}
+        shadow-camera-bottom={-h / 2 - 5}
+        shadow-camera-near={1}
+        shadow-camera-far={lightHeight * 2}
       />
 
       {/* Subtle fill light from below */}
-      <pointLight position={[0, -2, 0]} intensity={0.15} color="#4488ff" />
+      <pointLight position={[0, -10, 0]} intensity={0.15} color="#4488ff" />
 
       {/* Arena */}
       <Arena config={config} />

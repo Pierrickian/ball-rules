@@ -41,8 +41,6 @@ export type BallRule =
   | "absorb";
 
 // ---- Bounce Condition Enum ----
-// Defined globally in game_config.json > bounce_conditions._enum_values
-// Assigned per-color in bounce_conditions.ball_bounce_conditions
 export enum BounceCondition {
   AGAINST_WALL     = "against_wall",
   AGAINST_BALL     = "against_ball",
@@ -91,21 +89,31 @@ export interface GameState {
 // Defined in game_config.json > level_rules
 // Interpreted by Menu.tsx (UI) and useGameEngine.ts (application)
 
-export interface ArenaRatioLevel {
+export interface AspectRatio {
   id: string;
-  scale: number;
-  _comment?: string;
+  w: number;
+  h: number;
+  _label: string;
+  _market?: string;
 }
 
-export interface ArenaRatioRule {
+export interface AspectRatioRule {
   _description?: string;
   _rule_type: string;
   default_index: number;
-  levels: ArenaRatioLevel[];
+  ratios: AspectRatio[];
+}
+
+export interface ArenaResolutionRule {
+  _description?: string;
+  _rule_type: string;
+  default_index: number;
+  widths: number[];
 }
 
 export interface LevelRules {
-  arena_ratio: ArenaRatioRule;
+  aspect_ratio: AspectRatioRule;
+  arena_resolution: ArenaResolutionRule;
 }
 
 // ---- Arena Settings ----
@@ -113,8 +121,8 @@ export interface ArenaSettings {
   _description?: string;
   base_width: number;
   base_height: number;
-  width_range:  { min: number; max: number; step: number };
-  height_range: { min: number; max: number; step: number };
+  min_width: number;
+  max_width: number;
 }
 
 // ---- Config shapes (mirror of game_config.json) ----
@@ -128,7 +136,7 @@ export interface GameConfig {
   graphics: {
     ball_sizes: Record<BallSize, { diameter: number; _label?: string }>;
     ball_material: { roughness: number; metalness: number; emissive_intensity: number };
-    camera: { height: number; field_of_view_deg: number };
+    camera: { fit_padding: number; height: number };
     arena: { width: number; height: number };
   };
   arena_settings: ArenaSettings;

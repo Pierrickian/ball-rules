@@ -2,7 +2,8 @@
 // Menu — Game menu with 3 sub-menus:
 //   1. Règles du jeu — concept overview
 //   2. Détail des balles — carousel of ball identity cards
-//   3. Terrain — live arena resize (ratio snap + W/H sliders)
+//   3. Terrain — aspect ratio (chips) + resolution snap slider
+//                 height = width × (ratio.h / ratio.w)
 // ============================================================
 
 import { useState, useRef, useCallback } from "react";
@@ -33,7 +34,7 @@ const PANEL: React.CSSProperties = {
   background: "rgba(4,12,35,0.97)",
   border: "1px solid rgba(30,144,255,0.35)",
   borderRadius: 16,
-  padding: "28px 24px",
+  padding: "26px 22px",
   width: "min(92vw, 380px)",
   maxHeight: "88vh",
   overflowY: "auto",
@@ -81,16 +82,17 @@ const MENU_BTN: React.CSSProperties = {
 };
 
 // ============================================================
-// Snap Slider — 7 magnetic levels, no labels
+// Snap Slider — N magnetic levels, NO labels on the track
 // ============================================================
 interface SnapSliderProps {
   count: number;
   selected: number;
   onChange: (index: number) => void;
+  defaultIndex?: number;
   accentColor?: string;
 }
 
-function SnapSlider({ count, selected, onChange, accentColor = "#1e90ff" }: SnapSliderProps) {
+function SnapSlider({ count, selected, onChange, defaultIndex, accentColor = "#1e90ff" }: SnapSliderProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
 
@@ -108,7 +110,6 @@ function SnapSlider({ count, selected, onChange, accentColor = "#1e90ff" }: Snap
     (e: React.MouseEvent) => {
       isDragging.current = true;
       onChange(indexFromX(e.clientX));
-
       const onMove = (ev: MouseEvent) => {
         if (isDragging.current) onChange(indexFromX(ev.clientX));
       };
@@ -127,9 +128,8 @@ function SnapSlider({ count, selected, onChange, accentColor = "#1e90ff" }: Snap
     (e: React.TouchEvent) => {
       isDragging.current = true;
       onChange(indexFromX(e.touches[0].clientX));
-
       const onMove = (ev: TouchEvent) => {
-        if (isDragging.current) onChange(indexFromX(ev.touches[0].clientX));
+        if (isDragging.current && ev.touches[0]) onChange(indexFromX(ev.touches[0].clientX));
       };
       const onEnd = () => {
         isDragging.current = false;
@@ -145,8 +145,7 @@ function SnapSlider({ count, selected, onChange, accentColor = "#1e90ff" }: Snap
   const thumbPct = count > 1 ? (selected / (count - 1)) * 100 : 50;
 
   return (
-    <div style={{ position: "relative", padding: "18px 0 8px" }}>
-      {/* Track */}
+    <div style={{ position: "relative", padding: "20px 10px 10px" }}>
       <div
         ref={trackRef}
         onMouseDown={onMouseDown}
@@ -160,13 +159,10 @@ function SnapSlider({ count, selected, onChange, accentColor = "#1e90ff" }: Snap
           userSelect: "none",
         }}
       >
-        {/* Filled part */}
         <div
           style={{
             position: "absolute",
-            left: 0,
-            top: 0,
-            height: "100%",
+            left: 0, top: 0, height: "100%",
             width: `${thumbPct}%`,
             borderRadius: 2,
             background: `linear-gradient(to right, rgba(30,144,255,0.4), ${accentColor})`,
@@ -174,10 +170,11 @@ function SnapSlider({ count, selected, onChange, accentColor = "#1e90ff" }: Snap
           }}
         />
 
-        {/* Snap dots */}
+        {/* Snap dots — no labels */}
         {Array.from({ length: count }).map((_, i) => {
           const pct = count > 1 ? (i / (count - 1)) * 100 : 50;
           const isActive = i === selected;
+          const isDefault = defaultIndex === i;
           return (
             <div
               key={i}
@@ -190,9 +187,9 @@ function SnapSlider({ count, selected, onChange, accentColor = "#1e90ff" }: Snap
                 width:  isActive ? 14 : 8,
                 height: isActive ? 14 : 8,
                 borderRadius: "50%",
-                background: isActive ? accentColor : "rgba(30,144,255,0.35)",
+                background: isActive ? accentColor : (isDefault ? "rgba(30,144,255,0.55)" : "rgba(30,144,255,0.3)"),
                 boxShadow: isActive ? `0 0 8px ${accentColor}` : "none",
-                border: isActive ? `2px solid ${accentColor}` : "2px solid rgba(30,144,255,0.2)",
+                border: isActive ? `2px solid ${accentColor}` : "2px solid rgba(30,144,255,0.18)",
                 transition: "all 0.15s",
                 cursor: "pointer",
                 zIndex: 2,
@@ -201,15 +198,14 @@ function SnapSlider({ count, selected, onChange, accentColor = "#1e90ff" }: Snap
           );
         })}
 
-        {/* Thumb */}
+        {/* Thumb (magnet) */}
         <div
           style={{
             position: "absolute",
             top: "50%",
             left: `${thumbPct}%`,
             transform: "translate(-50%, -50%)",
-            width: 22,
-            height: 22,
+            width: 22, height: 22,
             borderRadius: "50%",
             background: "rgba(4,12,35,0.9)",
             border: `2px solid ${accentColor}`,
@@ -217,74 +213,6 @@ function SnapSlider({ count, selected, onChange, accentColor = "#1e90ff" }: Snap
             zIndex: 3,
             pointerEvents: "none",
             transition: "left 0.08s",
-          }}
-        />
-      </div>
-    </div>
-  );
-}
-
-// ============================================================
-// Smooth Range Slider (for width / height)
-// ============================================================
-interface RangeSliderProps {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  onChange: (v: number) => void;
-  displayValue: string;
-}
-
-function RangeSlider({ label, value, min, max, step, onChange, displayValue }: RangeSliderProps) {
-  const pct = ((value - min) / (max - min)) * 100;
-
-  return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
-        <div style={{ ...TITLE, marginBottom: 0 }}>{label}</div>
-        <div style={{ fontSize: 13, color: "#6fa8dc", fontFamily: "monospace" }}>{displayValue}</div>
-      </div>
-      <div style={{ position: "relative" }}>
-        {/* Custom track backdrop */}
-        <div
-          style={{
-            position: "absolute",
-            top: "50%",
-            left: 0,
-            right: 0,
-            height: 4,
-            transform: "translateY(-50%)",
-            borderRadius: 2,
-            background: "rgba(30,144,255,0.15)",
-            pointerEvents: "none",
-          }}
-        >
-          <div
-            style={{
-              width: `${pct}%`,
-              height: "100%",
-              borderRadius: 2,
-              background: "rgba(30,144,255,0.5)",
-            }}
-          />
-        </div>
-        <input
-          type="range"
-          min={min}
-          max={max}
-          step={step}
-          value={value}
-          onChange={(e) => onChange(Number(e.target.value))}
-          style={{
-            width: "100%",
-            appearance: "none",
-            background: "transparent",
-            height: 24,
-            cursor: "pointer",
-            position: "relative",
-            zIndex: 1,
           }}
         />
       </div>
@@ -302,163 +230,170 @@ interface TerrainMenuProps {
 }
 
 function TerrainMenu({ config, onArenaChange, onBack }: TerrainMenuProps) {
-  const ratioRule = config.level_rules.arena_ratio;
-  const settings  = config.arena_settings;
-  const levels    = ratioRule.levels;
+  const aspectRule = config.level_rules.aspect_ratio;
+  const resRule    = config.level_rules.arena_resolution;
 
-  const [ratioIdx, setRatioIdx] = useState(ratioRule.default_index);
-  const [width,    setWidthRaw] = useState(config.graphics.arena.width);
-  const [height,   setHeightRaw] = useState(config.graphics.arena.height);
+  // Init from current arena (find closest matching ratio + width)
+  const [ratioIdx, setRatioIdx] = useState(() => {
+    const currentR = config.graphics.arena.height / config.graphics.arena.width;
+    let best = aspectRule.default_index, bestDiff = Infinity;
+    aspectRule.ratios.forEach((r, i) => {
+      const diff = Math.abs((r.h / r.w) - currentR);
+      if (diff < bestDiff) { bestDiff = diff; best = i; }
+    });
+    return best;
+  });
 
-  // When ratio changes → scale both from base
-  const handleRatioChange = useCallback(
-    (idx: number) => {
-      setRatioIdx(idx);
-      const scale = levels[idx].scale;
-      const newW = Math.round(settings.base_width  * scale * 2) / 2;
-      const newH = Math.round(settings.base_height * scale * 2) / 2;
-      const clampedW = Math.min(settings.width_range.max,  Math.max(settings.width_range.min,  newW));
-      const clampedH = Math.min(settings.height_range.max, Math.max(settings.height_range.min, newH));
-      setWidthRaw(clampedW);
-      setHeightRaw(clampedH);
-      onArenaChange(clampedW, clampedH);
+  const [resIdx, setResIdx] = useState(() => {
+    const currentW = config.graphics.arena.width;
+    let best = resRule.default_index, bestDiff = Infinity;
+    resRule.widths.forEach((w, i) => {
+      const diff = Math.abs(w - currentW);
+      if (diff < bestDiff) { bestDiff = diff; best = i; }
+    });
+    return best;
+  });
+
+  const apply = useCallback(
+    (newRatioIdx: number, newResIdx: number) => {
+      const r = aspectRule.ratios[newRatioIdx];
+      const w = resRule.widths[newResIdx];
+      const h = w * (r.h / r.w);
+      onArenaChange(w, h);
     },
-    [levels, settings, onArenaChange]
+    [aspectRule, resRule, onArenaChange]
   );
 
-  const handleWidthChange = useCallback(
-    (v: number) => {
-      setWidthRaw(v);
-      onArenaChange(v, height);
-    },
-    [height, onArenaChange]
-  );
+  const handleRatio = (i: number) => { setRatioIdx(i); apply(i, resIdx); };
+  const handleRes   = (i: number) => { setResIdx(i);   apply(ratioIdx, i); };
 
-  const handleHeightChange = useCallback(
-    (v: number) => {
-      setHeightRaw(v);
-      onArenaChange(width, v);
-    },
-    [width, onArenaChange]
-  );
-
-  const currentScale = levels[ratioIdx]?.scale ?? 1;
+  const ratio  = aspectRule.ratios[ratioIdx];
+  const width  = resRule.widths[resIdx];
+  const height = width * (ratio.h / ratio.w);
 
   return (
     <div style={PANEL}>
-      {/* Header */}
       <div>
         <div style={TITLE}>Terrain</div>
-        <div style={{ fontSize: 18, fontWeight: "bold", color: "#1e90ff" }}>Dimensions de l'arène</div>
+        <div style={{ fontSize: 18, fontWeight: "bold", color: "#1e90ff" }}>Ratio &amp; Résolution</div>
       </div>
 
-      {/* Ratio snap slider */}
+      {/* === RATIO CHIPS === */}
       <div
         style={{
           background: "rgba(6,16,48,0.8)",
           border: "1px solid rgba(30,144,255,0.2)",
           borderRadius: 12,
-          padding: "14px 16px",
+          padding: "14px 14px 16px",
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
-          <div style={{ ...TITLE, marginBottom: 0 }}>Ratio (scale global)</div>
-          <div style={{ fontSize: 12, color: "#6fa8dc", fontFamily: "monospace" }}>
-            ×{currentScale.toFixed(2)}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+          <div style={{ ...TITLE, marginBottom: 0 }}>Ratio d'aspect</div>
+          <div style={{ fontSize: 11, color: "#556" }}>
+            {ratio._market}
           </div>
         </div>
-        <div style={{ fontSize: 10, color: "#334", marginBottom: 6 }}>
-          {levels.length} niveaux · défaut au centre · aimantés
-        </div>
-        <SnapSlider
-          count={levels.length}
-          selected={ratioIdx}
-          onChange={handleRatioChange}
-          accentColor="#1e90ff"
-        />
-        {/* Position indicator */}
         <div
           style={{
             display: "flex",
-            justifyContent: "space-between",
-            marginTop: 6,
+            flexWrap: "wrap",
+            gap: 6,
           }}
         >
-          <div style={{ fontSize: 9, color: "#223" }}>−</div>
-          <div
-            style={{
-              fontSize: 9,
-              color: ratioIdx === ratioRule.default_index ? "#1e90ff" : "#334",
-            }}
-          >
-            {ratioIdx === ratioRule.default_index ? "● défaut" : "○"}
-          </div>
-          <div style={{ fontSize: 9, color: "#223" }}>+</div>
+          {aspectRule.ratios.map((r, i) => {
+            const isActive = i === ratioIdx;
+            return (
+              <button
+                key={r.id}
+                onClick={() => handleRatio(i)}
+                style={{
+                  background: isActive ? "rgba(30,144,255,0.25)" : "rgba(12,28,72,0.5)",
+                  border: isActive ? "1px solid #1e90ff" : "1px solid rgba(30,144,255,0.2)",
+                  color: isActive ? "#fff" : "#7a9fcc",
+                  borderRadius: 8,
+                  padding: "7px 12px",
+                  cursor: "pointer",
+                  fontSize: 12,
+                  fontFamily: "inherit",
+                  fontWeight: isActive ? "bold" : "normal",
+                  boxShadow: isActive ? "0 0 8px rgba(30,144,255,0.4)" : "none",
+                  transition: "all 0.15s",
+                }}
+              >
+                {r._label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Dimensions display */}
+      {/* === RESOLUTION DISPLAY === */}
       <div
         style={{
           display: "flex",
           justifyContent: "center",
-          gap: 24,
+          alignItems: "center",
+          gap: 16,
           background: "rgba(6,16,48,0.6)",
           borderRadius: 10,
-          padding: "10px 16px",
+          padding: "12px 18px",
           border: "1px solid rgba(30,144,255,0.12)",
         }}
       >
         <div style={{ textAlign: "center" }}>
           <div style={{ fontSize: 9, color: "#334", letterSpacing: 2, textTransform: "uppercase" }}>Largeur</div>
-          <div style={{ fontSize: 22, fontWeight: "bold", color: "#1e90ff", lineHeight: 1.1 }}>
-            {width.toFixed(1)}
+          <div style={{ fontSize: 26, fontWeight: "bold", color: "#1e90ff", lineHeight: 1.1 }}>
+            {Math.round(width)}
           </div>
         </div>
-        <div style={{ color: "#223", alignSelf: "center", fontSize: 18 }}>×</div>
+        <div style={{ color: "#223", fontSize: 22 }}>×</div>
         <div style={{ textAlign: "center" }}>
           <div style={{ fontSize: 9, color: "#334", letterSpacing: 2, textTransform: "uppercase" }}>Hauteur</div>
-          <div style={{ fontSize: 22, fontWeight: "bold", color: "#1e90ff", lineHeight: 1.1 }}>
-            {height.toFixed(1)}
+          <div style={{ fontSize: 26, fontWeight: "bold", color: "#1e90ff", lineHeight: 1.1 }}>
+            {Math.round(height)}
           </div>
         </div>
       </div>
 
-      {/* Width slider */}
+      {/* === RESOLUTION SNAP SLIDER === */}
       <div
         style={{
           background: "rgba(6,16,48,0.8)",
           border: "1px solid rgba(30,144,255,0.2)",
           borderRadius: 12,
-          padding: "14px 16px",
+          padding: "14px 16px 8px",
         }}
       >
-        <RangeSlider
-          label="Largeur"
-          value={width}
-          min={settings.width_range.min}
-          max={settings.width_range.max}
-          step={settings.width_range.step}
-          onChange={handleWidthChange}
-          displayValue={`${width.toFixed(1)} u`}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+          <div style={{ ...TITLE, marginBottom: 0 }}>Résolution</div>
+          <div style={{ fontSize: 10, color: "#334" }}>
+            {resRule.widths.length} niveaux · aimantés
+          </div>
+        </div>
+        <SnapSlider
+          count={resRule.widths.length}
+          selected={resIdx}
+          onChange={handleRes}
+          defaultIndex={resRule.default_index}
+          accentColor="#1e90ff"
         />
-        <div style={{ marginTop: 10 }}>
-          <RangeSlider
-            label="Hauteur"
-            value={height}
-            min={settings.height_range.min}
-            max={settings.height_range.max}
-            step={settings.height_range.step}
-            onChange={handleHeightChange}
-            displayValue={`${height.toFixed(1)} u`}
-          />
+        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2, padding: "0 6px" }}>
+          <div style={{ fontSize: 9, color: "#223" }}>−</div>
+          <div style={{ fontSize: 9, color: resIdx === resRule.default_index ? "#1e90ff" : "#334" }}>
+            {resIdx === resRule.default_index ? "● défaut" : "○"}
+          </div>
+          <div style={{ fontSize: 9, color: "#223" }}>+</div>
         </div>
       </div>
 
-      {/* Reset to default */}
+      {/* Reset */}
       <button
         style={{ ...CLOSE_BTN, color: "#6fa8dc", borderColor: "rgba(30,144,255,0.35)" }}
-        onClick={() => handleRatioChange(ratioRule.default_index)}
+        onClick={() => {
+          setRatioIdx(aspectRule.default_index);
+          setResIdx(resRule.default_index);
+          apply(aspectRule.default_index, resRule.default_index);
+        }}
       >
         ↺ Réinitialiser au défaut
       </button>
@@ -472,10 +407,7 @@ function TerrainMenu({ config, onArenaChange, onBack }: TerrainMenuProps) {
 // Main Menu
 // ============================================================
 function MainMenu({
-  onRules,
-  onBalls,
-  onTerrain,
-  onClose,
+  onRules, onBalls, onTerrain, onClose,
 }: {
   onRules:   () => void;
   onBalls:   () => void;
@@ -506,7 +438,7 @@ function MainMenu({
         <span style={{ fontSize: 20 }}>⬛</span>
         <div>
           <div style={{ fontWeight: "bold" }}>Terrain</div>
-          <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Largeur, hauteur et ratio de l'arène</div>
+          <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Ratio d'aspect &amp; résolution</div>
         </div>
       </button>
       <button style={CLOSE_BTN} onClick={onClose}>✕ Retour au jeu</button>
