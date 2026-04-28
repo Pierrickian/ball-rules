@@ -4,32 +4,36 @@
   "graphics": {
     "_description": "Paramètres visuels des balles",
     "ball_sizes": {
-      "_description": "Diamètre de chaque taille de balle (en unités du monde). Plus le nombre est grand, plus la balle est grosse.",
-      "small":  { "diameter": 0.30, "_label": "Petite balle" },
-      "medium": { "diameter": 0.50, "_label": "Balle moyenne" },
-      "large":  { "diameter": 0.80, "_label": "Grande balle" }
+      "_description": "Diamètre de chaque taille de balle (en unités du monde). Taille finger-tip ≈ 0.5.",
+      "small":  { "diameter": 0.50, "_label": "Petite balle" },
+      "medium": { "diameter": 0.75, "_label": "Balle moyenne" },
+      "large":  { "diameter": 1.10, "_label": "Grande balle" }
+    },
+    "ball_material": {
+      "_description": "Paramètres du matériau 3D des balles. Plus metalness est élevé, plus la balle est brillante/métallique.",
+      "roughness": 0.05,
+      "metalness": 0.85,
+      "emissive_intensity": 0.25
     },
     "camera": {
       "_description": "Paramètres de la caméra vue du dessus",
-      "height": 12,
-      "_height_comment": "Hauteur de la caméra au-dessus du terrain. Plus grand = vue plus large.",
+      "height": 14,
+      "_height_comment": "Hauteur de la caméra. Plus grand = vue plus large.",
       "field_of_view_deg": 60
     },
     "arena": {
-      "_description": "Taille du terrain de jeu (en unités du monde)",
+      "_description": "Taille du terrain de jeu (en unités du monde). Mode portrait: height > width.",
       "width": 9,
-      "height": 16,
-      "_comment": "Mode portrait: height > width"
+      "height": 16
     }
   },
 
   "ball_colors": {
-    "_description": "Palette officielle des couleurs de balles. Chaque couleur a une règle de comportement associée dans la section ball_rules.",
+    "_description": "Palette officielle des couleurs de balles.",
     "_color_format": "hex = code couleur web (#RRGGBB), rgb = [rouge 0-255, vert 0-255, bleu 0-255]",
-
     "white":      { "hex": "#F5F5F5", "rgb": [245, 245, 245], "_label": "Blanc" },
     "yellow":     { "hex": "#FFE600", "rgb": [255, 230, 0],   "_label": "Jaune" },
-    "orange":     { "hex": "#FF6A00", "rgb": [255, 106, 0],   "_label": "Orange (Lanceur)" },
+    "orange":     { "hex": "#FF6A00", "rgb": [255, 106, 0],   "_label": "Orange" },
     "red":        { "hex": "#FF1F1F", "rgb": [255, 31, 31],   "_label": "Rouge" },
     "light_green":{ "hex": "#5EFF5E", "rgb": [94, 255, 94],   "_label": "Vert clair" },
     "dark_green": { "hex": "#1A8A1A", "rgb": [26, 138, 26],   "_label": "Vert foncé" },
@@ -38,20 +42,18 @@
     "blue":       { "hex": "#4169E1", "rgb": [65, 105, 225],  "_label": "Bleu" },
     "dark_blue":  { "hex": "#0000CD", "rgb": [0, 0, 205],     "_label": "Bleu foncé" },
     "gray":       { "hex": "#808080", "rgb": [128, 128, 128], "_label": "Gris" },
-    "black":      { "hex": "#1A1A1A", "rgb": [26, 26, 26],    "_label": "Noir" }
+    "black":      { "hex": "#2A2A2A", "rgb": [42, 42, 42],    "_label": "Noir" }
   },
 
   "ball_rules": {
-    "_description": "Règle de comportement de chaque couleur de balle. IMPORTANT: toute modification de règle doit passer par ce fichier.",
-    "_warning": "Ne changez pas les noms de règles (ex: 'bounce') sans vérifier qu'ils existent dans le moteur de jeu (game_engine.ts).",
-
-    "white":       { "rule": "bounce",            "_description": "Rebondit sur les murs sans perdre de vitesse. Inoffensive." },
-    "yellow":      { "rule": "accelerate",         "_description": "Accélère progressivement. Devient dangereuse avec le temps." },
-    "orange":      { "rule": "launcher",           "_description": "Balle lanceur spéciale: apparaît sur un bord et tire une autre balle." },
+    "_description": "Règle de comportement de chaque couleur. IMPORTANT: toute modification de règle doit passer par ce fichier. Les handlers sont dans game_engine.ts.",
+    "white":       { "rule": "bounce",            "_description": "Rebondit sur les murs sans perdre de vitesse." },
+    "yellow":      { "rule": "accelerate",         "_description": "Accélère progressivement. Devient rapide avec le temps." },
+    "orange":      { "rule": "launcher",           "_description": "Balle lanceur: apparaît sur un bord et tire une balle blanche." },
     "red":         { "rule": "destroy_on_contact", "_description": "Détruit toute balle qu'elle touche (et disparaît aussi)." },
-    "light_green": { "rule": "slow_nearby",        "_description": "Ralentit les balles proches d'elle dans un rayon donné." },
+    "light_green": { "rule": "slow_nearby",        "_description": "Ralentit les balles proches dans un rayon donné." },
     "dark_green":  { "rule": "attract",            "_description": "Attire doucement les autres balles vers elle." },
-    "turquoise":   { "rule": "split",              "_description": "Se divise en 2 petites balles au contact d'un mur." },
+    "turquoise":   { "rule": "split",              "_description": "Se divise en 2 balles plus petites au contact d'un mur." },
     "cyan":        { "rule": "freeze_nearby",      "_description": "Gèle momentanément les balles proches." },
     "blue":        { "rule": "transfer_rule",      "_description": "Transmet sa règle à la première balle qu'elle touche." },
     "dark_blue":   { "rule": "gravity_sink",       "_description": "Attire toutes les balles vers le centre de l'écran." },
@@ -59,11 +61,45 @@
     "black":       { "rule": "absorb",             "_description": "Absorbe les balles qu'elle touche et grossit." }
   },
 
-  "rule_parameters": {
-    "_description": "Paramètres fins pour chaque règle. Modifiable par un non-développeur.",
+  "bounce_conditions": {
+    "_description": "Définition globale des types de rebond. Chaque balle se voit attribuer l'un de ces 4 types. Les handlers dans game_engine.ts respectent ces conditions.",
+    "_enum_values": {
+      "against_wall":     "La balle rebondit uniquement contre les murs de l'arène.",
+      "against_ball":     "La balle rebondit uniquement contre les autres balles (traverse les murs et disparaît en sortant).",
+      "against_obstacle": "La balle rebondit uniquement contre les obstacles placés sur le terrain (fonctionnalité future).",
+      "against_all":      "La balle rebondit contre tout: murs, balles et obstacles."
+    },
+    "_note": "Pour modifier le rebond d'une couleur, changez la valeur dans ball_bounce_conditions ci-dessous.",
+    "ball_bounce_conditions": {
+      "_description": "Condition de rebond attribuée à chaque couleur de balle.",
+      "white":       "against_wall",
+      "yellow":      "against_all",
+      "orange":      "against_wall",
+      "red":         "against_ball",
+      "light_green": "against_all",
+      "dark_green":  "against_all",
+      "turquoise":   "against_wall",
+      "cyan":        "against_all",
+      "blue":        "against_ball",
+      "dark_blue":   "against_wall",
+      "gray":        "against_wall",
+      "black":       "against_all"
+    }
+  },
 
+  "rule_parameters": {
+    "_description": "Paramètres fins pour chaque règle. Modifiable sans connaissance en code.",
+    "bounce": {
+      "restitution": 1.0,
+      "_comment": "1.0 = rebond parfait sans perte d'énergie. 0.8 = perd 20% à chaque rebond."
+    },
+    "ball_collision": {
+      "_description": "Paramètres globaux pour les collisions balle-à-balle.",
+      "restitution": 0.95,
+      "_comment": "Coefficient de rebond entre balles. 1.0 = élastique parfait."
+    },
     "accelerate": {
-      "acceleration_per_second": 0.3,
+      "acceleration_per_second": 0.4,
       "_comment": "Vitesse ajoutée par seconde"
     },
     "slow_nearby": {
@@ -73,26 +109,23 @@
     },
     "attract": {
       "radius": 3.0,
-      "strength": 0.8,
-      "_comment": "strength = force d'attraction. Plus élevé = attraction plus forte"
+      "strength": 0.8
     },
     "freeze_nearby": {
       "radius": 2.5,
-      "freeze_duration_seconds": 1.5,
-      "_comment": "Durée du gel en secondes"
+      "freeze_duration_seconds": 1.5
     },
     "gravity_sink": {
-      "strength": 0.5,
-      "_comment": "Force d'attraction vers le centre"
+      "strength": 0.6
     },
     "absorb": {
       "max_diameter_multiplier": 3.0,
-      "_comment": "La balle noire ne peut pas dépasser 3x sa taille initiale"
+      "_comment": "La balle noire ne dépasse pas 3x sa taille initiale"
     }
   },
 
   "gameplay": {
-    "_description": "Conditions d'apparition et de disparition de chaque couleur de balle. Modifiable par un non-développeur.",
+    "_description": "Conditions d'apparition et de disparition de chaque couleur.",
 
     "orange": {
       "_label": "Balle orange (Lanceur)",
@@ -100,8 +133,7 @@
         "condition": "timer",
         "interval_seconds": 1.0,
         "_interval_comment": "Une balle orange apparaît toutes les X secondes",
-        "spawn_on_edge": true,
-        "_edge_comment": "Apparaît aléatoirement sur l'un des 4 bords de l'écran"
+        "spawn_on_edge": true
       },
       "despawn": {
         "condition": "after_launch",
@@ -109,16 +141,13 @@
       },
       "launch_config": {
         "_description": "Paramètres de la balle lancée par orange",
-        "color": "random",
-        "_color_comment": "Couleur de la balle lancée. Options: 'random' ou n'importe quelle couleur (ex: 'blue', 'red'). 'random' exclut 'orange' automatiquement.",
+        "color": "white",
+        "_color_comment": "Couleur de la balle lancée. Options: 'white', 'yellow', 'red', etc., ou 'random'.",
         "size": "small",
-        "_size_comment": "Taille de la balle lancée. Options: 'small', 'medium', 'large'",
-        "speed": 4.0,
-        "_speed_comment": "Vitesse initiale de la balle lancée",
+        "_size_comment": "Taille: 'small', 'medium', 'large'",
+        "speed": 4.5,
         "direction": "random",
-        "_direction_comment": "Direction du tir. Options: 'random' (vers l'intérieur depuis le bord)",
-        "allow_colors": ["white", "yellow", "red", "light_green", "dark_green", "turquoise", "cyan", "blue", "dark_blue", "gray", "black"],
-        "_allow_comment": "Liste des couleurs autorisées pour le tir aléatoire. Retirez une couleur pour l'exclure."
+        "allow_colors": ["white", "yellow", "red", "light_green", "dark_green", "turquoise", "cyan", "blue", "dark_blue", "gray", "black"]
       }
     },
 
@@ -135,8 +164,19 @@
     "black":       { "spawn": { "condition": "launched_by_orange" }, "despawn": { "condition": "max_size_reached" } }
   },
 
+  "game_rules_concept": {
+    "_description": "Texte de présentation des règles du jeu (affiché dans le menu). Ne décrit pas le fonctionnement technique des balles.",
+    "title": "Comment jouer",
+    "concept": "Des balles colorées apparaissent et se déplacent librement dans l'arène. Chaque couleur a un comportement unique — certaines rebondissent, d'autres accélèrent, gèlent ou absorbent leurs voisines. Observer les interactions et comprendre comment les règles s'enchaînent.",
+    "sections": [
+      { "heading": "Les lanceurs", "text": "Les balles orange apparaissent sur les bords toutes les secondes et tirent une balle dans l'arène avant de disparaître." },
+      { "heading": "Les règles", "text": "Chaque couleur obéit à une règle unique. Certaines balles peuvent transmettre leur règle à une autre, ou en changer suite à une collision." },
+      { "heading": "Les rebonds", "text": "Chaque balle a une condition de rebond : contre les murs, contre les autres balles, contre les obstacles, ou contre tout. Certaines traversent les murs et disparaissent en sortant." },
+      { "heading": "Le terrain", "text": "L'arène est fermée par des murs lumineux. Les balles se déplacent uniquement dans le plan 2D, vues de dessus." }
+    ]
+  },
+
   "debug": {
-    "_description": "Options de débogage. Passez à true pour afficher des informations supplémentaires.",
     "show_velocities": false,
     "show_ball_ids": false,
     "log_rule_changes": true

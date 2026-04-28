@@ -13,11 +13,13 @@
 // - A ball's rule can change at runtime via changeRule() or
 //   passRuleTo(). Both methods are the ONLY sanctioned way to
 //   change rules.
+// - A ball's bounceCondition comes from bounce_conditions.ball_bounce_conditions
+//   in game_config.json. Do NOT set it directly — use the config.
 // ============================================================
 
 import { v4 as uuidv4 } from "uuid";
 import type { BallColor, BallRule, BallState, Vec2 } from "./types";
-import { BallSize } from "./types";
+import { BallSize, BounceCondition } from "./types";
 
 export class Ball {
   readonly id: string;
@@ -26,6 +28,7 @@ export class Ball {
   position: Vec2;
   velocity: Vec2;
   rule: BallRule;
+  bounceCondition: BounceCondition;
   isAlive: boolean;
   isFrozen: boolean;
   frozenTimer: number;
@@ -40,7 +43,8 @@ export class Ball {
     position: Vec2,
     velocity: Vec2,
     diameter: number,
-    rule: BallRule
+    rule: BallRule,
+    bounceCondition: BounceCondition = BounceCondition.AGAINST_WALL
   ) {
     this.id = uuidv4();
     this.color = color;
@@ -50,6 +54,7 @@ export class Ball {
     this.diameter = diameter;
     this.baseDiameter = diameter;
     this.rule = rule;
+    this.bounceCondition = bounceCondition;
     this.isAlive = true;
     this.isFrozen = false;
     this.frozenTimer = 0;
@@ -61,13 +66,10 @@ export class Ball {
    * Transfer this ball's rule to another ball.
    * The other ball adopts the rule; this ball's rule becomes "neutral".
    * This is the ONLY sanctioned way to pass a rule between balls.
-   * All rule changes must go through changeRule() or passRuleTo().
    */
   passRuleTo(other: Ball, logEnabled = false): void {
     if (logEnabled) {
-      console.log(
-        `[RULE TRANSFER] Ball ${this.id} (${this.color}) passes rule '${this.rule}' to Ball ${other.id} (${other.color})`
-      );
+      console.log(`[RULE TRANSFER] Ball ${this.id} (${this.color}) passes '${this.rule}' → Ball ${other.id} (${other.color})`);
     }
     const myRule = this.rule;
     other.changeRule(myRule, logEnabled);
@@ -81,9 +83,7 @@ export class Ball {
    */
   changeRule(newRule: BallRule, logEnabled = false): void {
     if (logEnabled) {
-      console.log(
-        `[RULE CHANGE] Ball ${this.id} (${this.color}): '${this.rule}' -> '${newRule}'`
-      );
+      console.log(`[RULE CHANGE] Ball ${this.id} (${this.color}): '${this.rule}' → '${newRule}'`);
     }
     this.rule = newRule;
   }
@@ -107,6 +107,7 @@ export class Ball {
       position: { ...this.position },
       velocity: { ...this.velocity },
       rule: this.rule,
+      bounceCondition: this.bounceCondition,
       isAlive: this.isAlive,
       isFrozen: this.isFrozen,
       frozenTimer: this.frozenTimer,
@@ -116,14 +117,12 @@ export class Ball {
     };
   }
 
-  /** Distance (center-to-center) to another ball */
   distanceTo(other: Ball): number {
     const dx = this.position.x - other.position.x;
     const dy = this.position.y - other.position.y;
     return Math.sqrt(dx * dx + dy * dy);
   }
 
-  /** True if this ball overlaps with another */
   isCollidingWith(other: Ball): boolean {
     const minDist = (this.diameter + other.diameter) / 2;
     return this.distanceTo(other) < minDist;

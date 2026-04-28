@@ -2,72 +2,81 @@
 
 ## Overview
 
-pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
+Monorepo pnpm TypeScript. Chaque package gère ses propres dépendances.
 
 ## Stack
 
-- **Monorepo tool**: pnpm workspaces
-- **Node.js version**: 24
-- **Package manager**: pnpm
-- **TypeScript version**: 5.9
-- **API framework**: Express 5
-- **Database**: PostgreSQL + Drizzle ORM
-- **Validation**: Zod (`zod/v4`), `drizzle-zod`
-- **API codegen**: Orval (from OpenAPI spec)
-- **Build**: esbuild (CJS bundle)
+- **Monorepo**: pnpm workspaces — **Node.js**: 24 — **TypeScript**: 5.9
+- **API**: Express 5 — **DB**: PostgreSQL + Drizzle ORM
+- **Validation**: Zod — **Codegen**: Orval (OpenAPI)
 
 ## Key Commands
 
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- `pnpm --filter @workspace/api-server run dev` — run API server locally
-
-See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
+- `pnpm run typecheck` — typecheck complet
+- `pnpm run build` — build tous packages
+- `pnpm --filter @workspace/api-spec run codegen` — regénérer hooks + Zod depuis OpenAPI
 
 ---
 
 ## Ball Game 3D (`artifacts/3d-game`)
 
-Top-down 3D ball game built with React Three Fiber.
+Jeu de balles top-down 3D — React Three Fiber, vue portrait.
 
-### Architecture (decoupled logic/graphics)
+### Architecture (logique/graphique décorrélés)
 
 ```
 src/
   engine/
-    types.ts          — All TypeScript types (BallColor, BallSize enum, BallRule, GameState…)
-    Ball.ts           — Ball class: pure data + logic, no Three.js knowledge
-    game_engine.ts    — GameEngine: loads config, runs rule handlers, emits events
-    useGameEngine.ts  — React hook: loads config, drives game loop, returns GameState
+    types.ts          — Types TS (BallColor, BallSize, BallRule, BounceCondition enum, GameState…)
+    Ball.ts           — Classe Ball: data+logic, zéro import Three.js
+    game_engine.ts    — GameEngine: handlers de règles, physique 2D, bounce conditions
+    useGameEngine.ts  — Hook React: charge config, pilote la boucle de jeu
+
   scenes/
-    GameScene.tsx     — Three.js Canvas + OrthographicCamera (graphics only)
-    BallMesh.tsx      — 3D sphere renderer for a single ball (graphics only)
+    GameScene.tsx     — Canvas Three.js + OrthographicCamera (graphique uniquement)
+    BallMesh.tsx      — Sphère 3D PBR metallic pour une balle (graphique uniquement)
+
   game/
-    HUD.tsx           — 2D overlay UI (score, legend, pause/reset)
-  App.tsx             — Entry point wiring all layers together
+    HUD.tsx           — Overlay 2D (compteur balles, pause, menu)
+    Menu.tsx          — Menu: Règles du jeu + Carrousel de cartes balles
+
+  App.tsx             — Point d'entrée, relie toutes les couches
 
 public/
-  game_config.json    — THE SINGLE SOURCE OF TRUTH for all game parameters
+  game_config.json    — SOURCE DE VÉRITÉ UNIQUE (lisible par non-développeurs)
 ```
 
-### game_config.json sections
+### game_config.json — sections clés
 
-| Section | What it controls |
+| Section | Contenu |
 |---|---|
-| `graphics.ball_sizes` | Diameter (small/medium/large) |
-| `graphics.arena` | Arena width/height in world units |
-| `ball_colors` | RGB + hex for each of the 12 colors |
-| `ball_rules` | Which rule applies to each color |
-| `rule_parameters` | Fine-tuning each rule (radius, strength, speed…) |
-| `gameplay.orange` | Spawn interval, launch color/size/speed |
-| `gameplay.<color>` | Spawn/despawn conditions per color |
+| `graphics.ball_sizes` | Diamètre small/medium/large |
+| `graphics.ball_material` | roughness, metalness, emissive_intensity |
+| `ball_colors` | RGB + hex pour les 12 couleurs |
+| `ball_rules` | Règle + description par couleur |
+| `bounce_conditions._enum_values` | Définition globale des 4 types de rebond |
+| `bounce_conditions.ball_bounce_conditions` | Type de rebond attribué à chaque couleur |
+| `rule_parameters` | Réglages fins (rayon, force, durée…) |
+| `gameplay.orange` | Spawn timer, couleur lancée (white), vitesse |
+| `gameplay.<couleur>` | Spawn/despawn conditions par couleur |
+| `game_rules_concept` | Texte affiché dans le menu Règles |
 
-### Rules for developers
+### BounceCondition enum (types.ts + JSON)
 
-- **All rule changes MUST go through `ball.changeRule()` or `ball.passRuleTo()`** (Ball.ts)
-- **All game parameters MUST be read from `game_config.json`** — no hard-coded values
-- **To add a new rule:** add to `ball_rules` in JSON → implement handler in `game_engine.ts` → register in `registerAllHandlers()`
-- **3D graphics and game logic are fully decoupled** — engine files have zero Three.js imports
-- **Ball is a game object** — instantiate with `new Ball(...)`, assign behaviors via the engine
+```
+against_wall     → rebondit murs uniquement
+against_ball     → rebondit balles uniquement (sort par les murs)
+against_obstacle → rebondit obstacles (future)
+against_all      → rebondit tout
+```
+
+### Règles développeur
+
+- **Tout changement de règle → `ball.changeRule()` ou `ball.passRuleTo()`** (Ball.ts)
+- **Tout paramètre → `game_config.json`** (jamais de valeur en dur)
+- **Ajouter une règle** : JSON `ball_rules` → handler dans `game_engine.ts` → `registerAllHandlers()`
+- **Ajouter un BounceCondition** : JSON `bounce_conditions._enum_values` → enum `types.ts` → `resolveWallBounce` / `resolveBallCollisions`
+- **Ball est un game object** : instancier via `new Ball(...)`, comportements via engine
+- **Graphiques 3D et logique = zéro couplage** (engine files = zéro import Three.js)
+- **Physique 2D uniquement** (plan X/Y, caméra overhead)
+- **Balles: matériau PBR metallic** (roughness faible, metalness élevé)

@@ -1,19 +1,32 @@
 // ============================================================
 // App — Entry point for the Ball Game
 //
-// Architecture overview:
-// - useGameEngine() loads game_config.json, runs the logic loop
-// - GameScene renders the 3D Three.js scene (graphics layer)
-// - HUD renders the 2D overlay (score, legend, controls)
-// - Logic and graphics are fully decoupled.
+// Layers:
+// 1. useGameEngine() — logic loop (config-driven, no Three.js)
+// 2. GameScene       — 3D Three.js rendering (no game logic)
+// 3. HUD             — 2D overlay (count + controls)
+// 4. Menu            — Game menu (rules + ball carousel)
 // ============================================================
 
+import { useState } from "react";
 import { useGameEngine } from "./engine/useGameEngine";
 import { GameScene } from "./scenes/GameScene";
 import { HUD } from "./game/HUD";
+import { Menu } from "./game/Menu";
 
 function App() {
   const { gameState, config, isRunning, pause, resume, reset } = useGameEngine();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const handleMenuOpen = () => {
+    pause();
+    setMenuOpen(true);
+  };
+
+  const handleMenuClose = () => {
+    setMenuOpen(false);
+    resume();
+  };
 
   if (!gameState || !config) {
     return (
@@ -31,7 +44,7 @@ function App() {
           gap: 12,
         }}
       >
-        <div style={{ fontSize: 32 }}>◉</div>
+        <div style={{ fontSize: 32, animation: "spin 1s linear infinite" }}>◉</div>
         <div style={{ fontSize: 14, color: "#4466aa" }}>Chargement du moteur de jeu…</div>
       </div>
     );
@@ -47,16 +60,14 @@ function App() {
         background: "#020810",
         position: "relative",
         overflow: "hidden",
-        display: "flex",
-        alignItems: "stretch",
       }}
     >
-      {/* 3D Scene — graphics layer */}
+      {/* 3D Scene */}
       <div style={{ position: "absolute", inset: 0 }}>
         <GameScene gameState={gameState} config={config} />
       </div>
 
-      {/* HUD — UI overlay layer */}
+      {/* HUD */}
       <HUD
         gameState={gameState}
         config={config}
@@ -64,7 +75,11 @@ function App() {
         onPause={pause}
         onResume={resume}
         onReset={reset}
+        onMenu={handleMenuOpen}
       />
+
+      {/* Menu overlay */}
+      {menuOpen && <Menu config={config} onClose={handleMenuClose} />}
     </div>
   );
 }
