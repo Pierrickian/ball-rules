@@ -291,6 +291,9 @@ export class GameEngine {
     if (died) {
       ball.isAlive = false;
       this.pendingEvents.push({ type: "ball_despawned", ballId: ball.id, reason });
+    } else if (ball.rule === "hp_grow_bouncer") {
+      // Keep visual diameter in sync with current HP so damage is visible.
+      ball.diameter = this.computeHpGrowDiameter(ball);
     }
     return died;
   }
