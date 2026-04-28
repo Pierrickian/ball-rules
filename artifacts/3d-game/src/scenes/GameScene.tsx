@@ -57,6 +57,12 @@ function FitCamera({ config }: { config: GameConfig }) {
 // ClickPlane — invisible plane covering arena to capture input
 // e.point gives the world-space hit. Game coords: x = e.point.x,
 // y = -e.point.z (we flip Z when rendering balls).
+//
+// IMPORTANT: we capture the pointer on press so the hold survives
+// even if the finger drags off the arena. The plane itself is
+// drawn very large so raycasting keeps hitting it during drags.
+// We deliberately do NOT cancel on pointerleave (that aborted
+// every drag); we only honor real OS-level pointercancel events.
 // ============================================================
 function ClickPlane({
   config, onPointerDown, onPointerUp, onPointerCancel,
@@ -68,6 +74,21 @@ function ClickPlane({
 }) {
   const w = config.graphics.arena.width;
   const h = config.graphics.arena.height;
+  // Very large catch plane so a finger drag never escapes the raycast.
+  const planeSize = Math.max(w, h) * 20;
+
+  const tryCapture = (target: unknown, pointerId: number) => {
+    const el = target as { setPointerCapture?: (id: number) => void } | null;
+    if (el && typeof el.setPointerCapture === "function") {
+      try { el.setPointerCapture(pointerId); } catch { /* ignore */ }
+    }
+  };
+  const tryRelease = (target: unknown, pointerId: number) => {
+    const el = target as { releasePointerCapture?: (id: number) => void } | null;
+    if (el && typeof el.releasePointerCapture === "function") {
+      try { el.releasePointerCapture(pointerId); } catch { /* ignore */ }
+    }
+  };
 
   return (
     <mesh
@@ -75,15 +96,20 @@ function ClickPlane({
       rotation={[-Math.PI / 2, 0, 0]}
       onPointerDown={(e) => {
         e.stopPropagation();
+        if (e.pointerId !== undefined) tryCapture(e.target, e.pointerId);
         onPointerDown?.();
       }}
       onPointerUp={(e) => {
         e.stopPropagation();
+        if (e.pointerId !== undefined) tryRelease(e.target, e.pointerId);
         if (onPointerUp) onPointerUp(e.point.x, -e.point.z);
       }}
-      onPointerLeave={() => onPointerCancel?.()}
+      onPointerCancel={(e) => {
+        if (e.pointerId !== undefined) tryRelease(e.target, e.pointerId);
+        onPointerCancel?.();
+      }}
     >
-      <planeGeometry args={[w * 1.5, h * 1.5]} />
+      <planeGeometry args={[planeSize, planeSize]} />
       <meshBasicMaterial transparent opacity={0} depthWrite={false} />
     </mesh>
   );
