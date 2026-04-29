@@ -22,7 +22,8 @@ interface GameSceneProps {
   gameState: GameState;
   config: GameConfig;
   events: GameEvent[];
-  onPointerDown?: () => void;
+  onPointerDown?: (gameX: number, gameY: number) => void;
+  onPointerMove?: (gameX: number, gameY: number) => void;
   onPointerUp?: (gameX: number, gameY: number) => void;
   onPointerCancel?: () => void;
 }
@@ -58,37 +59,29 @@ function FitCamera({ config }: { config: GameConfig }) {
 // e.point gives the world-space hit. Game coords: x = e.point.x,
 // y = -e.point.z (we flip Z when rendering balls).
 //
-// IMPORTANT: we capture the pointer on press so the hold survives
-// even if the finger drags off the arena. The plane itself is
-// drawn very large so raycasting keeps hitting it during drags.
-// We deliberately do NOT cancel on pointerleave (that aborted
-// every drag); we only honor real OS-level pointercancel events.
+// Behaviour:
+//  - The plane is drawn very large so onPointerMove keeps firing
+//    while the finger drags inside the canvas.
+//  - We do NOT cancel on pointerleave (that aborted every drag).
+//  - onPointerCancel is honoured for real OS-level cancels only.
+//  - We do NOT call setPointerCapture: in R3F that disables the
+//    raycaster-based dispatch and the mesh stops receiving
+//    onPointerUp. Instead, App.tsx installs a window-level
+//    pointerup as a safety net using the last tracked position.
 // ============================================================
 function ClickPlane({
-  config, onPointerDown, onPointerUp, onPointerCancel,
+  config, onPointerDown, onPointerMove, onPointerUp, onPointerCancel,
 }: {
   config: GameConfig;
-  onPointerDown?: () => void;
+  onPointerDown?: (gameX: number, gameY: number) => void;
+  onPointerMove?: (gameX: number, gameY: number) => void;
   onPointerUp?: (gameX: number, gameY: number) => void;
   onPointerCancel?: () => void;
 }) {
   const w = config.graphics.arena.width;
   const h = config.graphics.arena.height;
-  // Very large catch plane so a finger drag never escapes the raycast.
+  // Very large catch plane so a drag never escapes the raycaster.
   const planeSize = Math.max(w, h) * 20;
-
-  const tryCapture = (target: unknown, pointerId: number) => {
-    const el = target as { setPointerCapture?: (id: number) => void } | null;
-    if (el && typeof el.setPointerCapture === "function") {
-      try { el.setPointerCapture(pointerId); } catch { /* ignore */ }
-    }
-  };
-  const tryRelease = (target: unknown, pointerId: number) => {
-    const el = target as { releasePointerCapture?: (id: number) => void } | null;
-    if (el && typeof el.releasePointerCapture === "function") {
-      try { el.releasePointerCapture(pointerId); } catch { /* ignore */ }
-    }
-  };
 
   return (
     <mesh
@@ -96,16 +89,16 @@ function ClickPlane({
       rotation={[-Math.PI / 2, 0, 0]}
       onPointerDown={(e) => {
         e.stopPropagation();
-        if (e.pointerId !== undefined) tryCapture(e.target, e.pointerId);
-        onPointerDown?.();
+        onPointerDown?.(e.point.x, -e.point.z);
+      }}
+      onPointerMove={(e) => {
+        onPointerMove?.(e.point.x, -e.point.z);
       }}
       onPointerUp={(e) => {
         e.stopPropagation();
-        if (e.pointerId !== undefined) tryRelease(e.target, e.pointerId);
-        if (onPointerUp) onPointerUp(e.point.x, -e.point.z);
+        onPointerUp?.(e.point.x, -e.point.z);
       }}
-      onPointerCancel={(e) => {
-        if (e.pointerId !== undefined) tryRelease(e.target, e.pointerId);
+      onPointerCancel={() => {
         onPointerCancel?.();
       }}
     >
@@ -176,7 +169,7 @@ function Arena({ config }: { config: GameConfig }) {
   );
 }
 
-function Scene({ gameState, config, events, onPointerDown, onPointerUp, onPointerCancel }: GameSceneProps) {
+function Scene({ gameState, config, events, onPointerDown, onPointerMove, onPointerUp, onPointerCancel }: GameSceneProps) {
   const balls: BallState[] = Array.from(gameState.balls.values()).filter((b) => b.isAlive);
   const w = config.graphics.arena.width;
   const h = config.graphics.arena.height;
@@ -206,6 +199,7 @@ function Scene({ gameState, config, events, onPointerDown, onPointerUp, onPointe
       <ClickPlane
         config={config}
         onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
       />
@@ -213,7 +207,7 @@ function Scene({ gameState, config, events, onPointerDown, onPointerUp, onPointe
   );
 }
 
-export function GameScene({ gameState, config, events, onPointerDown, onPointerUp, onPointerCancel }: GameSceneProps) {
+export function GameScene({ gameState, config, events, onPointerDown, onPointerMove, onPointerUp, onPointerCancel }: GameSceneProps) {
   return (
     <Canvas
       shadows
@@ -229,6 +223,7 @@ export function GameScene({ gameState, config, events, onPointerDown, onPointerU
         config={config}
         events={events}
         onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
       />

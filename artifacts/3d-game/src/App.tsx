@@ -29,6 +29,16 @@ function App() {
   const [isHolding, setIsHolding] = useState(false);
   const holdStartRef = useRef<number | null>(null);
   const animRef = useRef<number>(0);
+  // Latest game-space pointer position, updated on every move; used as a
+  // fallback target if a pointerup arrives at the window level (e.g. the
+  // user released outside the canvas DOM).
+  const lastTargetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  // Refs that mirror UI state so window-level listeners (installed once at
+  // mount) always read the latest values without re-subscribing.
+  const menuOpenRef = useRef(menuOpen);
+  const isRunningRef = useRef(isRunning);
+  useEffect(() => { menuOpenRef.current = menuOpen; }, [menuOpen]);
+  useEffect(() => { isRunningRef.current = isRunning; }, [isRunning]);
 
   const handleMenuOpen = () => { pause(); setMenuOpen(true); };
   const handleMenuClose = () => { setMenuOpen(false); resume(); };
@@ -50,24 +60,58 @@ function App() {
     return () => cancelAnimationFrame(animRef.current);
   }, [isHolding]);
 
-  const handlePointerDown = () => {
-    if (menuOpen || !isRunning) return;
+  const handlePointerDown = (gameX: number, gameY: number) => {
+    if (menuOpenRef.current || !isRunningRef.current) return;
     holdStartRef.current = performance.now();
+    lastTargetRef.current = { x: gameX, y: gameY };
     setIsHolding(true);
   };
 
-  const handlePointerUp = (gameX: number, gameY: number) => {
+  const handlePointerMove = (gameX: number, gameY: number) => {
+    // Only track position while we are charging a shot.
     if (holdStartRef.current == null) return;
+    lastTargetRef.current = { x: gameX, y: gameY };
+  };
+
+  const handlePointerUp = (gameX: number, gameY: number) => {
+    if (holdStartRef.current == null) return; // already released
     const hold = (performance.now() - holdStartRef.current) / 1000;
     holdStartRef.current = null;
     setIsHolding(false);
-    if (!menuOpen && isRunning) shoot(gameX, gameY, hold);
+    if (!menuOpenRef.current && isRunningRef.current) shoot(gameX, gameY, hold);
   };
 
   const handlePointerCancel = () => {
     holdStartRef.current = null;
     setIsHolding(false);
   };
+
+  // ---- Window-level pointerup safety net (installed once at mount) ----
+  // If the user releases outside the canvas R3F won't emit onPointerUp,
+  // so we always listen at the window. The handlers are gated by
+  // holdStartRef so they no-op when no charge is in progress, and they
+  // share the same idempotent path as the in-canvas handlers (no double
+  // shot when both fire for the same release). Installed at mount to
+  // close the small race window that would otherwise exist between
+  // pointerdown and a `[isHolding]` effect remounting.
+  useEffect(() => {
+    const onWindowUp = () => {
+      if (holdStartRef.current == null) return;
+      const { x, y } = lastTargetRef.current;
+      handlePointerUp(x, y);
+    };
+    const onWindowCancel = () => {
+      if (holdStartRef.current == null) return;
+      handlePointerCancel();
+    };
+    window.addEventListener("pointerup", onWindowUp);
+    window.addEventListener("pointercancel", onWindowCancel);
+    return () => {
+      window.removeEventListener("pointerup", onWindowUp);
+      window.removeEventListener("pointercancel", onWindowCancel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!gameState || !config) {
     return (
@@ -103,6 +147,7 @@ function App() {
           config={config}
           events={lastEvents}
           onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerCancel}
         />
