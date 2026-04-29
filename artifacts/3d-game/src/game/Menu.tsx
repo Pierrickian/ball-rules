@@ -84,11 +84,10 @@ const MENU_BTN: React.CSSProperties = {
   gap: 12,
 };
 
-// Colors available for the launcher / player pool (orange excluded — special role)
-const SELECTABLE_COLORS: BallColor[] = [
-  "white", "yellow", "red", "light_green", "dark_green",
-  "turquoise", "cyan", "blue", "dark_blue", "gray", "black",
-];
+// Colors available for the launcher / player pool (orange excluded — special role).
+// Kept in sync with `ball_rules` in game_config.json: only colors with an
+// active rule entry can be safely spawned or used as projectiles.
+const SELECTABLE_COLORS: BallColor[] = ["white", "dark_green", "gray"];
 
 // ============================================================
 // Snap Slider — unchanged
@@ -695,7 +694,15 @@ function BallCard({ colorKey, config }: { colorKey: string; config: GameConfig }
 // Balls Carousel
 // ============================================================
 function BallsCarousel({ config, onBack }: { config: GameConfig; onBack: () => void }) {
-  const colors = Object.keys(config.ball_colors).filter((c) => c !== "_description" && c !== "_color_format");
+  // Show only colors that actually have a rule defined in the config.
+  // Avoids displaying half-empty cards for colors that have a palette
+  // entry but no behaviour wired up.
+  const colors = Object.keys(config.ball_colors).filter(
+    (c) =>
+      c !== "_description" &&
+      c !== "_color_format" &&
+      config.ball_rules?.[c as keyof typeof config.ball_rules]
+  );
   const [index, setIndex] = useState(0);
   const prev = () => setIndex((i) => (i - 1 + colors.length) % colors.length);
   const next = () => setIndex((i) => (i + 1) % colors.length);
@@ -767,6 +774,15 @@ const HOW_TO_ASK_TUTOS: HowToAskTuto[] = [
       "Demande à l'agent d'introduire une couleur déjà existante dans le jeu (ou d'en créer une nouvelle), puis de régler la fréquence à laquelle elle apparaît dans l'arène.",
     prompt:
       "Je veux que la couleur [NOM_COULEUR] apparaisse en jeu. Configure-la dans game_config.json (sections ball_colors, ball_rules, bounce_conditions et gameplay.[NOM_COULEUR]). Règle son apparition pour qu'une nouvelle balle de cette couleur spawn environ toutes les [FREQUENCE_EN_SECONDES] secondes, dans la limite du spawn cap global. Explique-moi ensuite ce que tu as changé.",
+  },
+  {
+    id: "edit_color_rules",
+    emoji: "✏️",
+    title: "Éditer / créer les règles d'une couleur",
+    intro:
+      "Demande à l'agent de modifier les règles d'une couleur existante ou d'en définir de nouvelles : type de comportement, dégâts, points de vie, conditions de rebond, d'apparition et de disparition.",
+    prompt:
+      "Je veux modifier les règles de la couleur [NOM_COULEUR] dans game_config.json. Voici ce que je veux : [DÉCRIS_LE_COMPORTEMENT_SOUHAITÉ — par exemple : « rebondit sur tout, démarre à 3 PV, gagne 1 PV par ricochet sur un mur, disparaît à 0 PV, dégâts = 2 »]. Mets à jour ball_rules, bounce_conditions, gameplay.[NOM_COULEUR] et rule_parameters si nécessaire. Si une règle correspondante n'existe pas encore dans game_engine.ts, crée-la et explique-moi exactement ce que tu as ajouté.",
   },
   {
     id: "color_rules",

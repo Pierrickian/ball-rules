@@ -83,17 +83,9 @@
   "ball_rules": {
     "_description": "Règle de comportement de chaque couleur. IMPORTANT: toute modification de règle doit passer par ce fichier. Les handlers sont dans game_engine.ts. La règle 'player_projectile' est attribuée dynamiquement aux tirs du joueur.",
     "white":       { "rule": "bounce",            "_description": "Rebondit sur les murs sans perdre de vitesse." },
-    "yellow":      { "rule": "accelerate",         "_description": "Accélère progressivement. Devient rapide avec le temps." },
     "orange":      { "rule": "launcher",           "_description": "Balle lanceur: apparaît sur un bord et tire une balle." },
-    "red":         { "rule": "destroy_on_contact", "_description": "Détruit toute balle qu'elle touche (et disparaît aussi)." },
-    "light_green": { "rule": "slow_nearby",        "_description": "Ralentit les balles proches dans un rayon donné." },
     "dark_green":  { "rule": "hp_grow_bouncer",    "_description": "Rebondit sur les murs. Démarre avec 2 PV (5 PV max). Disparaît à 0 PV. Gagne 1 PV en traversant une autre balle. Sa taille augmente avec les PV." },
-    "turquoise":   { "rule": "split",              "_description": "Se divise en 2 balles plus petites au contact d'un mur." },
-    "cyan":        { "rule": "freeze_nearby",      "_description": "Gèle momentanément les balles proches." },
-    "blue":        { "rule": "transfer_rule",      "_description": "Transmet sa règle à la première balle qu'elle touche." },
-    "dark_blue":   { "rule": "gravity_sink",       "_description": "Attire toutes les balles vers le centre de l'écran." },
-    "gray":        { "rule": "neutral",            "_description": "Aucun effet spécial. Se déplace et rebondit." },
-    "black":       { "rule": "absorb",             "_description": "Absorbe les balles qu'elle touche et grossit." }
+    "gray":        { "rule": "neutral",            "_description": "Aucun effet spécial. Se déplace et rebondit. Couleur par défaut des projectiles du joueur." }
   },
 
   "bounce_conditions": {
@@ -108,17 +100,9 @@
     "ball_bounce_conditions": {
       "_description": "Condition de rebond attribuée à chaque couleur de balle.",
       "white":       "against_wall",
-      "yellow":      "against_all",
       "orange":      "against_wall",
-      "red":         "against_ball",
-      "light_green": "against_all",
       "dark_green":  "against_wall",
-      "turquoise":   "against_wall",
-      "cyan":        "against_all",
-      "blue":        "against_ball",
-      "dark_blue":   "against_wall",
-      "gray":        "against_wall",
-      "black":       "against_all"
+      "gray":        "against_wall"
     }
   },
 
@@ -164,21 +148,13 @@
         "size": "small",
         "speed": 45.0,
         "direction": "random",
-        "allow_colors": ["white","yellow","red","light_green","dark_green","turquoise","cyan","blue","dark_blue","gray","black"]
+        "allow_colors": ["white", "dark_green", "gray"]
       }
     },
 
     "white":       { "spawn": { "condition": "launched_by_orange" }, "despawn": { "condition": "out_of_bounds" } },
-    "yellow":      { "spawn": { "condition": "launched_by_orange" }, "despawn": { "condition": "out_of_bounds" } },
-    "red":         { "spawn": { "condition": "launched_by_orange" }, "despawn": { "condition": "destroys_self_after_contact" } },
-    "light_green": { "spawn": { "condition": "launched_by_orange" }, "despawn": { "condition": "out_of_bounds" } },
     "dark_green":  { "spawn": { "condition": "launched_by_orange" }, "despawn": { "condition": "killed_at_zero_hp" } },
-    "turquoise":   { "spawn": { "condition": "launched_by_orange" }, "despawn": { "condition": "split_completed" } },
-    "cyan":        { "spawn": { "condition": "launched_by_orange" }, "despawn": { "condition": "out_of_bounds" } },
-    "blue":        { "spawn": { "condition": "launched_by_orange" }, "despawn": { "condition": "rule_transferred" } },
-    "dark_blue":   { "spawn": { "condition": "launched_by_orange" }, "despawn": { "condition": "out_of_bounds" } },
-    "gray":        { "spawn": { "condition": "launched_by_orange" }, "despawn": { "condition": "out_of_bounds" } },
-    "black":       { "spawn": { "condition": "launched_by_orange" }, "despawn": { "condition": "max_size_reached" } }
+    "gray":        { "spawn": { "condition": "launched_by_orange" }, "despawn": { "condition": "out_of_bounds" } }
   },
 
   "gameplay_controls": {
