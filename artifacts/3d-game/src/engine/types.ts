@@ -235,6 +235,12 @@ export interface GameConfig {
     concept: string;
     sections: Array<{ heading: string; text: string }>;
   };
+  /**
+   * Short titles of the latest game evolutions, newest-first.
+   * Capped at 20 entries — older ones are dropped when a new one is added.
+   * The agent must update this list before each commit (see replit.md).
+   */
+  release_notes: string[];
   debug: {
     show_velocities: boolean;
     show_ball_ids: boolean;

@@ -10,7 +10,7 @@
 import { useState, useRef, useCallback } from "react";
 import type { BallColor, GameConfig } from "../engine/types";
 
-type MenuView = "main" | "rules" | "balls" | "terrain" | "launcher_color" | "player_colors" | "how_to_ask";
+type MenuView = "main" | "rules" | "balls" | "terrain" | "launcher_color" | "player_colors" | "how_to_ask" | "release_notes";
 
 interface MenuProps {
   config: GameConfig;
@@ -497,7 +497,7 @@ function PlayerColorsMenu({
 // Main Menu
 // ============================================================
 function MainMenu({
-  onRules, onBalls, onTerrain, onLauncherColor, onPlayerColors, onHowToAsk, onClose,
+  onRules, onBalls, onTerrain, onLauncherColor, onPlayerColors, onHowToAsk, onReleaseNotes, onClose,
 }: {
   onRules:          () => void;
   onBalls:          () => void;
@@ -505,6 +505,7 @@ function MainMenu({
   onLauncherColor:  () => void;
   onPlayerColors:   () => void;
   onHowToAsk:       () => void;
+  onReleaseNotes:   () => void;
   onClose:          () => void;
 }) {
   return (
@@ -555,7 +556,77 @@ function MainMenu({
           <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Tutos pour interroger l'agent</div>
         </div>
       </button>
+      <button style={MENU_BTN} onClick={onReleaseNotes}>
+        <span style={{ fontSize: 20 }}>📝</span>
+        <div>
+          <div style={{ fontWeight: "bold" }}>Notes de version</div>
+          <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Les dernières évolutions du jeu</div>
+        </div>
+      </button>
       <button style={CLOSE_BTN} onClick={onClose}>✕ Retour au jeu</button>
+    </div>
+  );
+}
+
+// ============================================================
+// Release Notes View
+// ============================================================
+function ReleaseNotesView({ config, onBack }: { config: GameConfig; onBack: () => void }) {
+  const notes = config.release_notes ?? [];
+  const MAX_NOTES = 20;
+  const visible = notes.slice(0, MAX_NOTES);
+
+  return (
+    <div style={PANEL}>
+      <div>
+        <div style={TITLE}>Notes de version</div>
+        <div style={{ fontSize: 18, fontWeight: "bold", color: "#1e90ff", marginBottom: 6 }}>
+          Dernières évolutions
+        </div>
+        <div style={{ fontSize: 12, color: "#7a8fa8", marginBottom: 14, lineHeight: 1.5 }}>
+          Les {MAX_NOTES} évolutions les plus récentes du jeu, de la plus récente à la plus ancienne.
+        </div>
+
+        {visible.length === 0 ? (
+          <div style={{ fontSize: 13, color: "#778", fontStyle: "italic" }}>
+            Aucune note de version pour l'instant.
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {visible.map((note, i) => (
+              <div
+                key={i}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "32px 1fr",
+                  gap: 10,
+                  alignItems: "baseline",
+                  padding: "8px 10px",
+                  background: i === 0 ? "rgba(30,144,255,0.10)" : "rgba(6,16,45,0.55)",
+                  border: i === 0 ? "1px solid rgba(30,144,255,0.35)" : "1px solid rgba(30,144,255,0.10)",
+                  borderRadius: 8,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontFamily: "monospace",
+                    color: i === 0 ? "#7fb3ff" : "#556",
+                    fontWeight: i === 0 ? "bold" : "normal",
+                  }}
+                >
+                  #{visible.length - i}
+                </div>
+                <div style={{ fontSize: 13, color: i === 0 ? "#dfecff" : "#aac2dc", lineHeight: 1.5 }}>
+                  {note}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <button style={CLOSE_BTN} onClick={onBack}>← Retour</button>
     </div>
   );
 }
@@ -1129,6 +1200,7 @@ export function Menu({ config, onClose, onArenaChange, onLauncherColorChange, on
           onLauncherColor={() => setView("launcher_color")}
           onPlayerColors={() => setView("player_colors")}
           onHowToAsk={() => setView("how_to_ask")}
+          onReleaseNotes={() => setView("release_notes")}
           onClose={onClose}
         />
       )}
@@ -1138,6 +1210,7 @@ export function Menu({ config, onClose, onArenaChange, onLauncherColorChange, on
       {view === "launcher_color" && <LauncherColorMenu config={config} onLauncherColorChange={onLauncherColorChange} onBack={() => setView("main")} />}
       {view === "player_colors"  && <PlayerColorsMenu  config={config} onPlayerColorsChange={onPlayerColorsChange}   onBack={() => setView("main")} />}
       {view === "how_to_ask"     && <HowToAskCarousel onBack={() => setView("main")} />}
+      {view === "release_notes"  && <ReleaseNotesView config={config} onBack={() => setView("main")} />}
     </div>
   );
 }

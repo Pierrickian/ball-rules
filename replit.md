@@ -70,6 +70,15 @@ against_obstacle → rebondit obstacles (future)
 against_all      → rebondit tout
 ```
 
+### Notes de version (`release_notes`)
+
+- Champ `release_notes` (tableau de strings) dans `game_config.json`, affiché dans le sous-menu **Notes de version** du jeu.
+- **Avant chaque commit**, l'agent doit ajouter en tête de liste un titre court (≈ 6-10 mots) résumant l'évolution apportée par le commit.
+- Le tableau ne dépasse jamais **20 entrées** : si l'ajout fait passer à 21, supprimer la plus ancienne (la dernière du tableau) avant de commiter.
+- L'ordre est strictement **du plus récent au plus ancien** (l'index 0 = la nouveauté du commit en cours).
+- Pas de date, pas de numéro de version, pas de lien — juste un titre lisible par un joueur non-développeur.
+- Si le commit est purement interne (refacto sans impact joueur), ajouter quand même une ligne neutre du type « Refonte interne du moteur » plutôt que de sauter la mise à jour.
+
 ### Règles développeur
 
 - **Tout changement de règle → `ball.changeRule()` ou `ball.passRuleTo()`** (Ball.ts)

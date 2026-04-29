@@ -242,6 +242,25 @@
     ]
   },
 
+  "release_notes": [
+    "Sous-menu Notes de version",
+    "Glossaire d'agent dans le menu Comment demander",
+    "Prompts de tutoriels simplifiés (sans jargon technique)",
+    "Carrousel des balles : badge En attente de règle pour les couleurs sans comportement",
+    "Réduction des règles actives à blanc, vert foncé, gris (palette intacte)",
+    "Sous-menu Comment demander avec 4 tutoriels et copie de prompt",
+    "Tir maintenu : seuils raccourcis (appuyé 0.3s, méga 0.8s)",
+    "Correction du bug de tir maintenu sur mobile et trackpad",
+    "Sous-menu Couleur joueur (multi-sélection de la file de tir)",
+    "Sous-menu Couleur lancée pour configurer le lanceur orange",
+    "Trois types de tir : léger, appuyé, méga",
+    "Carrousel Détail des balles avec carte d'identité par couleur",
+    "Menu Règles du jeu",
+    "Sous-menu Terrain : ratio d'aspect et résolution",
+    "Caméra portrait orthographique top-down",
+    "Architecture découplée : moteur logique sans dépendance 3D"
+  ],
+
   "debug": {
     "show_velocities": false,
     "show_ball_ids": false,
