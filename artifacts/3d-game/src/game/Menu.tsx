@@ -10,7 +10,7 @@
 import { useState, useRef, useCallback } from "react";
 import type { BallColor, GameConfig } from "../engine/types";
 
-type MenuView = "main" | "rules" | "balls" | "terrain" | "launcher_color" | "player_colors";
+type MenuView = "main" | "rules" | "balls" | "terrain" | "launcher_color" | "player_colors" | "how_to_ask";
 
 interface MenuProps {
   config: GameConfig;
@@ -498,13 +498,14 @@ function PlayerColorsMenu({
 // Main Menu
 // ============================================================
 function MainMenu({
-  onRules, onBalls, onTerrain, onLauncherColor, onPlayerColors, onClose,
+  onRules, onBalls, onTerrain, onLauncherColor, onPlayerColors, onHowToAsk, onClose,
 }: {
   onRules:          () => void;
   onBalls:          () => void;
   onTerrain:        () => void;
   onLauncherColor:  () => void;
   onPlayerColors:   () => void;
+  onHowToAsk:       () => void;
   onClose:          () => void;
 }) {
   return (
@@ -546,6 +547,13 @@ function MainMenu({
         <div>
           <div style={{ fontWeight: "bold" }}>Terrain</div>
           <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Ratio d'aspect &amp; résolution</div>
+        </div>
+      </button>
+      <button style={MENU_BTN} onClick={onHowToAsk}>
+        <span style={{ fontSize: 20 }}>💬</span>
+        <div>
+          <div style={{ fontWeight: "bold" }}>Comment demander</div>
+          <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Tutos pour interroger l'agent</div>
         </div>
       </button>
       <button style={CLOSE_BTN} onClick={onClose}>✕ Retour au jeu</button>
@@ -733,6 +741,218 @@ function BallsCarousel({ config, onBack }: { config: GameConfig; onBack: () => v
 }
 
 // ============================================================
+// How To Ask — Carousel of 3 tutorials
+//
+// Each tutorial explains comment formuler une demande à l'agent.
+// Tutos 1 & 2 fournissent un prompt prêt à copier ; le tuto 3
+// se résout in-game et pointe vers le bon sous-menu.
+// ============================================================
+interface HowToAskTuto {
+  id: string;
+  emoji: string;
+  title: string;
+  intro: string;
+  /** Si défini, on affiche un bouton "Copier le prompt". */
+  prompt?: string;
+  /** Si défini, on affiche un encart "C'est dans le jeu !". */
+  inGame?: { menuName: string; instructions: string };
+}
+
+const HOW_TO_ASK_TUTOS: HowToAskTuto[] = [
+  {
+    id: "add_color",
+    emoji: "🎨",
+    title: "Ajouter une nouvelle couleur",
+    intro:
+      "Demande à l'agent d'introduire une couleur déjà existante dans le jeu (ou d'en créer une nouvelle), puis de régler la fréquence à laquelle elle apparaît dans l'arène.",
+    prompt:
+      "Je veux que la couleur [NOM_COULEUR] apparaisse en jeu. Configure-la dans game_config.json (sections ball_colors, ball_rules, bounce_conditions et gameplay.[NOM_COULEUR]). Règle son apparition pour qu'une nouvelle balle de cette couleur spawn environ toutes les [FREQUENCE_EN_SECONDES] secondes, dans la limite du spawn cap global. Explique-moi ensuite ce que tu as changé.",
+  },
+  {
+    id: "color_rules",
+    emoji: "📋",
+    title: "Connaître les règles d'une couleur",
+    intro:
+      "Demande à l'agent un récap complet d'une couleur : ses dégâts, ses points de vie, ses conditions d'apparition / disparition, son comportement de rebond et tout effet spécial.",
+    prompt:
+      "Donne-moi la fiche complète de la couleur [NOM_COULEUR] telle que définie dans game_config.json : ses points de vie, ses dégâts, sa vitesse, ses conditions de rebond, ses conditions d'apparition et de disparition, ainsi que tout comportement spécial. Cite les valeurs exactes lues dans la config.",
+  },
+  {
+    id: "player_colors",
+    emoji: "🎯",
+    title: "Tirer d'autres couleurs en tant que joueur",
+    intro:
+      "Pas besoin de prompt pour ça : la sélection des couleurs disponibles dans la file de tir du joueur se fait directement depuis le menu, en jeu.",
+    inGame: {
+      menuName: "Couleur joueur",
+      instructions:
+        "Ouvre le menu, puis va dans « Couleur joueur ». Active ou désactive les couleurs que tu veux voir apparaître dans ta file de tir (sélection multiple = tirage aléatoire). Au moins une couleur doit rester active.",
+    },
+  },
+];
+
+function HowToAskCard({ tuto }: { tuto: HowToAskTuto }) {
+  const [copied, setCopied] = useState(false);
+
+  const onCopy = async () => {
+    if (!tuto.prompt) return;
+    try {
+      await navigator.clipboard.writeText(tuto.prompt);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      // Fallback for older / restricted browsers
+      const ta = document.createElement("textarea");
+      ta.value = tuto.prompt;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch { /* noop */ }
+      document.body.removeChild(ta);
+    }
+  };
+
+  return (
+    <div
+      style={{
+        background: "rgba(6,16,48,0.8)",
+        border: "1px solid rgba(30,144,255,0.2)",
+        borderRadius: 12,
+        padding: "16px 16px 18px",
+        display: "flex",
+        flexDirection: "column",
+        gap: 12,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span style={{ fontSize: 26 }}>{tuto.emoji}</span>
+        <div style={{ fontSize: 15, fontWeight: "bold", color: "#fff" }}>{tuto.title}</div>
+      </div>
+
+      <div style={{ fontSize: 12, color: "#8aa6cc", lineHeight: 1.55 }}>
+        {tuto.intro}
+      </div>
+
+      {tuto.prompt && (
+        <>
+          <div
+            style={{
+              background: "rgba(0,5,20,0.7)",
+              border: "1px dashed rgba(30,144,255,0.35)",
+              borderRadius: 8,
+              padding: "10px 12px",
+              fontSize: 11.5,
+              color: "#cfe0ff",
+              lineHeight: 1.55,
+              whiteSpace: "pre-wrap",
+              fontFamily: "'Courier New', monospace",
+            }}
+          >
+            {tuto.prompt}
+          </div>
+          <button
+            onClick={onCopy}
+            style={{
+              background: copied ? "rgba(60,200,120,0.22)" : "rgba(30,144,255,0.2)",
+              border: copied ? "1px solid #3cc878" : "1px solid rgba(30,144,255,0.55)",
+              color: copied ? "#7fe6a8" : "#cfe0ff",
+              borderRadius: 8,
+              padding: "10px 14px",
+              cursor: "pointer",
+              fontSize: 13,
+              fontWeight: "bold",
+              fontFamily: "inherit",
+              transition: "all 0.15s",
+            }}
+          >
+            {copied ? "✓ Copié !" : "📋 Copier le prompt"}
+          </button>
+          <div style={{ fontSize: 10.5, color: "#556", lineHeight: 1.5 }}>
+            Remplace les valeurs entre crochets <span style={{ color: "#8aa6cc" }}>[…]</span> avant d'envoyer le message à l'agent.
+          </div>
+        </>
+      )}
+
+      {tuto.inGame && (
+        <div
+          style={{
+            background: "rgba(20,60,30,0.35)",
+            border: "1px solid rgba(60,200,120,0.4)",
+            borderRadius: 8,
+            padding: "12px 14px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 16 }}>🎮</span>
+            <div style={{ fontSize: 12, fontWeight: "bold", color: "#7fe6a8", letterSpacing: 1 }}>
+              C'EST DANS LE JEU
+            </div>
+          </div>
+          <div style={{ fontSize: 12, color: "#cfe0ff", lineHeight: 1.55 }}>
+            Menu : <strong style={{ color: "#fff" }}>« {tuto.inGame.menuName} »</strong>
+          </div>
+          <div style={{ fontSize: 11.5, color: "#aac8b6", lineHeight: 1.55 }}>
+            {tuto.inGame.instructions}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HowToAskCarousel({ onBack }: { onBack: () => void }) {
+  const [index, setIndex] = useState(0);
+  const tutos = HOW_TO_ASK_TUTOS;
+  const prev = () => setIndex((i) => (i - 1 + tutos.length) % tutos.length);
+  const next = () => setIndex((i) => (i + 1) % tutos.length);
+  const tuto = tutos[index];
+
+  return (
+    <div style={PANEL}>
+      <div>
+        <div style={TITLE}>Comment demander</div>
+        <div style={{ fontSize: 16, fontWeight: "bold", color: "#1e90ff" }}>
+          {index + 1} / {tutos.length}
+        </div>
+      </div>
+
+      <HowToAskCard tuto={tuto} />
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+        <button onClick={prev} style={{ ...CLOSE_BTN, flex: 1, textAlign: "center", color: "#aac8f0", borderColor: "rgba(30,144,255,0.4)" }}>
+          ← Précédent
+        </button>
+        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+          {tutos.map((t, i) => (
+            <div
+              key={t.id}
+              onClick={() => setIndex(i)}
+              style={{
+                width: i === index ? 10 : 6, height: i === index ? 10 : 6,
+                borderRadius: "50%",
+                background: i === index ? "#1e90ff" : "rgba(255,255,255,0.18)",
+                cursor: "pointer",
+                boxShadow: i === index ? "0 0 6px #1e90ff" : "none",
+                transition: "all 0.2s",
+              }}
+            />
+          ))}
+        </div>
+        <button onClick={next} style={{ ...CLOSE_BTN, flex: 1, textAlign: "center", color: "#aac8f0", borderColor: "rgba(30,144,255,0.4)" }}>
+          Suivant →
+        </button>
+      </div>
+
+      <button style={CLOSE_BTN} onClick={onBack}>← Retour</button>
+    </div>
+  );
+}
+
+// ============================================================
 // Root Menu Component
 // ============================================================
 export function Menu({ config, onClose, onArenaChange, onLauncherColorChange, onPlayerColorsChange }: MenuProps) {
@@ -747,6 +967,7 @@ export function Menu({ config, onClose, onArenaChange, onLauncherColorChange, on
           onTerrain={() => setView("terrain")}
           onLauncherColor={() => setView("launcher_color")}
           onPlayerColors={() => setView("player_colors")}
+          onHowToAsk={() => setView("how_to_ask")}
           onClose={onClose}
         />
       )}
@@ -755,6 +976,7 @@ export function Menu({ config, onClose, onArenaChange, onLauncherColorChange, on
       {view === "terrain"        && <TerrainMenu    config={config} onArenaChange={onArenaChange} onBack={() => setView("main")} />}
       {view === "launcher_color" && <LauncherColorMenu config={config} onLauncherColorChange={onLauncherColorChange} onBack={() => setView("main")} />}
       {view === "player_colors"  && <PlayerColorsMenu  config={config} onPlayerColorsChange={onPlayerColorsChange}   onBack={() => setView("main")} />}
+      {view === "how_to_ask"     && <HowToAskCarousel onBack={() => setView("main")} />}
     </div>
   );
 }
