@@ -595,6 +595,7 @@ function RulesView({ config, onBack }: { config: GameConfig; onBack: () => void 
 function BallCard({ colorKey, config }: { colorKey: string; config: GameConfig }) {
   const colorEntry = config.ball_colors[colorKey as keyof typeof config.ball_colors];
   const ruleEntry  = config.ball_rules[colorKey  as keyof typeof config.ball_rules];
+  const hasRule = !!ruleEntry;
   const bounceCondition = config.bounce_conditions?.ball_bounce_conditions?.[colorKey] ?? "—";
   const spawnCond  = config.gameplay[colorKey]?.spawn?.condition  ?? "—";
   const despawnCond = config.gameplay[colorKey]?.despawn?.condition ?? "—";
@@ -626,6 +627,7 @@ function BallCard({ colorKey, config }: { colorKey: string; config: GameConfig }
         flexDirection: "column",
         gap: 14,
         minHeight: 320,
+        opacity: hasRule ? 1 : 0.85,
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -638,7 +640,7 @@ function BallCard({ colorKey, config }: { colorKey: string; config: GameConfig }
             flexShrink: 0,
           }}
         />
-        <div>
+        <div style={{ flex: 1 }}>
           <div style={{ fontSize: 18, fontWeight: "bold", color: "#ddeeff" }}>
             {colorEntry?._label ?? colorKey}
           </div>
@@ -648,44 +650,72 @@ function BallCard({ colorKey, config }: { colorKey: string; config: GameConfig }
         </div>
       </div>
 
-      <div>
-        <div style={TITLE}>Règle</div>
-        <div style={{ fontSize: 13, color: "#7a9fcc", fontStyle: "italic", marginBottom: 3 }}>{ruleEntry?.rule}</div>
-        <div style={{ fontSize: 12, color: "#99b0d4", lineHeight: 1.6 }}>{ruleEntry?._description}</div>
-      </div>
-
-      {hpInfo && (
-        <div>
-          <div style={TITLE}>Points de vie</div>
-          <div style={{ fontSize: 12, color: "#88dd88" }}>{hpInfo}</div>
+      {!hasRule ? (
+        <div
+          style={{
+            background: "rgba(60,60,30,0.25)",
+            border: "1px dashed rgba(220,180,80,0.5)",
+            borderRadius: 10,
+            padding: "14px 14px",
+            color: "#e0c887",
+            fontSize: 12,
+            lineHeight: 1.55,
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
+          }}
+        >
+          <div style={{ fontWeight: "bold", letterSpacing: 1, fontSize: 11, color: "#f0d896" }}>
+            ⏳ EN ATTENTE DE RÈGLE
+          </div>
+          <div style={{ color: "#cbb98a" }}>
+            Cette couleur fait partie de la palette mais n'a pas encore de comportement défini en
+            jeu. Tu peux demander à l'agent d'en créer un (voir le menu « Comment demander »,
+            tutoriels « Ajouter une nouvelle couleur » et « Éditer / créer les règles d'une couleur »).
+          </div>
         </div>
+      ) : (
+        <>
+          <div>
+            <div style={TITLE}>Règle</div>
+            <div style={{ fontSize: 13, color: "#7a9fcc", fontStyle: "italic", marginBottom: 3 }}>{ruleEntry?.rule}</div>
+            <div style={{ fontSize: 12, color: "#99b0d4", lineHeight: 1.6 }}>{ruleEntry?._description}</div>
+          </div>
+
+          {hpInfo && (
+            <div>
+              <div style={TITLE}>Points de vie</div>
+              <div style={{ fontSize: 12, color: "#88dd88" }}>{hpInfo}</div>
+            </div>
+          )}
+
+          <div>
+            <div style={TITLE}>Condition de rebond</div>
+            <div style={{
+              fontSize: 12, color: "#66aacc",
+              background: "rgba(30,90,180,0.12)", borderRadius: 6,
+              padding: "5px 10px", display: "inline-block",
+              fontFamily: "monospace", marginBottom: 3,
+            }}>
+              {bounceCondition}
+            </div>
+            <div style={{ fontSize: 11, color: "#556", marginTop: 4 }}>
+              {bounceLabels[bounceCondition] ?? bounceCondition}
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ flex: 1 }}>
+              <div style={TITLE}>Apparition</div>
+              <div style={{ fontSize: 11, color: "#6faa88" }}>{spawnCond}</div>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={TITLE}>Disparition</div>
+              <div style={{ fontSize: 11, color: "#aa6f6f" }}>{despawnCond}</div>
+            </div>
+          </div>
+        </>
       )}
-
-      <div>
-        <div style={TITLE}>Condition de rebond</div>
-        <div style={{
-          fontSize: 12, color: "#66aacc",
-          background: "rgba(30,90,180,0.12)", borderRadius: 6,
-          padding: "5px 10px", display: "inline-block",
-          fontFamily: "monospace", marginBottom: 3,
-        }}>
-          {bounceCondition}
-        </div>
-        <div style={{ fontSize: 11, color: "#556", marginTop: 4 }}>
-          {bounceLabels[bounceCondition] ?? bounceCondition}
-        </div>
-      </div>
-
-      <div style={{ display: "flex", gap: 10 }}>
-        <div style={{ flex: 1 }}>
-          <div style={TITLE}>Apparition</div>
-          <div style={{ fontSize: 11, color: "#6faa88" }}>{spawnCond}</div>
-        </div>
-        <div style={{ flex: 1 }}>
-          <div style={TITLE}>Disparition</div>
-          <div style={{ fontSize: 11, color: "#aa6f6f" }}>{despawnCond}</div>
-        </div>
-      </div>
     </div>
   );
 }
@@ -694,14 +724,12 @@ function BallCard({ colorKey, config }: { colorKey: string; config: GameConfig }
 // Balls Carousel
 // ============================================================
 function BallsCarousel({ config, onBack }: { config: GameConfig; onBack: () => void }) {
-  // Show only colors that actually have a rule defined in the config.
-  // Avoids displaying half-empty cards for colors that have a palette
-  // entry but no behaviour wired up.
+  // Show every color in the palette, including those without an active
+  // rule. The card itself flags missing rules with an "En attente de
+  // règle" badge so the player can see the full inventory of colors
+  // they may activate via the agent.
   const colors = Object.keys(config.ball_colors).filter(
-    (c) =>
-      c !== "_description" &&
-      c !== "_color_format" &&
-      config.ball_rules?.[c as keyof typeof config.ball_rules]
+    (c) => c !== "_description" && c !== "_color_format"
   );
   const [index, setIndex] = useState(0);
   const prev = () => setIndex((i) => (i - 1 + colors.length) % colors.length);
@@ -771,27 +799,27 @@ const HOW_TO_ASK_TUTOS: HowToAskTuto[] = [
     emoji: "🎨",
     title: "Ajouter une nouvelle couleur",
     intro:
-      "Demande à l'agent d'introduire une couleur déjà existante dans le jeu (ou d'en créer une nouvelle), puis de régler la fréquence à laquelle elle apparaît dans l'arène.",
+      "Demande à l'agent qu'une nouvelle couleur de balle entre en jeu, et précise à quelle fréquence elle doit apparaître dans l'arène.",
     prompt:
-      "Je veux que la couleur [NOM_COULEUR] apparaisse en jeu. Configure-la dans game_config.json (sections ball_colors, ball_rules, bounce_conditions et gameplay.[NOM_COULEUR]). Règle son apparition pour qu'une nouvelle balle de cette couleur spawn environ toutes les [FREQUENCE_EN_SECONDES] secondes, dans la limite du spawn cap global. Explique-moi ensuite ce que tu as changé.",
+      "Je voudrais que la couleur [NOM_COULEUR] apparaisse dans l'arène. Fais en sorte qu'une nouvelle balle de cette couleur entre en jeu environ toutes les [FREQUENCE_EN_SECONDES] secondes.",
   },
   {
     id: "edit_color_rules",
     emoji: "✏️",
     title: "Éditer / créer les règles d'une couleur",
     intro:
-      "Demande à l'agent de modifier les règles d'une couleur existante ou d'en définir de nouvelles : type de comportement, dégâts, points de vie, conditions de rebond, d'apparition et de disparition.",
+      "Demande à l'agent de définir ou modifier le comportement d'une couleur de balle : sur quoi elle rebondit, ses points de vie, ses dégâts, comment elle apparaît et comment elle disparaît.",
     prompt:
-      "Je veux modifier les règles de la couleur [NOM_COULEUR] dans game_config.json. Voici ce que je veux : [DÉCRIS_LE_COMPORTEMENT_SOUHAITÉ — par exemple : « rebondit sur tout, démarre à 3 PV, gagne 1 PV par ricochet sur un mur, disparaît à 0 PV, dégâts = 2 »]. Mets à jour ball_rules, bounce_conditions, gameplay.[NOM_COULEUR] et rule_parameters si nécessaire. Si une règle correspondante n'existe pas encore dans game_engine.ts, crée-la et explique-moi exactement ce que tu as ajouté.",
+      "Je voudrais définir le comportement de la couleur [NOM_COULEUR]. Voici ce que je veux qu'elle fasse en jeu : [DÉCRIS_LE_COMPORTEMENT — par exemple : « elle rebondit sur les murs et sur les autres balles, démarre avec 3 points de vie, perd 1 point de vie à chaque rebond contre un mur, disparaît à 0 point de vie, et fait 2 dégâts à chaque balle qu'elle touche »].",
   },
   {
     id: "color_rules",
     emoji: "📋",
     title: "Connaître les règles d'une couleur",
     intro:
-      "Demande à l'agent un récap complet d'une couleur : ses dégâts, ses points de vie, ses conditions d'apparition / disparition, son comportement de rebond et tout effet spécial.",
+      "Demande à l'agent un récapitulatif complet d'une couleur : son comportement, ses points de vie, ses dégâts, ses rebonds, ses conditions d'apparition et de disparition.",
     prompt:
-      "Donne-moi la fiche complète de la couleur [NOM_COULEUR] telle que définie dans game_config.json : ses points de vie, ses dégâts, sa vitesse, ses conditions de rebond, ses conditions d'apparition et de disparition, ainsi que tout comportement spécial. Cite les valeurs exactes lues dans la config.",
+      "Décris-moi en détail le comportement de la couleur [NOM_COULEUR] en jeu : ses points de vie de départ, ses dégâts, comment elle se déplace, sur quoi elle rebondit, comment elle apparaît, comment elle disparaît, et tout effet spécial qu'elle peut avoir.",
   },
   {
     id: "player_colors",
@@ -806,6 +834,121 @@ const HOW_TO_ASK_TUTOS: HowToAskTuto[] = [
     },
   },
 ];
+
+// ---- Glossary used in the intro panel of the "How to ask" carousel ----
+interface GlossaryEntry {
+  term: string;
+  definition: string;
+}
+
+const HOW_TO_ASK_GLOSSARY: GlossaryEntry[] = [
+  {
+    term: "Arène",
+    definition: "Le terrain de jeu rectangulaire dans lequel évoluent toutes les balles.",
+  },
+  {
+    term: "Balle",
+    definition: "N'importe quelle bille colorée présente dans l'arène (les balles ennemies, les balles spéciales, etc.).",
+  },
+  {
+    term: "Lanceur (balle orange)",
+    definition: "La balle orange qui apparaît sur les bords de l'arène et fait entrer en jeu de nouvelles balles.",
+  },
+  {
+    term: "Couleur",
+    definition: "Le « type » d'une balle. Chaque couleur a son propre comportement (= sa règle).",
+  },
+  {
+    term: "Règle",
+    definition: "Le comportement associé à une couleur : rebonds, dégâts, points de vie, effets spéciaux, conditions d'apparition et de disparition.",
+  },
+  {
+    term: "Points de vie (PV)",
+    definition: "Quantité de dégâts qu'une balle peut encaisser avant de disparaître. Affichés au-dessus de chaque balle en jeu.",
+  },
+  {
+    term: "Tir / Projectile",
+    definition: "La balle lancée par le joueur depuis le bas de l'écran. Il en existe trois types selon la durée d'appui : tir léger, tir appuyé, méga tir.",
+  },
+  {
+    term: "File d'attente",
+    definition: "Les 3 prochaines balles que le joueur va tirer, visibles en bas de l'écran. La gauche est la prochaine à partir.",
+  },
+  {
+    term: "Menu « Couleur lancée »",
+    definition: "Sous-menu qui choisit la couleur des balles que la balle orange fait entrer en jeu.",
+  },
+  {
+    term: "Menu « Couleur joueur »",
+    definition: "Sous-menu qui choisit le pool de couleurs piochées pour la file d'attente des tirs du joueur.",
+  },
+  {
+    term: "Menu « Détail des balles »",
+    definition: "Carrousel qui présente chaque couleur de la palette, avec sa règle si elle est définie ou un statut « en attente de règle » sinon.",
+  },
+  {
+    term: "Menu « Terrain »",
+    definition: "Sous-menu qui règle le ratio d'aspect et la résolution de l'arène.",
+  },
+];
+
+function HowToAskIntro() {
+  return (
+    <div
+      style={{
+        background: "rgba(6,16,48,0.8)",
+        border: "1px solid rgba(30,144,255,0.25)",
+        borderRadius: 12,
+        padding: "14px 16px 16px",
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 18 }}>📖</span>
+        <div style={{ fontSize: 13, fontWeight: "bold", color: "#cfe0ff", letterSpacing: 0.3 }}>
+          Comment parler à l'agent
+        </div>
+      </div>
+
+      <div style={{ fontSize: 12, color: "#8aa6cc", lineHeight: 1.55 }}>
+        Pour que l'agent comprenne tes demandes du premier coup, utilise le vocabulaire ci-dessous quand
+        tu décris des objets du jeu ou que tu parles d'un menu. Tous les tutos suivants reprennent ces
+        termes : remplace simplement les valeurs entre <span style={{ color: "#cfe0ff" }}>[…]</span> par
+        ce que tu veux.
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 6,
+          maxHeight: 180,
+          overflowY: "auto",
+          paddingRight: 4,
+        }}
+      >
+        {HOW_TO_ASK_GLOSSARY.map((g) => (
+          <div
+            key={g.term}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "minmax(110px, 38%) 1fr",
+              gap: 8,
+              alignItems: "baseline",
+              padding: "5px 0",
+              borderBottom: "1px solid rgba(30,144,255,0.08)",
+            }}
+          >
+            <div style={{ fontSize: 11.5, fontWeight: "bold", color: "#7fb3ff" }}>{g.term}</div>
+            <div style={{ fontSize: 11, color: "#aac2dc", lineHeight: 1.5 }}>{g.definition}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function HowToAskCard({ tuto }: { tuto: HowToAskTuto }) {
   const [copied, setCopied] = useState(false);
@@ -935,6 +1078,8 @@ function HowToAskCarousel({ onBack }: { onBack: () => void }) {
           {index + 1} / {tutos.length}
         </div>
       </div>
+
+      <HowToAskIntro />
 
       <HowToAskCard tuto={tuto} />
 
