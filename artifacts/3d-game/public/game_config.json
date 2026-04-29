@@ -134,6 +134,8 @@
 
     "orange": {
       "_label": "Balle orange (Lanceur)",
+      "launch_delay_seconds": 1.0,
+      "_launch_delay_seconds_comment": "Délai en secondes pendant lequel la balle orange reste visible et immobile sur son bord d'apparition avant de tirer son projectile. Mettre 0 pour un tir instantané (ancien comportement).",
       "spawn": {
         "condition": "timer",
         "interval_seconds": 1.0,
@@ -270,6 +272,7 @@
   },
 
   "release_notes": [
+    "Lanceur orange : délai de 1 s avant tir (visible au bord avant de lancer)",
     "Système de niveaux : 3 niveaux (blanc → mix → vert foncé) avec progression au clear",
     "Sous-menu Niveau avec carrousel descriptif et pondération par couleur",
     "Drapeaux selectable_by_player et for_terrain par couleur (menus dérivés)",
@@ -289,8 +292,7 @@
     "Carrousel Détail des balles avec carte d'identité par couleur",
     "Menu Règles du jeu",
     "Sous-menu Terrain : ratio d'aspect et résolution",
-    "Caméra portrait orthographique top-down",
-    "Architecture découplée : moteur logique sans dépendance 3D"
+    "Caméra portrait orthographique top-down"
   ],
 
   "debug": {

@@ -69,6 +69,9 @@ export class GameEngine {
   private ruleHandlers = new Map<BallRule, RuleHandler>();
   private config: GameConfig;
   private orangeSpawnTimer = 0;
+  /** Orange launchers waiting their delay before firing.
+   *  Each entry tracks the launcher ball's id and remaining seconds. */
+  private pendingLaunches: Array<{ launcherId: string; remaining: number }> = [];
   private launchedCount = 0;
   private pendingEvents: GameEvent[] = [];
   private logEnabled: boolean;
@@ -253,6 +256,8 @@ export class GameEngine {
 
     // Spawn orange launchers (capped by max_balls_spawned)
     this.updateOrangeSpawn(delta, arena);
+    // Fire orange launchers whose visibility delay has elapsed.
+    this.updatePendingLaunches(delta, arena);
 
     // Update freeze timers
     this.balls.forEach((ball) => {
@@ -521,7 +526,33 @@ export class GameEngine {
       default: pos = { x: arena.halfW - pad, y: randomInRange(-arena.halfH + pad, arena.halfH - pad) }; break;
     }
     const launcher = this.spawnBall("orange", BallSize.MEDIUM, pos, { x: 0, y: 0 });
-    this.performOrangeLaunch(launcher, arena);
+    const delay = this.config.gameplay.orange.launch_delay_seconds ?? 0;
+    if (delay <= 0) {
+      // Legacy behaviour : launch right away.
+      this.performOrangeLaunch(launcher, arena);
+    } else {
+      // Keep the orange visible at its spawn position for `delay` seconds
+      // (charging phase) then trigger the launch in the update loop.
+      this.pendingLaunches.push({ launcherId: launcher.id, remaining: delay });
+    }
+  }
+
+  /** Tick down delayed orange launches and fire those whose timer has reached 0. */
+  private updatePendingLaunches(delta: number, arena: Arena2D): void {
+    if (this.pendingLaunches.length === 0) return;
+    const stillPending: Array<{ launcherId: string; remaining: number }> = [];
+    for (const entry of this.pendingLaunches) {
+      const launcher = this.balls.get(entry.launcherId);
+      // Drop orphaned entries (e.g. launcher killed by a player projectile mid-charge).
+      if (!launcher || !launcher.isAlive) continue;
+      entry.remaining -= delta;
+      if (entry.remaining <= 0) {
+        this.performOrangeLaunch(launcher, arena);
+      } else {
+        stillPending.push(entry);
+      }
+    }
+    this.pendingLaunches = stillPending;
   }
 
   private performOrangeLaunch(launcher: Ball, arena: Arena2D): void {
@@ -584,9 +615,15 @@ export class GameEngine {
     if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
   }
 
-  /** ORANGE — launcher */
-  private handleLauncher(ball: Ball, _delta: number, ctx: RuleContext): void {
-    ctx.despawnBall(ball, "after_launch");
+  /** ORANGE — launcher (no-op rule).
+   *  The orange's lifecycle is fully driven by `spawnOrangeLauncher` →
+   *  `updatePendingLaunches` → `performOrangeLaunch`, which sets
+   *  `isAlive = false` itself. The rule handler must NOT despawn the ball
+   *  here, otherwise the visibility delay (`launch_delay_seconds`) would
+   *  be cut short on the very next tick. The ball stands still at its
+   *  spawn position while charging. */
+  private handleLauncher(_ball: Ball, _delta: number, _ctx: RuleContext): void {
+    // intentionally empty
   }
 
   /** RED — destroy_on_contact */

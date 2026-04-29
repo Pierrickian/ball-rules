@@ -255,6 +255,9 @@ export interface GameConfig {
     orange: {
       spawn: { condition: string; interval_seconds: number; spawn_on_edge: boolean };
       despawn: { condition: string };
+      /** Seconds the orange launcher remains visible at its spawn point
+       *  before firing its projectile. 0 (or omitted) = launch immediately. */
+      launch_delay_seconds?: number;
       launch_config: {
         color: BallColor | "random";
         size: BallSize;
