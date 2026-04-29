@@ -70,6 +70,26 @@ against_obstacle → rebondit obstacles (future)
 against_all      → rebondit tout
 ```
 
+### Cohérence règles ↔ carrousel ↔ couleurs lançables
+
+À chaque ajout, modification ou suppression de règle dans `ball_rules`, l'agent doit propager les changements dans tous les emplacements suivants. Aucun de ces points n'est optionnel.
+
+- **`ball_rules.<couleur>`** → toute couleur listée ici DOIT avoir une description (`_description`) et un type de règle (`rule`) à jour, puisque ces champs sont rendus tels quels dans le carrousel **Détail des balles**.
+- **`bounce_conditions.ball_bounce_conditions.<couleur>`** → doit contenir une entrée pour chaque couleur ayant une règle, sinon le rebond tombe sur le défaut moteur.
+- **`gameplay.<couleur>`** → doit définir `spawn` et `despawn` pour chaque couleur ayant une règle.
+- **`gameplay.orange.launch_config.allow_colors`** → doit lister TOUTES les couleurs « lançables », c'est-à-dire celles qui ont une règle ET qui ne sont pas réservées au joueur. Si tu ajoutes une règle à une couleur lançable, ajoute-la ici. Si tu en retires une, retire-la ici.
+- **Carrousel `BallsCarousel` (`Menu.tsx`)** → s'aligne automatiquement sur `ball_colors`. Vérifie quand même qu'aucune couleur n'apparaît avec un libellé contradictoire.
+
+Couleurs réservées au joueur (NE PAS mettre dans `allow_colors` du lanceur) :
+
+- **`gray`** : couleur dédiée à la file de tir / aux projectiles du joueur. Apparaît dans `gameplay_controls.queue_ball_colors` et dans la constante `PLAYER_COLORS` de `Menu.tsx`, jamais dans `LAUNCHER_COLORS`.
+
+Mécanismes système (PAS de règle dans `ball_rules`, PAS dans le carrousel) :
+
+- **`orange`** : c'est le lanceur lui-même. Géré entièrement dans `gameplay.orange` (timer + `launch_config`) et dans le moteur (`performOrangeSpawn` / `performOrangeLaunch`). Filtré du carrousel via `SYSTEM_COLORS` dans `Menu.tsx`.
+
+Si tu introduis une nouvelle couleur réservée au joueur ou un nouveau mécanisme système, mets à jour `PLAYER_COLORS` ou `SYSTEM_COLORS` (et la doc ci-dessus) en conséquence.
+
 ### Notes de version (`release_notes`)
 
 - Champ `release_notes` (tableau de strings) dans `game_config.json`, affiché dans le sous-menu **Notes de version** du jeu.

@@ -81,11 +81,10 @@
   },
 
   "ball_rules": {
-    "_description": "Règle de comportement de chaque couleur. IMPORTANT: toute modification de règle doit passer par ce fichier. Les handlers sont dans game_engine.ts. La règle 'player_projectile' est attribuée dynamiquement aux tirs du joueur.",
+    "_description": "Règle de comportement de chaque couleur de balle (hors mécanismes système comme l'orange). IMPORTANT: toute modification de règle doit passer par ce fichier. Les handlers sont dans game_engine.ts. La règle 'player_projectile' est attribuée dynamiquement aux tirs du joueur. Orange est un mécanisme système (lanceur) géré dans la section 'gameplay.orange' et ne figure pas ici.",
     "white":       { "rule": "bounce",            "_description": "Rebondit sur les murs sans perdre de vitesse." },
-    "orange":      { "rule": "launcher",           "_description": "Balle lanceur: apparaît sur un bord et tire une balle." },
     "dark_green":  { "rule": "hp_grow_bouncer",    "_description": "Rebondit sur les murs. Démarre avec 2 PV (5 PV max). Disparaît à 0 PV. Gagne 1 PV en traversant une autre balle. Sa taille augmente avec les PV." },
-    "gray":        { "rule": "neutral",            "_description": "Aucun effet spécial. Se déplace et rebondit. Couleur par défaut des projectiles du joueur." }
+    "gray":        { "rule": "neutral",            "_description": "Aucun effet spécial. Se déplace et rebondit. Couleur dédiée aux projectiles du joueur (réservée à la file de tir, jamais lancée par l'orange)." }
   },
 
   "bounce_conditions": {
@@ -98,9 +97,8 @@
     },
     "_note": "Pour modifier le rebond d'une couleur, changez la valeur dans ball_bounce_conditions ci-dessous.",
     "ball_bounce_conditions": {
-      "_description": "Condition de rebond attribuée à chaque couleur de balle.",
+      "_description": "Condition de rebond attribuée à chaque couleur de balle ayant une règle. Orange n'est pas listé (mécanisme système, despawn immédiat après lancement).",
       "white":       "against_wall",
-      "orange":      "against_wall",
       "dark_green":  "against_wall",
       "gray":        "against_wall"
     }
@@ -148,7 +146,8 @@
         "size": "small",
         "speed": 45.0,
         "direction": "random",
-        "allow_colors": ["white", "dark_green", "gray"]
+        "allow_colors": ["white", "dark_green"],
+        "_allow_colors_comment": "Couleurs que le lanceur orange peut faire entrer dans l'arène. Le gris est volontairement exclu : c'est une couleur dédiée au joueur (file de tir / projectiles)."
       }
     },
 
@@ -243,6 +242,7 @@
   },
 
   "release_notes": [
+    "Cohérence couleurs : orange retiré des règles, gris retiré du lanceur",
     "Sous-menu Notes de version",
     "Glossaire d'agent dans le menu Comment demander",
     "Prompts de tutoriels simplifiés (sans jargon technique)",

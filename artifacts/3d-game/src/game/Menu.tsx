@@ -84,10 +84,21 @@ const MENU_BTN: React.CSSProperties = {
   gap: 12,
 };
 
-// Colors available for the launcher / player pool (orange excluded — special role).
-// Kept in sync with `ball_rules` in game_config.json: only colors with an
-// active rule entry can be safely spawned or used as projectiles.
-const SELECTABLE_COLORS: BallColor[] = ["white", "dark_green", "gray"];
+// Colors selectable as projectiles for the orange launcher.
+// Excludes:
+//   - orange  → it IS the launcher (system mechanic, no rule entry)
+//   - gray    → reserved for the player's shooting queue
+// Must stay in sync with `gameplay.orange.launch_config.allow_colors` in game_config.json.
+const LAUNCHER_COLORS: BallColor[] = ["white", "dark_green"];
+
+// Colors selectable for the player's shot queue (gameplay_controls.queue_ball_colors).
+// Includes gray (the player-dedicated color) plus any other rule-bearing color
+// the player should be able to shoot.
+const PLAYER_COLORS: BallColor[] = ["white", "dark_green", "gray"];
+
+// Colors that must be hidden from the "Détail des balles" carousel because they
+// are system mechanics rather than player-facing ball types.
+const SYSTEM_COLORS: BallColor[] = ["orange"];
 
 // ============================================================
 // Snap Slider — unchanged
@@ -383,7 +394,7 @@ function LauncherColorMenu({
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-        {SELECTABLE_COLORS.map((c) => {
+        {LAUNCHER_COLORS.map((c) => {
           const entry = config.ball_colors[c];
           const isActive = selected === c;
           return (
@@ -454,7 +465,7 @@ function PlayerColorsMenu({
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-        {SELECTABLE_COLORS.map((c) => {
+        {PLAYER_COLORS.map((c) => {
           const entry = config.ball_colors[c];
           const isActive = selected.includes(c);
           return (
@@ -795,12 +806,16 @@ function BallCard({ colorKey, config }: { colorKey: string; config: GameConfig }
 // Balls Carousel
 // ============================================================
 function BallsCarousel({ config, onBack }: { config: GameConfig; onBack: () => void }) {
-  // Show every color in the palette, including those without an active
-  // rule. The card itself flags missing rules with an "En attente de
-  // règle" badge so the player can see the full inventory of colors
-  // they may activate via the agent.
+  // Show every color in the palette EXCEPT system colors (orange = the
+  // launcher mechanic, not a rule-driven ball type). Colors without an
+  // active rule still appear, flagged by the "En attente de règle" badge
+  // inside BallCard, so the player sees the full inventory they can ask
+  // the agent to activate.
   const colors = Object.keys(config.ball_colors).filter(
-    (c) => c !== "_description" && c !== "_color_format"
+    (c) =>
+      c !== "_description" &&
+      c !== "_color_format" &&
+      !SYSTEM_COLORS.includes(c as BallColor)
   );
   const [index, setIndex] = useState(0);
   const prev = () => setIndex((i) => (i - 1 + colors.length) % colors.length);
