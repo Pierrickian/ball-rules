@@ -206,32 +206,32 @@
       "light": {
         "_label": "Tir léger",
         "min_hold_seconds": 0.0,
-        "max_hold_seconds": 0.5,
+        "max_hold_seconds": 0.3,
         "damage": 1,
         "passes_through_balls": false,
         "wall_bounces": 0,
         "diameter_multiplier": 1.0,
         "speed": 80,
         "color_tint": "#cccccc",
-        "_description": "Maintien < 0.5s. -1 PV. S'arrête à la 1ère balle ou au mur."
+        "_description": "Maintien < 0.3s. -1 PV. S'arrête à la 1ère balle ou au mur."
       },
 
       "heavy": {
         "_label": "Tir appuyé",
-        "min_hold_seconds": 0.5,
-        "max_hold_seconds": 1.0,
+        "min_hold_seconds": 0.3,
+        "max_hold_seconds": 0.8,
         "damage": 2,
         "passes_through_balls": true,
         "wall_bounces": 0,
         "diameter_multiplier": 1.3,
         "speed": 90,
         "color_tint": "#ffaa44",
-        "_description": "Maintien 0.5–1.0s. -2 PV. Traverse les balles. S'arrête au mur."
+        "_description": "Maintien 0.3–0.8s. -2 PV. Traverse les balles. S'arrête au mur."
       },
 
       "mega": {
         "_label": "Méga tir",
-        "min_hold_seconds": 1.0,
+        "min_hold_seconds": 0.8,
         "max_hold_seconds": 999,
         "damage": 2,
         "passes_through_balls": true,
@@ -239,7 +239,7 @@
         "diameter_multiplier": 1.6,
         "speed": 100,
         "color_tint": "#ff66ff",
-        "_description": "Maintien > 1.0s. -2 PV. Traverse les balles. Rebondit 2× sur les murs avant de disparaître."
+        "_description": "Maintien > 0.8s. -2 PV. Traverse les balles. Rebondit 2× sur les murs avant de disparaître."
       }
     }
   },
