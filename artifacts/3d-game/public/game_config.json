@@ -84,6 +84,7 @@
     "_description": "Règle de comportement de chaque couleur de balle (hors mécanismes système comme l'orange). IMPORTANT: toute modification de règle doit passer par ce fichier. Les handlers sont dans game_engine.ts. La règle 'player_projectile' est attribuée dynamiquement aux tirs du joueur. Orange est un mécanisme système (lanceur) géré dans la section 'gameplay.orange' et ne figure pas ici.",
     "white":       { "rule": "bounce",            "_description": "Rebondit sur les murs sans perdre de vitesse." },
     "dark_green":  { "rule": "hp_grow_bouncer",    "_description": "Rebondit sur les murs. Démarre avec 2 PV (5 PV max). Disparaît à 0 PV. Gagne 1 PV en traversant une autre balle. Sa taille augmente avec les PV." },
+    "blue":        { "rule": "hp_grow_bouncer",    "_description": "Comme la verte foncée : rebondit sur les murs, démarre avec 2 PV (5 PV max), disparaît à 0 PV, gagne 1 PV à chaque traversée et grossit en conséquence. Les projectiles du joueur rebondissent dessus selon le type de tir." },
     "gray":        { "rule": "neutral",            "_description": "Aucun effet spécial. Se déplace et rebondit. Couleur dédiée aux projectiles du joueur (réservée à la file de tir, jamais lancée par l'orange)." }
   },
 
@@ -100,6 +101,7 @@
       "_description": "Condition de rebond attribuée à chaque couleur de balle ayant une règle. Orange n'est pas listé (mécanisme système, despawn immédiat après lancement).",
       "white":       "against_wall",
       "dark_green":  "against_wall",
+      "blue":        "against_wall",
       "gray":        "against_wall"
     }
   },
@@ -148,13 +150,14 @@
         "size": "small",
         "speed": 45.0,
         "direction": "random",
-        "allow_colors": ["white", "dark_green"],
+        "allow_colors": ["white", "dark_green", "blue"],
         "_allow_colors_comment": "Couleurs que le lanceur orange peut faire entrer dans l'arène. Le gris est volontairement exclu : c'est une couleur dédiée au joueur (file de tir / projectiles)."
       }
     },
 
     "white":       { "spawn": { "condition": "launched_by_orange" }, "despawn": { "condition": "out_of_bounds" } },
     "dark_green":  { "spawn": { "condition": "launched_by_orange" }, "despawn": { "condition": "killed_at_zero_hp" } },
+    "blue":        { "spawn": { "condition": "launched_by_orange" }, "despawn": { "condition": "killed_at_zero_hp" } },
     "gray":        { "spawn": { "condition": "launched_by_orange" }, "despawn": { "condition": "out_of_bounds" } }
   },
 
@@ -255,6 +258,12 @@
         "name": "Niveau 3 — Forêt verte",
         "description": "100% de balles vert foncé. Le terrain se remplit vite de gros boulets qui s'auto-renforcent. Privilégie les méga tirs pour traverser la mêlée et toucher plusieurs balles à la fois.",
         "launch_color_weights": { "dark_green": 1.0 }
+      },
+      {
+        "id": 4,
+        "name": "Niveau 4 — Marée bleue",
+        "description": "Introduction de la balle bleue : moitié blanches, moitié bleues. Les bleues se comportent comme les vert foncé (2 PV, grossissent à chaque traversée, disparaissent à 0 PV). Apprends à distinguer les couleurs en plein chaos.",
+        "launch_color_weights": { "white": 0.5, "blue": 0.5 }
       }
     ]
   },
@@ -272,6 +281,7 @@
   },
 
   "release_notes": [
+    "Niveau 4 et balle bleue (50% blanc / 50% bleu, comportement identique au vert foncé)",
     "Lanceur orange : délai de 1 s avant tir (visible au bord avant de lancer)",
     "Système de niveaux : 3 niveaux (blanc → mix → vert foncé) avec progression au clear",
     "Sous-menu Niveau avec carrousel descriptif et pondération par couleur",
@@ -291,8 +301,7 @@
     "Trois types de tir : léger, appuyé, méga",
     "Carrousel Détail des balles avec carte d'identité par couleur",
     "Menu Règles du jeu",
-    "Sous-menu Terrain : ratio d'aspect et résolution",
-    "Caméra portrait orthographique top-down"
+    "Sous-menu Terrain : ratio d'aspect et résolution"
   ],
 
   "debug": {
