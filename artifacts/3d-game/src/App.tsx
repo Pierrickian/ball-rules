@@ -15,7 +15,7 @@ import { useGameEngine } from "./engine/useGameEngine";
 import { GameScene } from "./scenes/GameScene";
 import { HUD } from "./game/HUD";
 import { Menu } from "./game/Menu";
-import type { BallColor, GameConfig, ShotKind } from "./engine/types";
+import type { BallColor, GameConfig, GameState, ShotKind } from "./engine/types";
 
 function App() {
   const {
@@ -188,7 +188,9 @@ function App() {
       />
 
       {/* Game-over flash */}
-      {gameState.sessionCleared && <SessionClearOverlay config={config} />}
+      {gameState.sessionCleared && (
+        <SessionClearOverlay config={config} gameState={gameState} />
+      )}
 
       {/* Menu overlay */}
       {menuOpen && (
@@ -198,6 +200,7 @@ function App() {
           onArenaChange={setArena}
           onLauncherColorChange={setLauncherColor}
           onPlayerColorsChange={setPlayerColors}
+          currentLevelIndex={gameState.currentLevelIndex}
         />
       )}
     </div>
@@ -314,8 +317,22 @@ function ChargeBar({ holdTime, shotKind, config }: { holdTime: number; shotKind:
 // ============================================================
 // Session clear overlay
 // ============================================================
-function SessionClearOverlay({ config }: { config: GameConfig }) {
+function SessionClearOverlay({
+  config,
+  gameState,
+}: {
+  config: GameConfig;
+  gameState: GameState;
+}) {
   const delay = config.game_session?.reboot_delay_seconds ?? 1.5;
+  const advance = config.game_session?.advance_level_on_clear !== false;
+  const levels = config.levels?.list ?? [];
+  let nextLabel: string | null = null;
+  if (advance && levels.length > 0) {
+    const nextIdx = (gameState.currentLevelIndex + 1) % levels.length;
+    const next = levels[nextIdx];
+    if (next) nextLabel = `Niveau ${next.id} — ${next.name.replace(/^Niveau\s*\d+\s*[—-]\s*/i, "")}`;
+  }
   return (
     <div
       style={{
@@ -333,8 +350,13 @@ function SessionClearOverlay({ config }: { config: GameConfig }) {
       <div style={{ fontSize: 28, color: "#1e90ff", letterSpacing: 4, textShadow: "0 0 14px #1e90ff" }}>
         TERRAIN NETTOYÉ
       </div>
+      {nextLabel && (
+        <div style={{ fontSize: 16, color: "#dfecff", letterSpacing: 1.5, marginTop: 4 }}>
+          → {nextLabel}
+        </div>
+      )}
       <div style={{ fontSize: 12, color: "#88aaff", letterSpacing: 2 }}>
-        Nouvelle partie dans {delay.toFixed(1)}s…
+        {nextLabel ? `Démarrage dans ${delay.toFixed(1)}s…` : `Nouvelle partie dans ${delay.toFixed(1)}s…`}
       </div>
     </div>
   );

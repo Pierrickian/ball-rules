@@ -42,6 +42,9 @@ const DEFAULT_STATE: GameState = {
   launchedCount: 0,
   maxBallsSpawned: 20,
   sessionCleared: false,
+  currentLevelIndex: 0,
+  currentLevelId: 0,
+  currentLevelName: "",
 };
 
 function pickRandom<T>(arr: T[]): T {
@@ -62,13 +65,14 @@ export function useGameEngine(): UseGameEngineResult {
   const [lastEvents, setLastEvents] = useState<GameEvent[]>([]);
   const [playerQueue, setPlayerQueue] = useState<BallColor[]>([]);
 
-  const engineRef     = useRef<GameEngine | null>(null);
-  const animFrameRef  = useRef<number>(0);
-  const lastTimeRef   = useRef<number>(0);
-  const pausedRef     = useRef(false);
-  const configRef     = useRef<GameConfig | null>(null);
-  const queueRef      = useRef<BallColor[]>([]);
-  const rebootingRef  = useRef(false);
+  const engineRef          = useRef<GameEngine | null>(null);
+  const animFrameRef       = useRef<number>(0);
+  const lastTimeRef        = useRef<number>(0);
+  const pausedRef          = useRef(false);
+  const configRef          = useRef<GameConfig | null>(null);
+  const queueRef           = useRef<BallColor[]>([]);
+  const rebootingRef       = useRef(false);
+  const currentLevelIdxRef = useRef(0);
 
   // Load config and initialize engine
   useEffect(() => {
@@ -79,11 +83,18 @@ export function useGameEngine(): UseGameEngineResult {
       .then((cfg: GameConfig) => {
         configRef.current = cfg;
         setConfig(cfg);
-        engineRef.current = new GameEngine(cfg);
+        currentLevelIdxRef.current = 0;
+        engineRef.current = new GameEngine(cfg, currentLevelIdxRef.current);
         const q = buildQueue(cfg.gameplay_controls.queue_size, cfg.gameplay_controls.queue_ball_colors);
         queueRef.current = q;
         setPlayerQueue(q);
-        setGameState(DEFAULT_STATE);
+        const lvl = engineRef.current.getCurrentLevel();
+        setGameState({
+          ...DEFAULT_STATE,
+          currentLevelIndex: currentLevelIdxRef.current,
+          currentLevelId: lvl?.id ?? 0,
+          currentLevelName: lvl?.name ?? "",
+        });
         setIsRunning(true);
       })
       .catch((err) => {
@@ -120,6 +131,14 @@ export function useGameEngine(): UseGameEngineResult {
         ) {
           rebootingRef.current = true;
           const delaySec = cfg.game_session.reboot_delay_seconds ?? 1.5;
+          // Advance to the next level (with wrap-around) before reboot,
+          // unless the config explicitly disables level progression.
+          const advance = cfg.game_session.advance_level_on_clear !== false;
+          const levelCount = cfg.levels?.list?.length ?? 0;
+          if (advance && levelCount > 0) {
+            currentLevelIdxRef.current =
+              (currentLevelIdxRef.current + 1) % levelCount;
+          }
           window.setTimeout(() => {
             doReset();
             rebootingRef.current = false;
@@ -139,11 +158,17 @@ export function useGameEngine(): UseGameEngineResult {
   const doReset = useCallback(() => {
     const cfg = configRef.current;
     if (!cfg) return;
-    engineRef.current = new GameEngine(cfg);
+    engineRef.current = new GameEngine(cfg, currentLevelIdxRef.current);
     const q = buildQueue(cfg.gameplay_controls.queue_size, cfg.gameplay_controls.queue_ball_colors);
     queueRef.current = q;
     setPlayerQueue(q);
-    setGameState(DEFAULT_STATE);
+    const lvl = engineRef.current.getCurrentLevel();
+    setGameState({
+      ...DEFAULT_STATE,
+      currentLevelIndex: currentLevelIdxRef.current,
+      currentLevelId: lvl?.id ?? 0,
+      currentLevelName: lvl?.name ?? "",
+    });
     lastTimeRef.current = performance.now();
     pausedRef.current = false;
     setIsRunning(true);

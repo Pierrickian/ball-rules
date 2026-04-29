@@ -226,7 +226,35 @@
     "auto_reboot_on_clear": true,
     "_auto_reboot_comment": "Si vrai, redémarre une nouvelle partie quand max_balls_spawned est atteint ET que toutes les balles sont détruites.",
     "reboot_delay_seconds": 1.5,
-    "_reboot_delay_comment": "Délai (en secondes) avant de redémarrer une nouvelle partie après le clear."
+    "_reboot_delay_comment": "Délai (en secondes) avant de redémarrer une nouvelle partie après le clear.",
+    "advance_level_on_clear": true,
+    "_advance_level_on_clear_comment": "Si vrai, le redémarrage automatique passe au niveau suivant dans 'levels.list' (boucle au début quand on a fait le tour). Si faux, on rejoue le même niveau."
+  },
+
+  "levels": {
+    "_description": "Progression par niveaux. Chaque entrée définit la pondération des couleurs lancées par l'orange (launch_color_weights). Le joueur passe au niveau suivant quand il a nettoyé le terrain (toutes les balles de game_session.max_balls_spawned détruites). Quand le dernier niveau est nettoyé, on revient au niveau 1. Le menu 'Niveau' affiche un carrousel descriptif.",
+    "_launch_color_weights_format": "Objet { couleur: poids }. Les poids sont relatifs (peuvent être 0.2, 0.8, 1.0, 5, 10... peu importe l'échelle). Le total est normalisé à 1 pour le tirage. Toute couleur listée DOIT exister dans ball_colors et avoir une règle dans ball_rules.",
+    "_override_note": "Quand 'levels.list' n'est pas vide, ces pondérations remplacent gameplay.orange.launch_config.color / allow_colors pour le tirage. Le menu 'Couleur lancée' est conservé pour debug mais son réglage est ignoré tant que le mode niveaux est actif.",
+    "list": [
+      {
+        "id": 1,
+        "name": "Niveau 1 — Apprentissage",
+        "description": "Que des balles blanches. Elles rebondissent sur les murs sans rien faire d'autre. Idéal pour apprivoiser la file de tir et les trois types de tir.",
+        "launch_color_weights": { "white": 1.0 }
+      },
+      {
+        "id": 2,
+        "name": "Niveau 2 — Premier vert",
+        "description": "Mélange : 80% de balles blanches et 20% de balles vert foncé. Les vert foncé ont 2 PV de départ et grossissent quand elles se traversent — vise-les vite avant qu'elles ne deviennent énormes.",
+        "launch_color_weights": { "white": 0.8, "dark_green": 0.2 }
+      },
+      {
+        "id": 3,
+        "name": "Niveau 3 — Forêt verte",
+        "description": "100% de balles vert foncé. Le terrain se remplit vite de gros boulets qui s'auto-renforcent. Privilégie les méga tirs pour traverser la mêlée et toucher plusieurs balles à la fois.",
+        "launch_color_weights": { "dark_green": 1.0 }
+      }
+    ]
   },
 
   "game_rules_concept": {
@@ -242,6 +270,8 @@
   },
 
   "release_notes": [
+    "Système de niveaux : 3 niveaux (blanc → mix → vert foncé) avec progression au clear",
+    "Sous-menu Niveau avec carrousel descriptif et pondération par couleur",
     "Drapeaux selectable_by_player et for_terrain par couleur (menus dérivés)",
     "Carrousel : encart Rôle système pour orange (lanceur sans règle)",
     "Cohérence couleurs : orange retiré des règles, gris retiré du lanceur",

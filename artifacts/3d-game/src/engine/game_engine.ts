@@ -74,10 +74,15 @@ export class GameEngine {
   private logEnabled: boolean;
   private elapsedTime = 0;
   private sessionCleared = false;
+  private currentLevelIndex = 0;
 
-  constructor(config: GameConfig) {
+  constructor(config: GameConfig, initialLevelIndex = 0) {
     this.config = config;
     this.logEnabled = config.debug?.log_rule_changes ?? false;
+    const levelCount = config.levels?.list?.length ?? 0;
+    this.currentLevelIndex = levelCount > 0
+      ? ((initialLevelIndex % levelCount) + levelCount) % levelCount
+      : 0;
     this.registerAllHandlers();
   }
 
@@ -112,6 +117,7 @@ export class GameEngine {
   getState(): GameState {
     const balls = new Map<string, import("./types").BallState>();
     this.balls.forEach((b, id) => balls.set(id, b.getState()));
+    const lvl = this.getCurrentLevel();
     return {
       balls,
       events: [...this.pendingEvents],
@@ -121,7 +127,22 @@ export class GameEngine {
       launchedCount: this.launchedCount,
       maxBallsSpawned: this.config.game_session?.max_balls_spawned ?? 20,
       sessionCleared: this.sessionCleared,
+      currentLevelIndex: this.currentLevelIndex,
+      currentLevelId: lvl?.id ?? 0,
+      currentLevelName: lvl?.name ?? "",
     };
+  }
+
+  /** Active level entry, or null when no `levels.list` is configured. */
+  getCurrentLevel(): import("./types").LevelEntry | null {
+    const list = this.config.levels?.list;
+    if (!list || list.length === 0) return null;
+    const i = ((this.currentLevelIndex % list.length) + list.length) % list.length;
+    return list[i];
+  }
+
+  getCurrentLevelIndex(): number {
+    return this.currentLevelIndex;
   }
 
   updateConfig(config: GameConfig): void {
@@ -450,6 +471,30 @@ export class GameEngine {
     }
   }
 
+  /** Pick a color from a weights map. Ignores zero/negative weights and
+   *  unknown colors. Returns null if no valid entry remains. */
+  private weightedPickColor(
+    weights: Partial<Record<BallColor, number>>
+  ): BallColor | null {
+    const entries: Array<[BallColor, number]> = [];
+    let total = 0;
+    for (const [k, v] of Object.entries(weights)) {
+      const color = k as BallColor;
+      const weight = typeof v === "number" ? v : 0;
+      if (weight > 0 && this.config.ball_colors[color]) {
+        entries.push([color, weight]);
+        total += weight;
+      }
+    }
+    if (entries.length === 0 || total <= 0) return null;
+    let r = Math.random() * total;
+    for (const [color, weight] of entries) {
+      r -= weight;
+      if (r <= 0) return color;
+    }
+    return entries[entries.length - 1][0];
+  }
+
   // --------------------------------------------------------
   // Orange Launcher Spawn Logic
   // --------------------------------------------------------
@@ -482,8 +527,16 @@ export class GameEngine {
   private performOrangeLaunch(launcher: Ball, arena: Arena2D): void {
     const launchCfg = this.config.gameplay.orange.launch_config;
 
+    // Color pick — priority order:
+    //   1. Active level's launch_color_weights (if `levels.list` is non-empty)
+    //   2. launch_config.color === "random" → uniform pick from allow_colors
+    //   3. Otherwise → fixed color from launch_config.color
     let color: BallColor;
-    if (launchCfg.color === "random") {
+    const lvl = this.getCurrentLevel();
+    const weights = lvl?.launch_color_weights;
+    if (weights && Object.keys(weights).length > 0) {
+      color = this.weightedPickColor(weights) ?? "white";
+    } else if (launchCfg.color === "random") {
       const allowed = launchCfg.allow_colors ?? (Object.keys(this.config.ball_colors) as BallColor[]);
       color = allowed[Math.floor(Math.random() * allowed.length)];
     } else {

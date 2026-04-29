@@ -1,16 +1,19 @@
 // ============================================================
 // Menu — Game menu with sub-menus:
 //   1. Règles du jeu        — concept overview
-//   2. Détail des balles    — carousel of ball identity cards
-//   3. Terrain              — aspect ratio + resolution
-//   4. Couleur lancée       — color spawned by orange launcher
-//   5. Couleur joueur       — pool of colors used in player queue
+//   2. Niveau               — carousel of level descriptions
+//   3. Détail des balles    — carousel of ball identity cards
+//   4. Terrain              — aspect ratio + resolution
+//   5. Couleur lancée       — color spawned by orange launcher (debug, overridden by levels)
+//   6. Couleur joueur       — pool of colors used in player queue
+//   7. Comment demander     — agent prompt tutorials
+//   8. Notes de version     — recent release notes
 // ============================================================
 
 import { useState, useRef, useCallback } from "react";
 import type { BallColor, GameConfig } from "../engine/types";
 
-type MenuView = "main" | "rules" | "balls" | "terrain" | "launcher_color" | "player_colors" | "how_to_ask" | "release_notes";
+type MenuView = "main" | "rules" | "balls" | "terrain" | "launcher_color" | "player_colors" | "how_to_ask" | "release_notes" | "levels";
 
 interface MenuProps {
   config: GameConfig;
@@ -18,6 +21,8 @@ interface MenuProps {
   onArenaChange: (width: number, height: number) => void;
   onLauncherColorChange: (color: BallColor) => void;
   onPlayerColorsChange: (colors: BallColor[]) => void;
+  /** Index 0-based of the currently active level, or -1 if no levels are configured. */
+  currentLevelIndex: number;
 }
 
 // ---- Shared styles ----
@@ -541,9 +546,10 @@ function PlayerColorsMenu({
 // Main Menu
 // ============================================================
 function MainMenu({
-  onRules, onBalls, onTerrain, onLauncherColor, onPlayerColors, onHowToAsk, onReleaseNotes, onClose,
+  onRules, onLevels, onBalls, onTerrain, onLauncherColor, onPlayerColors, onHowToAsk, onReleaseNotes, onClose,
 }: {
   onRules:          () => void;
+  onLevels:         () => void;
   onBalls:          () => void;
   onTerrain:        () => void;
   onLauncherColor:  () => void;
@@ -563,6 +569,13 @@ function MainMenu({
         <div>
           <div style={{ fontWeight: "bold" }}>Règles du jeu</div>
           <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Comprendre le concept</div>
+        </div>
+      </button>
+      <button style={MENU_BTN} onClick={onLevels}>
+        <span style={{ fontSize: 20 }}>🏁</span>
+        <div>
+          <div style={{ fontWeight: "bold" }}>Niveau</div>
+          <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Progression et description par niveau</div>
         </div>
       </button>
       <button style={MENU_BTN} onClick={onBalls}>
@@ -1200,6 +1213,216 @@ function HowToAskCard({ tuto }: { tuto: HowToAskTuto }) {
   );
 }
 
+// ============================================================
+// Levels Carousel
+// ============================================================
+function LevelsCarousel({
+  config,
+  currentLevelIndex,
+  onBack,
+}: {
+  config: GameConfig;
+  currentLevelIndex: number;
+  onBack: () => void;
+}) {
+  const levels = config.levels?.list ?? [];
+  // Start the carousel on the active level so the player sees where they are.
+  const [index, setIndex] = useState(() =>
+    levels.length > 0 && currentLevelIndex >= 0 && currentLevelIndex < levels.length
+      ? currentLevelIndex
+      : 0
+  );
+
+  if (levels.length === 0) {
+    return (
+      <div style={PANEL}>
+        <div>
+          <div style={TITLE}>Niveau</div>
+          <div style={{ fontSize: 13, color: "#778", fontStyle: "italic" }}>
+            Aucun niveau configuré dans <code>game_config.json</code> (section <code>levels.list</code>).
+          </div>
+        </div>
+        <button style={CLOSE_BTN} onClick={onBack}>← Retour</button>
+      </div>
+    );
+  }
+
+  const prev = () => setIndex((i) => (i - 1 + levels.length) % levels.length);
+  const next = () => setIndex((i) => (i + 1) % levels.length);
+  const lvl = levels[index];
+  const isCurrent = index === currentLevelIndex;
+
+  // Compute total weight for percentage display.
+  const weights = lvl.launch_color_weights ?? {};
+  const totalWeight = Object.values(weights).reduce(
+    (s, w) => s + (typeof w === "number" && w > 0 ? w : 0),
+    0
+  );
+
+  const weightEntries = Object.entries(weights)
+    .filter(([, w]) => typeof w === "number" && w > 0)
+    .sort(([, a], [, b]) => (b as number) - (a as number)) as Array<[BallColor, number]>;
+
+  return (
+    <div style={PANEL}>
+      <div>
+        <div style={TITLE}>Niveau</div>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+          }}
+        >
+          <div style={{ fontSize: 16, fontWeight: "bold", color: "#1e90ff" }}>
+            {index + 1} / {levels.length}
+          </div>
+          {isCurrent && (
+            <div
+              style={{
+                fontSize: 10,
+                letterSpacing: 1.5,
+                fontWeight: "bold",
+                color: "#0a1628",
+                background: "#1e90ff",
+                padding: "3px 8px",
+                borderRadius: 8,
+              }}
+            >
+              ★ NIVEAU ACTIF
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div
+        style={{
+          background: "rgba(6,16,45,0.9)",
+          border: `1.5px solid ${isCurrent ? "rgba(30,144,255,0.7)" : "rgba(30,144,255,0.25)"}`,
+          borderRadius: 14,
+          padding: "20px 18px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 14,
+          minHeight: 280,
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 10, color: "#445", letterSpacing: 1.5 }}>NIVEAU {lvl.id}</div>
+          <div style={{ fontSize: 18, fontWeight: "bold", color: "#ddeeff", marginTop: 4 }}>
+            {lvl.name}
+          </div>
+        </div>
+
+        <div style={{ fontSize: 13, color: "#aac2dc", lineHeight: 1.6 }}>
+          {lvl.description}
+        </div>
+
+        <div>
+          <div style={TITLE}>Pondération des balles lancées</div>
+          {weightEntries.length === 0 ? (
+            <div style={{ fontSize: 12, color: "#778", fontStyle: "italic" }}>
+              Aucune pondération définie.
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 4 }}>
+              {weightEntries.map(([color, w]) => {
+                const entry = config.ball_colors[color];
+                const pct = totalWeight > 0 ? Math.round((w / totalWeight) * 100) : 0;
+                const isWhiteSwatch = color === "white";
+                return (
+                  <div key={color} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div
+                      style={{
+                        width: 18,
+                        height: 18,
+                        borderRadius: "50%",
+                        background: entry?.hex ?? "#888",
+                        boxShadow: `0 0 8px ${entry?.hex ?? "#888"}88`,
+                        border: isWhiteSwatch ? "1px solid #555" : "none",
+                        flexShrink: 0,
+                      }}
+                    />
+                    <div style={{ flex: 1, fontSize: 12, color: "#cbd6e8" }}>
+                      {entry?._label ?? color}
+                    </div>
+                    <div
+                      style={{
+                        width: 90,
+                        height: 8,
+                        background: "rgba(255,255,255,0.08)",
+                        borderRadius: 4,
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${pct}%`,
+                          height: "100%",
+                          background: entry?.hex ?? "#888",
+                          boxShadow: `0 0 4px ${entry?.hex ?? "#888"}`,
+                        }}
+                      />
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        fontFamily: "monospace",
+                        color: "#7fb3ff",
+                        width: 38,
+                        textAlign: "right",
+                      }}
+                    >
+                      {pct}%
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div style={{ fontSize: 11, color: "#556677", lineHeight: 1.5 }}>
+        Tu progresses au niveau suivant en nettoyant le terrain (toutes les balles détruites
+        après le quota de spawn). Quand le dernier niveau est nettoyé, le jeu repart au niveau 1.
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+        <button onClick={prev} style={{ ...CLOSE_BTN, flex: 1, textAlign: "center", color: "#aac8f0", borderColor: "rgba(30,144,255,0.4)" }}>
+          ← Précédent
+        </button>
+        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+          {levels.map((l, i) => (
+            <div
+              key={l.id}
+              onClick={() => setIndex(i)}
+              style={{
+                width: i === index ? 10 : 6, height: i === index ? 10 : 6,
+                borderRadius: "50%",
+                background: i === currentLevelIndex
+                  ? "#1e90ff"
+                  : i === index
+                    ? "#7fb3ff"
+                    : "rgba(255,255,255,0.18)",
+                cursor: "pointer",
+                boxShadow: i === index ? "0 0 6px #1e90ff" : "none",
+                transition: "all 0.2s",
+              }}
+            />
+          ))}
+        </div>
+        <button onClick={next} style={{ ...CLOSE_BTN, flex: 1, textAlign: "center", color: "#aac8f0", borderColor: "rgba(30,144,255,0.4)" }}>
+          Suivant →
+        </button>
+      </div>
+
+      <button style={CLOSE_BTN} onClick={onBack}>← Retour</button>
+    </div>
+  );
+}
+
 function HowToAskCarousel({ onBack }: { onBack: () => void }) {
   const [index, setIndex] = useState(0);
   const tutos = HOW_TO_ASK_TUTOS;
@@ -1253,7 +1476,14 @@ function HowToAskCarousel({ onBack }: { onBack: () => void }) {
 // ============================================================
 // Root Menu Component
 // ============================================================
-export function Menu({ config, onClose, onArenaChange, onLauncherColorChange, onPlayerColorsChange }: MenuProps) {
+export function Menu({
+  config,
+  onClose,
+  onArenaChange,
+  onLauncherColorChange,
+  onPlayerColorsChange,
+  currentLevelIndex,
+}: MenuProps) {
   const [view, setView] = useState<MenuView>("main");
 
   return (
@@ -1261,6 +1491,7 @@ export function Menu({ config, onClose, onArenaChange, onLauncherColorChange, on
       {view === "main" && (
         <MainMenu
           onRules={() => setView("rules")}
+          onLevels={() => setView("levels")}
           onBalls={() => setView("balls")}
           onTerrain={() => setView("terrain")}
           onLauncherColor={() => setView("launcher_color")}
@@ -1271,6 +1502,7 @@ export function Menu({ config, onClose, onArenaChange, onLauncherColorChange, on
         />
       )}
       {view === "rules"          && <RulesView      config={config} onBack={() => setView("main")} />}
+      {view === "levels"         && <LevelsCarousel config={config} currentLevelIndex={currentLevelIndex} onBack={() => setView("main")} />}
       {view === "balls"          && <BallsCarousel  config={config} onBack={() => setView("main")} />}
       {view === "terrain"        && <TerrainMenu    config={config} onArenaChange={onArenaChange} onBack={() => setView("main")} />}
       {view === "launcher_color" && <LauncherColorMenu config={config} onLauncherColorChange={onLauncherColorChange} onBack={() => setView("main")} />}

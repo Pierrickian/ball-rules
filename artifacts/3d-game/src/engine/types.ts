@@ -100,7 +100,8 @@ export type GameEvent =
   | { type: "ball_healed"; ballId: string; amount: number; remainingHp: number; position: Vec2 }
   | { type: "player_shot"; projectileId: string; shotKind: ShotKind }
   | { type: "session_clear"; launchedCount: number }
-  | { type: "session_reboot" };
+  | { type: "session_reboot" }
+  | { type: "level_changed"; levelIndex: number; levelId: number; levelName: string };
 
 export interface GameState {
   balls: Map<string, BallState>;
@@ -111,6 +112,25 @@ export interface GameState {
   launchedCount: number;
   maxBallsSpawned: number;
   sessionCleared: boolean;
+  currentLevelIndex: number;
+  currentLevelId: number;
+  currentLevelName: string;
+}
+
+// ---- Levels ----
+
+export interface LevelEntry {
+  id: number;
+  name: string;
+  description: string;
+  /** Relative weights per ball color for the orange launcher's pick.
+   *  Total is normalised to 1; values can be on any scale. */
+  launch_color_weights: Partial<Record<BallColor, number>>;
+}
+
+export interface LevelsConfig {
+  _description?: string;
+  list: LevelEntry[];
 }
 
 // ---- Level Rules ----
@@ -170,6 +190,9 @@ export interface GameSessionConfig {
   max_balls_spawned: number;
   auto_reboot_on_clear: boolean;
   reboot_delay_seconds: number;
+  /** When true (default), auto-reboot advances to the next level in
+   *  `levels.list` (with wrap-around). When false, the same level replays. */
+  advance_level_on_clear?: boolean;
 }
 
 // ---- Bounce Conditions Config ----
@@ -248,6 +271,10 @@ export interface GameConfig {
   };
   gameplay_controls: GameplayControlsConfig;
   game_session: GameSessionConfig;
+  /** Optional level progression. When `levels.list` is non-empty,
+   *  level weights override `gameplay.orange.launch_config.color`
+   *  for the orange launcher's color pick. */
+  levels?: LevelsConfig;
   game_rules_concept: {
     title: string;
     concept: string;

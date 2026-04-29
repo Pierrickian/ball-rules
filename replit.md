@@ -100,6 +100,36 @@ Conventions actuelles :
 - **`gray`** = joueur seulement. `selectable_by_player: true`, `for_terrain: false`. Ne doit jamais être lançable par l'orange.
 - **`orange`** = mécanisme système (lanceur). `for_terrain: true`, `system_role: "launcher"`, pas d'entrée dans `ball_rules`. Géré dans `gameplay.orange` + moteur (`performOrangeSpawn` / `performOrangeLaunch`). Reste visible dans le carrousel avec un encart **Rôle système** : ne jamais le supprimer de `ball_colors`.
 
+### Système de niveaux (`levels`)
+
+Le jeu progresse par niveaux. Chaque entrée de `levels.list` (dans `game_config.json`) définit :
+
+- `id` : numéro du niveau (1-indexé, lisible).
+- `name` : titre court affiché dans le carrousel et l'overlay de fin de manche.
+- `description` : phrase courte expliquant ce qui change pour le joueur.
+- `launch_color_weights` : poids relatifs par couleur pour la pioche du lanceur orange (ex. `{ "white": 0.8, "dark_green": 0.2 }`). Les poids sont normalisés à 1 au runtime — l'échelle des nombres ne compte pas.
+
+Règles d'enchaînement :
+
+- À chaque clear (toutes les balles de `game_session.max_balls_spawned` détruites), le hook `useGameEngine` incrémente l'index de niveau (mod `levels.list.length`) avant de relancer le moteur. Au-delà du dernier niveau, on boucle au premier.
+- Le drapeau `game_session.advance_level_on_clear` (défaut `true`) permet de désactiver la progression — le même niveau rejoue alors en boucle.
+- Le `reset` manuel (bouton) **ne change pas** le niveau actif : il rejoue le niveau courant. Seul l'auto-reboot fait progresser.
+- Le sous-menu **Niveau** (🏁) est un carrousel descriptif. Il démarre sur le niveau actif (badge **★ NIVEAU ACTIF**) et affiche la pondération sous forme de barres horizontales avec pourcentages.
+
+Priorité de la pioche du lanceur orange (`game_engine.ts > performOrangeLaunch`) :
+
+1. **Niveau actif** : si `levels.list` est non vide, on tire selon `launch_color_weights` du niveau courant via `weightedPickColor`.
+2. **`launch_config.color === "random"`** : tirage uniforme dans `allow_colors`.
+3. **`launch_config.color` fixe** : couleur unique forcée.
+
+Conséquence : le sous-menu **Couleur lancée** (🟠) reste fonctionnel mais son réglage est ignoré tant que des niveaux sont configurés. Il sert de mode debug.
+
+Pour ajouter / éditer un niveau :
+
+- Vérifier que toutes les couleurs listées dans `launch_color_weights` ont une entrée dans `ball_rules` ET sont `for_terrain: true`.
+- Les couleurs `selectable_by_player`-only (ex. `gray`) ne doivent pas apparaître dans les poids — elles sont réservées au joueur.
+- Penser à ajouter une note de version (`release_notes`) décrivant le nouveau niveau.
+
 ### Notes de version (`release_notes`)
 
 - Champ `release_notes` (tableau de strings) dans `game_config.json`, affiché dans le sous-menu **Notes de version** du jeu.
