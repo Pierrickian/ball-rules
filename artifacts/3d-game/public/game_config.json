@@ -281,6 +281,8 @@
   },
 
   "release_notes": [
+    "Sous-menu Niveau : bouton Jouer entre Précédent et Suivant pour démarrer le niveau choisi",
+    "Sous-menu Couleur lancée : démarre une session mono-couleur (un seul niveau qui boucle, hors mode niveaux)",
     "Balles bleues : surface rebondissante (les 3 tirs du joueur et les autres balles ricochent dessus)",
     "Niveau 4 et balle bleue (50% blanc / 50% bleu, comportement identique au vert foncé)",
     "Lanceur orange : délai de 1 s avant tir (visible au bord avant de lancer)",
@@ -298,10 +300,7 @@
     "Tir maintenu : seuils raccourcis (appuyé 0.3s, méga 0.8s)",
     "Correction du bug de tir maintenu sur mobile et trackpad",
     "Sous-menu Couleur joueur (multi-sélection de la file de tir)",
-    "Sous-menu Couleur lancée pour configurer le lanceur orange",
-    "Trois types de tir : léger, appuyé, méga",
-    "Carrousel Détail des balles avec carte d'identité par couleur",
-    "Menu Règles du jeu"
+    "Sous-menu Couleur lancée pour configurer le lanceur orange"
   ],
 
   "debug": {

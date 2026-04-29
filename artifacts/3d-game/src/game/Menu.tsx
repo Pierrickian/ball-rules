@@ -21,6 +21,8 @@ interface MenuProps {
   onArenaChange: (width: number, height: number) => void;
   onLauncherColorChange: (color: BallColor) => void;
   onPlayerColorsChange: (colors: BallColor[]) => void;
+  /** Jump to a specific story-mode level (0-based index). Resets the game. */
+  onLevelSelect: (index: number) => void;
   /** Index 0-based of the currently active level, or -1 if no levels are configured. */
   currentLevelIndex: number;
 }
@@ -401,10 +403,12 @@ function TerrainMenu({ config, onArenaChange, onBack }: TerrainMenuProps) {
 // Launcher Color Sub-Menu (single-pick: orange spawns this color)
 // ============================================================
 function LauncherColorMenu({
-  config, onLauncherColorChange, onBack,
+  config, onLauncherColorChange, onClose, onBack,
 }: {
   config: GameConfig;
   onLauncherColorChange: (color: BallColor) => void;
+  /** Closes the entire menu after a pick so the new session is visible. */
+  onClose: () => void;
   onBack: () => void;
 }) {
   const current = config.gameplay.orange.launch_config.color as BallColor | "random";
@@ -412,23 +416,29 @@ function LauncherColorMenu({
 
   const pick = (c: BallColor | "random") => {
     setSelected(c);
+    // Picking a color exits story-mode and starts a fresh single-color
+    // session that loops with 100% of the chosen color (handled by the
+    // engine hook). Close the menu so the new game is visible.
     if (c === "random") {
-      // Use first available as fallback (engine handles "random" via allow_colors)
+      // Fallback for "random": the engine handles it via allow_colors.
       onLauncherColorChange("dark_green");
     } else {
       onLauncherColorChange(c);
     }
+    onClose();
   };
 
   return (
     <div style={PANEL}>
       <div>
         <div style={TITLE}>Couleur lancée</div>
-        <div style={{ fontSize: 18, fontWeight: "bold", color: "#1e90ff" }}>Spawn du lanceur orange</div>
+        <div style={{ fontSize: 18, fontWeight: "bold", color: "#1e90ff" }}>Session mono-couleur</div>
       </div>
 
       <div style={{ fontSize: 12, color: "#7a9fcc", lineHeight: 1.5 }}>
-        Choisis la couleur des balles que la balle orange (lanceur) fait apparaître. Appliqué au runtime.
+        Choisis une couleur : une nouvelle partie démarre <b>hors mode niveaux</b>,
+        avec un seul niveau qui boucle en 100 % de la couleur choisie. Aucune progression
+        de niveau, le terrain se réinitialise à chaque clear.
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
@@ -1219,10 +1229,12 @@ function HowToAskCard({ tuto }: { tuto: HowToAskTuto }) {
 function LevelsCarousel({
   config,
   currentLevelIndex,
+  onLevelSelect,
   onBack,
 }: {
   config: GameConfig;
   currentLevelIndex: number;
+  onLevelSelect: (index: number) => void;
   onBack: () => void;
 }) {
   const levels = config.levels?.list ?? [];
@@ -1389,31 +1401,62 @@ function LevelsCarousel({
         après le quota de spawn). Quand le dernier niveau est nettoyé, le jeu repart au niveau 1.
       </div>
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-        <button onClick={prev} style={{ ...CLOSE_BTN, flex: 1, textAlign: "center", color: "#aac8f0", borderColor: "rgba(30,144,255,0.4)" }}>
+      {/* Pagination dots — clickable, above the action row */}
+      <div style={{ display: "flex", justifyContent: "center", gap: 6 }}>
+        {levels.map((l, i) => (
+          <div
+            key={l.id}
+            onClick={() => setIndex(i)}
+            style={{
+              width: i === index ? 10 : 6, height: i === index ? 10 : 6,
+              borderRadius: "50%",
+              background: i === currentLevelIndex
+                ? "#1e90ff"
+                : i === index
+                  ? "#7fb3ff"
+                  : "rgba(255,255,255,0.18)",
+              cursor: "pointer",
+              boxShadow: i === index ? "0 0 6px #1e90ff" : "none",
+              transition: "all 0.2s",
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Action row: Précédent — Jouer — Suivant */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+        <button
+          onClick={prev}
+          style={{
+            ...CLOSE_BTN, flex: 1, textAlign: "center",
+            color: "#aac8f0", borderColor: "rgba(30,144,255,0.4)",
+          }}
+        >
           ← Précédent
         </button>
-        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-          {levels.map((l, i) => (
-            <div
-              key={l.id}
-              onClick={() => setIndex(i)}
-              style={{
-                width: i === index ? 10 : 6, height: i === index ? 10 : 6,
-                borderRadius: "50%",
-                background: i === currentLevelIndex
-                  ? "#1e90ff"
-                  : i === index
-                    ? "#7fb3ff"
-                    : "rgba(255,255,255,0.18)",
-                cursor: "pointer",
-                boxShadow: i === index ? "0 0 6px #1e90ff" : "none",
-                transition: "all 0.2s",
-              }}
-            />
-          ))}
-        </div>
-        <button onClick={next} style={{ ...CLOSE_BTN, flex: 1, textAlign: "center", color: "#aac8f0", borderColor: "rgba(30,144,255,0.4)" }}>
+        <button
+          onClick={() => { onLevelSelect(index); onBack(); }}
+          title={isCurrent
+            ? `Relancer le niveau ${lvl.id} (${lvl.name})`
+            : `Jouer le niveau ${lvl.id} (${lvl.name})`}
+          style={{
+            ...CLOSE_BTN, flex: 1, textAlign: "center",
+            color: "#0a1628",
+            background: "#1e90ff",
+            borderColor: "#1e90ff",
+            fontWeight: "bold",
+            boxShadow: "0 0 12px rgba(30,144,255,0.55)",
+          }}
+        >
+          {isCurrent ? "▶ Rejouer" : "▶ Jouer"}
+        </button>
+        <button
+          onClick={next}
+          style={{
+            ...CLOSE_BTN, flex: 1, textAlign: "center",
+            color: "#aac8f0", borderColor: "rgba(30,144,255,0.4)",
+          }}
+        >
           Suivant →
         </button>
       </div>
@@ -1482,6 +1525,7 @@ export function Menu({
   onArenaChange,
   onLauncherColorChange,
   onPlayerColorsChange,
+  onLevelSelect,
   currentLevelIndex,
 }: MenuProps) {
   const [view, setView] = useState<MenuView>("main");
@@ -1502,10 +1546,10 @@ export function Menu({
         />
       )}
       {view === "rules"          && <RulesView      config={config} onBack={() => setView("main")} />}
-      {view === "levels"         && <LevelsCarousel config={config} currentLevelIndex={currentLevelIndex} onBack={() => setView("main")} />}
+      {view === "levels"         && <LevelsCarousel config={config} currentLevelIndex={currentLevelIndex} onLevelSelect={onLevelSelect} onBack={() => setView("main")} />}
       {view === "balls"          && <BallsCarousel  config={config} onBack={() => setView("main")} />}
       {view === "terrain"        && <TerrainMenu    config={config} onArenaChange={onArenaChange} onBack={() => setView("main")} />}
-      {view === "launcher_color" && <LauncherColorMenu config={config} onLauncherColorChange={onLauncherColorChange} onBack={() => setView("main")} />}
+      {view === "launcher_color" && <LauncherColorMenu config={config} onLauncherColorChange={onLauncherColorChange} onClose={onClose} onBack={() => setView("main")} />}
       {view === "player_colors"  && <PlayerColorsMenu  config={config} onPlayerColorsChange={onPlayerColorsChange}   onBack={() => setView("main")} />}
       {view === "how_to_ask"     && <HowToAskCarousel onBack={() => setView("main")} />}
       {view === "release_notes"  && <ReleaseNotesView config={config} onBack={() => setView("main")} />}

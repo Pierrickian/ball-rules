@@ -21,7 +21,7 @@ function App() {
   const {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
-    shoot, setLauncherColor, setPlayerColors, classifyHold,
+    shoot, setLauncherColor, setPlayerColors, setActiveLevel, classifyHold,
   } = useGameEngine();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -200,6 +200,7 @@ function App() {
           onArenaChange={setArena}
           onLauncherColorChange={setLauncherColor}
           onPlayerColorsChange={setPlayerColors}
+          onLevelSelect={setActiveLevel}
           currentLevelIndex={gameState.currentLevelIndex}
         />
       )}

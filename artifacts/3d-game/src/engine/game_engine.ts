@@ -78,6 +78,12 @@ export class GameEngine {
   private elapsedTime = 0;
   private sessionCleared = false;
   private currentLevelIndex = 0;
+  // When true, the game ignores the levels system: the orange launcher
+  // uses launch_config.color directly (no level weights), and getCurrentLevel
+  // returns null so HUD/snapshot don't display stale level info. Used by
+  // the "Couleur lancée" menu to play a single-color, single-level loop
+  // without entering story mode.
+  private singleColorMode = false;
 
   constructor(config: GameConfig, initialLevelIndex = 0) {
     this.config = config;
@@ -136,8 +142,10 @@ export class GameEngine {
     };
   }
 
-  /** Active level entry, or null when no `levels.list` is configured. */
+  /** Active level entry, or null when no `levels.list` is configured
+   *  or when the engine is in single-color (non-story) mode. */
   getCurrentLevel(): import("./types").LevelEntry | null {
+    if (this.singleColorMode) return null;
     const list = this.config.levels?.list;
     if (!list || list.length === 0) return null;
     const i = ((this.currentLevelIndex % list.length) + list.length) % list.length;
@@ -146,6 +154,16 @@ export class GameEngine {
 
   getCurrentLevelIndex(): number {
     return this.currentLevelIndex;
+  }
+
+  /** Toggle single-color mode (orange launcher uses launch_config.color
+   *  directly, level weights and level metadata are ignored). */
+  setSingleColorMode(on: boolean): void {
+    this.singleColorMode = on;
+  }
+
+  isSingleColorMode(): boolean {
+    return this.singleColorMode;
   }
 
   updateConfig(config: GameConfig): void {

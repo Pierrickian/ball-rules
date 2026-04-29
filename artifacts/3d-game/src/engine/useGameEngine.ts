@@ -9,8 +9,12 @@
 //   pause / resume / reset       — game flow
 //   setArena(w, h)               — live resize the arena
 //   shoot(targetX, targetY, hold)— player click → projectile
-//   setLauncherColor(color)      — orange's launched color
+//   setLauncherColor(color)      — orange's launched color (also enters
+//                                   single-color mode: one looping level
+//                                   with 100% of the chosen color, no
+//                                   level progression)
 //   setPlayerColors(colors)      — pool of player ball colors
+//   setActiveLevel(idx)          — jump to a level and (re)enter story mode
 // ============================================================
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -30,6 +34,7 @@ export interface UseGameEngineResult {
   shoot: (targetX: number, targetY: number, holdSeconds: number) => ShotKind | null;
   setLauncherColor: (color: BallColor) => void;
   setPlayerColors: (colors: BallColor[]) => void;
+  setActiveLevel: (index: number) => void;
   classifyHold: (holdSeconds: number) => ShotKind;
 }
 
@@ -73,6 +78,9 @@ export function useGameEngine(): UseGameEngineResult {
   const queueRef           = useRef<BallColor[]>([]);
   const rebootingRef       = useRef(false);
   const currentLevelIdxRef = useRef(0);
+  // "levels"       — story mode: use level weights, advance on clear (loop)
+  // "single_color" — one looping level, 100% of launch_config.color, no progression
+  const sessionModeRef     = useRef<"levels" | "single_color">("levels");
 
   // Load config and initialize engine
   useEffect(() => {
@@ -132,8 +140,11 @@ export function useGameEngine(): UseGameEngineResult {
           rebootingRef.current = true;
           const delaySec = cfg.game_session.reboot_delay_seconds ?? 1.5;
           // Advance to the next level (with wrap-around) before reboot,
-          // unless the config explicitly disables level progression.
-          const advance = cfg.game_session.advance_level_on_clear !== false;
+          // unless: (a) config disables progression, OR (b) we are in
+          // single-color mode (a single looping level, no story).
+          const advance =
+            cfg.game_session.advance_level_on_clear !== false &&
+            sessionModeRef.current === "levels";
           const levelCount = cfg.levels?.list?.length ?? 0;
           if (advance && levelCount > 0) {
             currentLevelIdxRef.current =
@@ -159,6 +170,11 @@ export function useGameEngine(): UseGameEngineResult {
     const cfg = configRef.current;
     if (!cfg) return;
     engineRef.current = new GameEngine(cfg, currentLevelIdxRef.current);
+    // Re-apply the persistent session mode so resets keep the user's choice
+    // (single-color mode survives auto-reboot, manual reset, etc.).
+    if (sessionModeRef.current === "single_color") {
+      engineRef.current.setSingleColorMode(true);
+    }
     const q = buildQueue(cfg.gameplay_controls.queue_size, cfg.gameplay_controls.queue_ball_colors);
     queueRef.current = q;
     setPlayerQueue(q);
@@ -218,9 +234,15 @@ export function useGameEngine(): UseGameEngineResult {
     return engineRef.current.classifyShot(holdSeconds);
   }, []);
 
+  /**
+   * Pick the orange-launcher color AND switch to single-color mode:
+   * a fresh single-level session that loops with 100% of the chosen
+   * color (no story-mode level progression). The current game is
+   * reset so the new color takes effect immediately.
+   */
   const setLauncherColor = useCallback((color: BallColor) => {
     const cfg = configRef.current;
-    if (!cfg || !engineRef.current) return;
+    if (!cfg) return;
     const newConfig: GameConfig = {
       ...cfg,
       gameplay: {
@@ -233,8 +255,26 @@ export function useGameEngine(): UseGameEngineResult {
     };
     configRef.current = newConfig;
     setConfig(newConfig);
-    engineRef.current.updateConfig(newConfig);
-  }, []);
+    sessionModeRef.current = "single_color";
+    rebootingRef.current = false;
+    doReset();
+  }, [doReset]);
+
+  /**
+   * Jump to an arbitrary level and (re)enter story mode. The current
+   * game is reset so the new level starts fresh.
+   */
+  const setActiveLevel = useCallback((index: number) => {
+    const cfg = configRef.current;
+    if (!cfg) return;
+    const list = cfg.levels?.list ?? [];
+    if (list.length === 0) return;
+    const safe = ((index % list.length) + list.length) % list.length;
+    sessionModeRef.current = "levels";
+    currentLevelIdxRef.current = safe;
+    rebootingRef.current = false;
+    doReset();
+  }, [doReset]);
 
   const setPlayerColors = useCallback((colors: BallColor[]) => {
     const cfg = configRef.current;
@@ -256,6 +296,6 @@ export function useGameEngine(): UseGameEngineResult {
   return {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
-    shoot, setLauncherColor, setPlayerColors, classifyHold,
+    shoot, setLauncherColor, setPlayerColors, setActiveLevel, classifyHold,
   };
 }
