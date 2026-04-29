@@ -228,6 +228,12 @@ export interface GameConfig {
       /** Human-readable explanation of the system role, shown next to the
        *  badge in the carousel. */
       _system_role_description?: string;
+      /** When true, this color acts as a bouncy bumper: anything that
+       *  collides with it (player projectiles included) ricochets off
+       *  instead of passing through. Damage and HP rules still apply. */
+      bouncy_surface?: boolean;
+      /** Human-readable explanation of the bouncy_surface flag (for the carousel). */
+      _bouncy_surface_description?: string;
     }
   >;
   ball_rules: Record<BallColor, { rule: BallRule; _description?: string }>;

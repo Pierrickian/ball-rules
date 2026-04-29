@@ -441,12 +441,24 @@ export class GameEngine {
         if (a.isProjectile() || b.isProjectile()) continue; // projectiles handle their own
         if (a.isFrozen && b.isFrozen) continue;
 
-        const aBouncesBalls =
+        // A bouncy_surface color (e.g. blue) acts as a bumper: any ball
+        // that touches it ricochets off, regardless of its own bounce
+        // condition. So we force both sides to bounce when at least one
+        // of them is a bouncy surface.
+        const aBouncy = !!this.config.ball_colors[a.color]?.bouncy_surface;
+        const bBouncy = !!this.config.ball_colors[b.color]?.bouncy_surface;
+        let aBouncesBalls =
+          aBouncy ||
           a.bounceCondition === BounceCondition.AGAINST_BALL ||
           a.bounceCondition === BounceCondition.AGAINST_ALL;
-        const bBouncesBalls =
+        let bBouncesBalls =
+          bBouncy ||
           b.bounceCondition === BounceCondition.AGAINST_BALL ||
           b.bounceCondition === BounceCondition.AGAINST_ALL;
+        if (aBouncy || bBouncy) {
+          aBouncesBalls = true;
+          bBouncesBalls = true;
+        }
 
         if (!aBouncesBalls && !bBouncesBalls) continue;
 
@@ -771,14 +783,18 @@ export class GameEngine {
   }
 
   /**
-   * DARK_GREEN — hp_grow_bouncer.
+   * DARK_GREEN / BLUE — hp_grow_bouncer.
    * Bounces on walls. On entering overlap with another (non-projectile, non-orange) ball:
    *   - +1 HP (capped at max_hp)
    *   - diameter recomputed from current HP
    * Tracks "touched" set in metadata to avoid double-counting per overlap event.
+   * NOTE: bouncy-surface colors (e.g. blue) deflect everything they touch,
+   *       so traversal can't actually happen — we skip the HP-growth phase
+   *       to keep their HP fixed.
    */
   private handleHpGrowBouncer(ball: Ball, delta: number, ctx: RuleContext): void {
     this.applyMovement(ball, delta, ctx.arena);
+    if (ctx.config.ball_colors[ball.color]?.bouncy_surface) return;
     const p = ctx.config.rule_parameters.hp_grow_bouncer;
     if (!p) return;
 
@@ -882,8 +898,19 @@ export class GameEngine {
         ctx.events.push({ type: "collision", ballAId: ball.id, ballBId: other.id });
         ctx.damageBall(other, meta.damage, "killed_by_player");
 
+        // Bouncy_surface targets (e.g. blue) act as bumpers for ALL three
+        // shot kinds: the projectile ricochets off them and keeps flying
+        // (the damage is still applied above). If the hit kills the target,
+        // we fall through to the normal pass-through / despawn behaviour
+        // since the bumper no longer exists.
+        const isBouncy = !!ctx.config.ball_colors[other.color]?.bouncy_surface;
+        if (isBouncy && other.isAlive) {
+          this.reflectProjectileOff(ball, other);
+          continue;
+        }
+
         if (!meta.passesThroughBalls) {
-          // Light shot: stop after first ball contact
+          // Light shot: stop after first ball contact (non-bouncy target).
           ctx.despawnBall(ball, "projectile_hit_ball");
           return;
         }
@@ -891,5 +918,28 @@ export class GameEngine {
     }
 
     if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "projectile_out_of_bounds");
+  }
+
+  /** Reflect a projectile's velocity off a target ball treated as a bumper.
+   *  Also pushes the projectile out of overlap so it doesn't immediately
+   *  re-collide on the next frame. */
+  private reflectProjectileOff(projectile: Ball, target: Ball): void {
+    const dx = projectile.position.x - target.position.x;
+    const dy = projectile.position.y - target.position.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < 0.001) return;
+    const nx = dx / dist;
+    const ny = dy / dist;
+    const vDotN = projectile.velocity.x * nx + projectile.velocity.y * ny;
+    if (vDotN < 0) {
+      projectile.velocity.x -= 2 * vDotN * nx;
+      projectile.velocity.y -= 2 * vDotN * ny;
+    }
+    const minDist = (projectile.diameter + target.diameter) / 2;
+    const push = minDist - dist + 0.01;
+    if (push > 0) {
+      projectile.position.x += nx * push;
+      projectile.position.y += ny * push;
+    }
   }
 }

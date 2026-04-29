@@ -74,7 +74,7 @@
     "dark_green": { "hex": "#1A8A1A", "rgb": [26, 138, 26],   "_label": "Vert foncé", "selectable_by_player": true,  "for_terrain": true  },
     "turquoise":  { "hex": "#40E0D0", "rgb": [64, 224, 208],  "_label": "Turquoise",  "selectable_by_player": false, "for_terrain": true  },
     "cyan":       { "hex": "#00E5FF", "rgb": [0, 229, 255],   "_label": "Cyan",       "selectable_by_player": false, "for_terrain": true  },
-    "blue":       { "hex": "#4169E1", "rgb": [65, 105, 225],  "_label": "Bleu",       "selectable_by_player": false, "for_terrain": true  },
+    "blue":       { "hex": "#4169E1", "rgb": [65, 105, 225],  "_label": "Bleu",       "selectable_by_player": false, "for_terrain": true,  "bouncy_surface": true, "_bouncy_surface_description": "Surface rebondissante : tout ce qui touche une balle bleue (projectiles du joueur ET autres balles) ricoche dessus au lieu de la traverser. Les dégâts restent appliqués." },
     "dark_blue":  { "hex": "#0000CD", "rgb": [0, 0, 205],     "_label": "Bleu foncé", "selectable_by_player": false, "for_terrain": true  },
     "gray":       { "hex": "#808080", "rgb": [128, 128, 128], "_label": "Gris",       "selectable_by_player": true,  "for_terrain": false },
     "black":      { "hex": "#2A2A2A", "rgb": [42, 42, 42],    "_label": "Noir",       "selectable_by_player": false, "for_terrain": true  }
@@ -281,6 +281,7 @@
   },
 
   "release_notes": [
+    "Balles bleues : surface rebondissante (les 3 tirs du joueur et les autres balles ricochent dessus)",
     "Niveau 4 et balle bleue (50% blanc / 50% bleu, comportement identique au vert foncé)",
     "Lanceur orange : délai de 1 s avant tir (visible au bord avant de lancer)",
     "Système de niveaux : 3 niveaux (blanc → mix → vert foncé) avec progression au clear",
@@ -300,8 +301,7 @@
     "Sous-menu Couleur lancée pour configurer le lanceur orange",
     "Trois types de tir : léger, appuyé, méga",
     "Carrousel Détail des balles avec carte d'identité par couleur",
-    "Menu Règles du jeu",
-    "Sous-menu Terrain : ratio d'aspect et résolution"
+    "Menu Règles du jeu"
   ],
 
   "debug": {
