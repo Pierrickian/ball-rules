@@ -216,7 +216,10 @@ export function GameScene({ gameState, config, events, onPointerDown, onPointerM
         toneMapping: THREE.ACESFilmicToneMapping,
         toneMappingExposure: 1.2,
       }}
-      style={{ width: "100%", height: "100%" }}
+      // `touchAction: "none"` here is critical: without it mobile browsers
+      // fire a synthetic `pointercancel` as soon as the finger drags far
+      // enough to look like a scroll, which aborts the shot charge.
+      style={{ width: "100%", height: "100%", touchAction: "none" }}
     >
       <Scene
         gameState={gameState}

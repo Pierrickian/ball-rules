@@ -82,8 +82,15 @@ function App() {
   };
 
   const handlePointerCancel = () => {
-    holdStartRef.current = null;
-    setIsHolding(false);
+    // The browser fires `pointercancel` quite aggressively on mobile
+    // (e.g. when it decides a drag should become a scroll, even after
+    // we set touch-action: none on some surfaces). Treating it as a
+    // pure abort would silently swallow legitimate shots. Instead we
+    // promote it to a release at the last tracked position — this is
+    // the same idempotent path as a normal pointerup.
+    if (holdStartRef.current == null) return;
+    const { x, y } = lastTargetRef.current;
+    handlePointerUp(x, y);
   };
 
   // ---- Window-level pointerup safety net (installed once at mount) ----
@@ -138,10 +145,18 @@ function App() {
         maxWidth: "100vh", margin: "0 auto",
         background: "#020810", position: "relative", overflow: "hidden",
         userSelect: "none",
+        // Disable native touch gestures (scroll/pan/zoom) on the whole game
+        // surface. Without this, mobile browsers fire a synthetic
+        // `pointercancel` as soon as the finger drags far enough to be
+        // interpreted as a scroll, which aborts the charge.
+        touchAction: "none",
+        WebkitUserSelect: "none",
+        WebkitTouchCallout: "none",
+        overscrollBehavior: "none",
       }}
     >
       {/* 3D Scene */}
-      <div style={{ position: "absolute", inset: 0 }}>
+      <div style={{ position: "absolute", inset: 0, touchAction: "none" }}>
         <GameScene
           gameState={gameState}
           config={config}
