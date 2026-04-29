@@ -188,7 +188,25 @@ export interface GameConfig {
   };
   arena_settings: ArenaSettings;
   level_rules: LevelRules;
-  ball_colors: Record<BallColor, { hex: string; rgb: [number, number, number]; _label?: string }>;
+  ball_colors: Record<
+    BallColor,
+    {
+      hex: string;
+      rgb: [number, number, number];
+      _label?: string;
+      /** True if the player can pick this color into their shot queue. */
+      selectable_by_player?: boolean;
+      /** True if this color belongs to the terrain (carousel + arena). */
+      for_terrain?: boolean;
+      /** Optional system role (e.g. "launcher"). When set, the color is a
+       *  terrain mechanic and is rendered with a "Rôle système" badge in
+       *  the carousel instead of the "En attente de règle" badge. */
+      system_role?: string;
+      /** Human-readable explanation of the system role, shown next to the
+       *  badge in the carousel. */
+      _system_role_description?: string;
+    }
+  >;
   ball_rules: Record<BallColor, { rule: BallRule; _description?: string }>;
   bounce_conditions: BounceConditionsConfig;
   rule_parameters: {

@@ -70,25 +70,35 @@ against_obstacle → rebondit obstacles (future)
 against_all      → rebondit tout
 ```
 
+### Catégorisation des couleurs (drapeaux par balle)
+
+Chaque entrée de `ball_colors` (dans `game_config.json`) porte deux drapeaux qui pilotent toute la catégorisation, plus un champ optionnel pour les mécanismes système :
+
+| Champ | Type | Effet |
+|---|---|---|
+| `selectable_by_player` | bool | La couleur apparaît dans le menu **Couleur joueur** et peut entrer dans `gameplay_controls.queue_ball_colors`. |
+| `for_terrain` | bool | La couleur appartient au terrain : visible dans le carrousel **Détail des balles**, et candidate au pool de projectiles du lanceur (si elle a une règle et n'est pas système). |
+| `system_role` (optionnel) | string | Marque la couleur comme un mécanisme système (ex. `"launcher"` pour orange). Toujours rendu dans le carrousel avec un encart **Rôle système** au lieu d'**En attente de règle**. Exclu du pool de projectiles du lanceur. |
+| `_system_role_description` (optionnel) | string | Texte affiché sous le badge **Rôle système** dans le carrousel. À fournir dès que `system_role` est défini. |
+
+Une même couleur peut combiner les deux drapeaux (ex. `white` est joueur + terrain). `gray` est joueur uniquement (`for_terrain: false`). `orange` est terrain + `system_role: "launcher"`. Toutes les couleurs en attente de règle (jaune, rouge, etc.) restent `for_terrain: true` pour rester visibles dans le carrousel avec leur badge d'attente.
+
+Les listes affichées dans les sous-menus sont **dérivées** automatiquement des drapeaux par les helpers `playerColors`, `terrainColors`, `launcherColors` dans `Menu.tsx`. Ne JAMAIS ré-introduire de constantes en dur — la source unique de vérité est `ball_colors` dans `game_config.json`.
+
 ### Cohérence règles ↔ carrousel ↔ couleurs lançables
 
-À chaque ajout, modification ou suppression de règle dans `ball_rules`, l'agent doit propager les changements dans tous les emplacements suivants. Aucun de ces points n'est optionnel.
+À chaque ajout, modification ou suppression de règle dans `ball_rules`, l'agent doit propager les changements :
 
 - **`ball_rules.<couleur>`** → toute couleur listée ici DOIT avoir une description (`_description`) et un type de règle (`rule`) à jour, puisque ces champs sont rendus tels quels dans le carrousel **Détail des balles**.
-- **`bounce_conditions.ball_bounce_conditions.<couleur>`** → doit contenir une entrée pour chaque couleur ayant une règle, sinon le rebond tombe sur le défaut moteur.
+- **`bounce_conditions.ball_bounce_conditions.<couleur>`** → entrée obligatoire pour chaque couleur ayant une règle, sinon le rebond tombe sur le défaut moteur.
 - **`gameplay.<couleur>`** → doit définir `spawn` et `despawn` pour chaque couleur ayant une règle.
-- **`gameplay.orange.launch_config.allow_colors`** → doit lister TOUTES les couleurs « lançables », c'est-à-dire celles qui ont une règle ET qui ne sont pas réservées au joueur. Si tu ajoutes une règle à une couleur lançable, ajoute-la ici. Si tu en retires une, retire-la ici.
-- **Carrousel `BallsCarousel` (`Menu.tsx`)** → s'aligne automatiquement sur `ball_colors`. Vérifie quand même qu'aucune couleur n'apparaît avec un libellé contradictoire.
+- **`gameplay.orange.launch_config.allow_colors`** → doit lister TOUTES les couleurs lançables (= `for_terrain: true` + a une règle + pas de `system_role`). Le menu **Couleur lancée** filtre via le helper `launcherColors(config)` ; `allow_colors` doit refléter exactement le même ensemble pour le mode `color: "random"` du lanceur.
+- **Drapeaux dans `ball_colors`** → si l'ajout d'une règle rend une couleur jouable / lançable, vérifier que `selectable_by_player` et `for_terrain` reflètent l'intention.
 
-Couleurs réservées au joueur (NE PAS mettre dans `allow_colors` du lanceur) :
+Conventions actuelles :
 
-- **`gray`** : couleur dédiée à la file de tir / aux projectiles du joueur. Apparaît dans `gameplay_controls.queue_ball_colors` et dans la constante `PLAYER_COLORS` de `Menu.tsx`, jamais dans `LAUNCHER_COLORS`.
-
-Mécanismes système (PAS de règle dans `ball_rules`, PAS dans le carrousel) :
-
-- **`orange`** : c'est le lanceur lui-même. Géré entièrement dans `gameplay.orange` (timer + `launch_config`) et dans le moteur (`performOrangeSpawn` / `performOrangeLaunch`). Filtré du carrousel via `SYSTEM_COLORS` dans `Menu.tsx`.
-
-Si tu introduis une nouvelle couleur réservée au joueur ou un nouveau mécanisme système, mets à jour `PLAYER_COLORS` ou `SYSTEM_COLORS` (et la doc ci-dessus) en conséquence.
+- **`gray`** = joueur seulement. `selectable_by_player: true`, `for_terrain: false`. Ne doit jamais être lançable par l'orange.
+- **`orange`** = mécanisme système (lanceur). `for_terrain: true`, `system_role: "launcher"`, pas d'entrée dans `ball_rules`. Géré dans `gameplay.orange` + moteur (`performOrangeSpawn` / `performOrangeLaunch`). Reste visible dans le carrousel avec un encart **Rôle système** : ne jamais le supprimer de `ball_colors`.
 
 ### Notes de version (`release_notes`)
 

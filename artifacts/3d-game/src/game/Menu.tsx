@@ -84,21 +84,54 @@ const MENU_BTN: React.CSSProperties = {
   gap: 12,
 };
 
-// Colors selectable as projectiles for the orange launcher.
-// Excludes:
-//   - orange  → it IS the launcher (system mechanic, no rule entry)
-//   - gray    → reserved for the player's shooting queue
-// Must stay in sync with `gameplay.orange.launch_config.allow_colors` in game_config.json.
-const LAUNCHER_COLORS: BallColor[] = ["white", "dark_green"];
+// ============================================================
+// Color list helpers — derived from per-color attributes
+// ============================================================
+//
+// Each entry in `ball_colors` (game_config.json) carries two flags:
+//   - `selectable_by_player` → can be picked into the player's shot queue.
+//   - `for_terrain`          → belongs to the terrain side of the game
+//                              (visible in the carousel, eligible for the
+//                              orange launcher's projectile pool).
+//
+// Plus an optional `system_role` field (e.g. "launcher" for orange) that marks
+// the color as a terrain *mechanic* instead of a regular ball type. System
+// colors stay visible on the terrain side but are excluded from the launcher's
+// projectile pool (the launcher cannot launch itself).
+//
+// All menu lists are derived from these flags so the JSON config is the only
+// place to edit when ball categorisation changes.
 
-// Colors selectable for the player's shot queue (gameplay_controls.queue_ball_colors).
-// Includes gray (the player-dedicated color) plus any other rule-bearing color
-// the player should be able to shoot.
-const PLAYER_COLORS: BallColor[] = ["white", "dark_green", "gray"];
+/** Helper: list of color keys (excludes the JSON metadata fields). */
+function realColorKeys(config: GameConfig): BallColor[] {
+  return Object.keys(config.ball_colors).filter(
+    (c) => c !== "_description" && c !== "_color_format"
+  ) as BallColor[];
+}
 
-// Colors that must be hidden from the "Détail des balles" carousel because they
-// are system mechanics rather than player-facing ball types.
-const SYSTEM_COLORS: BallColor[] = ["orange"];
+/** Colors picked by the player's shot queue ("Couleur joueur" menu). */
+function playerColors(config: GameConfig): BallColor[] {
+  return realColorKeys(config).filter(
+    (c) => config.ball_colors[c]?.selectable_by_player === true
+  );
+}
+
+/** Colors visible in the "Détail des balles" carousel. */
+function terrainColors(config: GameConfig): BallColor[] {
+  return realColorKeys(config).filter(
+    (c) => config.ball_colors[c]?.for_terrain === true
+  );
+}
+
+/** Colors the orange launcher can shoot ("Couleur lancée" menu).
+ *  = terrain colors that have a rule AND are not system mechanics. */
+function launcherColors(config: GameConfig): BallColor[] {
+  return terrainColors(config).filter(
+    (c) =>
+      !config.ball_colors[c]?.system_role &&
+      !!config.ball_rules[c]
+  );
+}
 
 // ============================================================
 // Snap Slider — unchanged
@@ -394,7 +427,7 @@ function LauncherColorMenu({
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-        {LAUNCHER_COLORS.map((c) => {
+        {launcherColors(config).map((c) => {
           const entry = config.ball_colors[c];
           const isActive = selected === c;
           return (
@@ -465,7 +498,7 @@ function PlayerColorsMenu({
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-        {PLAYER_COLORS.map((c) => {
+        {playerColors(config).map((c) => {
           const entry = config.ball_colors[c];
           const isActive = selected.includes(c);
           return (
@@ -732,7 +765,30 @@ function BallCard({ colorKey, config }: { colorKey: string; config: GameConfig }
         </div>
       </div>
 
-      {!hasRule ? (
+      {colorEntry?.system_role ? (
+        <div
+          style={{
+            background: "rgba(30,80,140,0.22)",
+            border: "1px solid rgba(120,180,255,0.45)",
+            borderRadius: 10,
+            padding: "14px 14px",
+            color: "#cfe5ff",
+            fontSize: 12,
+            lineHeight: 1.55,
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
+          }}
+        >
+          <div style={{ fontWeight: "bold", letterSpacing: 1, fontSize: 11, color: "#9fc8ff" }}>
+            ⚙️ RÔLE SYSTÈME — {colorEntry.system_role.toUpperCase()}
+          </div>
+          <div style={{ color: "#bcd6f4" }}>
+            {colorEntry._system_role_description ??
+              "Mécanisme système du terrain. Pas de règle classique : son comportement est codé dans le moteur."}
+          </div>
+        </div>
+      ) : !hasRule ? (
         <div
           style={{
             background: "rgba(60,60,30,0.25)",
@@ -806,17 +862,12 @@ function BallCard({ colorKey, config }: { colorKey: string; config: GameConfig }
 // Balls Carousel
 // ============================================================
 function BallsCarousel({ config, onBack }: { config: GameConfig; onBack: () => void }) {
-  // Show every color in the palette EXCEPT system colors (orange = the
-  // launcher mechanic, not a rule-driven ball type). Colors without an
-  // active rule still appear, flagged by the "En attente de règle" badge
-  // inside BallCard, so the player sees the full inventory they can ask
-  // the agent to activate.
-  const colors = Object.keys(config.ball_colors).filter(
-    (c) =>
-      c !== "_description" &&
-      c !== "_color_format" &&
-      !SYSTEM_COLORS.includes(c as BallColor)
-  );
+  // Show every terrain-side color (the `for_terrain` flag in game_config.json).
+  // Includes system mechanics like orange — they get a "Rôle système" badge
+  // instead of "En attente de règle". Player-only colors (like gray) are
+  // intentionally absent: they live in the player shot queue, not on the
+  // terrain.
+  const colors = terrainColors(config);
   const [index, setIndex] = useState(0);
   const prev = () => setIndex((i) => (i - 1 + colors.length) % colors.length);
   const next = () => setIndex((i) => (i + 1) % colors.length);

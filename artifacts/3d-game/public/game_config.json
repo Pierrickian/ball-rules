@@ -64,20 +64,20 @@
   },
 
   "ball_colors": {
-    "_description": "Palette officielle des couleurs de balles.",
+    "_description": "Palette officielle des couleurs de balles. Chaque couleur porte deux drapeaux qui décident où elle apparaît dans les menus : 'selectable_by_player' (peut être tirée par le joueur) et 'for_terrain' (apparaît dans l'arène — carrousel + lanceur). Le champ optionnel 'system_role' marque les couleurs qui sont un mécanisme système (ex. orange = lanceur) : elles sont visibles dans le carrousel mais sans règle.",
     "_color_format": "hex = code couleur web (#RRGGBB), rgb = [rouge 0-255, vert 0-255, bleu 0-255]",
-    "white":      { "hex": "#F5F5F5", "rgb": [245, 245, 245], "_label": "Blanc" },
-    "yellow":     { "hex": "#FFE600", "rgb": [255, 230, 0],   "_label": "Jaune" },
-    "orange":     { "hex": "#FF6A00", "rgb": [255, 106, 0],   "_label": "Orange" },
-    "red":        { "hex": "#FF1F1F", "rgb": [255, 31, 31],   "_label": "Rouge" },
-    "light_green":{ "hex": "#5EFF5E", "rgb": [94, 255, 94],   "_label": "Vert clair" },
-    "dark_green": { "hex": "#1A8A1A", "rgb": [26, 138, 26],   "_label": "Vert foncé" },
-    "turquoise":  { "hex": "#40E0D0", "rgb": [64, 224, 208],  "_label": "Turquoise" },
-    "cyan":       { "hex": "#00E5FF", "rgb": [0, 229, 255],   "_label": "Cyan" },
-    "blue":       { "hex": "#4169E1", "rgb": [65, 105, 225],  "_label": "Bleu" },
-    "dark_blue":  { "hex": "#0000CD", "rgb": [0, 0, 205],     "_label": "Bleu foncé" },
-    "gray":       { "hex": "#808080", "rgb": [128, 128, 128], "_label": "Gris" },
-    "black":      { "hex": "#2A2A2A", "rgb": [42, 42, 42],    "_label": "Noir" }
+    "white":      { "hex": "#F5F5F5", "rgb": [245, 245, 245], "_label": "Blanc",      "selectable_by_player": true,  "for_terrain": true  },
+    "yellow":     { "hex": "#FFE600", "rgb": [255, 230, 0],   "_label": "Jaune",      "selectable_by_player": false, "for_terrain": true  },
+    "orange":     { "hex": "#FF6A00", "rgb": [255, 106, 0],   "_label": "Orange",     "selectable_by_player": false, "for_terrain": true,  "system_role": "launcher", "_system_role_description": "Apparaît périodiquement sur un bord de l'arène et envoie immédiatement une autre balle dans le terrain, puis disparaît. C'est le mécanisme qui peuple le terrain : sans orange, plus aucune balle n'arrive. Cette couleur n'a volontairement pas de règle dans 'ball_rules' : son comportement est codé directement dans le moteur (gameplay.orange + performOrangeSpawn / performOrangeLaunch)." },
+    "red":        { "hex": "#FF1F1F", "rgb": [255, 31, 31],   "_label": "Rouge",      "selectable_by_player": false, "for_terrain": true  },
+    "light_green":{ "hex": "#5EFF5E", "rgb": [94, 255, 94],   "_label": "Vert clair", "selectable_by_player": false, "for_terrain": true  },
+    "dark_green": { "hex": "#1A8A1A", "rgb": [26, 138, 26],   "_label": "Vert foncé", "selectable_by_player": true,  "for_terrain": true  },
+    "turquoise":  { "hex": "#40E0D0", "rgb": [64, 224, 208],  "_label": "Turquoise",  "selectable_by_player": false, "for_terrain": true  },
+    "cyan":       { "hex": "#00E5FF", "rgb": [0, 229, 255],   "_label": "Cyan",       "selectable_by_player": false, "for_terrain": true  },
+    "blue":       { "hex": "#4169E1", "rgb": [65, 105, 225],  "_label": "Bleu",       "selectable_by_player": false, "for_terrain": true  },
+    "dark_blue":  { "hex": "#0000CD", "rgb": [0, 0, 205],     "_label": "Bleu foncé", "selectable_by_player": false, "for_terrain": true  },
+    "gray":       { "hex": "#808080", "rgb": [128, 128, 128], "_label": "Gris",       "selectable_by_player": true,  "for_terrain": false },
+    "black":      { "hex": "#2A2A2A", "rgb": [42, 42, 42],    "_label": "Noir",       "selectable_by_player": false, "for_terrain": true  }
   },
 
   "ball_rules": {
@@ -242,6 +242,8 @@
   },
 
   "release_notes": [
+    "Drapeaux selectable_by_player et for_terrain par couleur (menus dérivés)",
+    "Carrousel : encart Rôle système pour orange (lanceur sans règle)",
     "Cohérence couleurs : orange retiré des règles, gris retiré du lanceur",
     "Sous-menu Notes de version",
     "Glossaire d'agent dans le menu Comment demander",
