@@ -40,6 +40,7 @@ export type BallRule =
   | "neutral"
   | "absorb"
   | "hp_grow_bouncer"
+  | "blink_hp_bouncer"
   | "player_projectile";
 
 // ---- Bounce Condition Enum ----
@@ -252,6 +253,12 @@ export interface GameConfig {
       max_hp: number;
       hp_gained_per_traversal: number;
       diameter_per_extra_hp: number;
+    };
+    yellow_blinker?: {
+      default_hp: number;
+      max_hp: number;
+      invisible_duration_seconds: number;
+      cycle_seconds: number;
     };
     player_projectile?: {
       max_lifetime_seconds: number;

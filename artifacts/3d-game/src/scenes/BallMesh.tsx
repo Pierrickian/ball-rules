@@ -34,6 +34,7 @@ export function BallMesh({ ball, config }: BallMeshProps) {
   const isProjectile = ball.metadata?.isProjectile === true;
   const tint = (ball.metadata?.colorTint as string | null | undefined) ?? null;
   const tintColor = tint ? new THREE.Color(tint) : null;
+  const visibilityAlpha = typeof ball.metadata?.visibilityAlpha === "number" ? Math.max(0, Math.min(1, ball.metadata.visibilityAlpha as number)) : 1;
 
   useFrame((_, delta) => {
     if (!meshRef.current) return;
@@ -99,6 +100,8 @@ export function BallMesh({ ball, config }: BallMeshProps) {
           roughness={isProjectile ? 0.15 : matCfg.roughness}
           metalness={matCfg.metalness}
           envMapIntensity={1.5}
+          transparent={visibilityAlpha < 1}
+          opacity={visibilityAlpha}
         />
       </mesh>
 
