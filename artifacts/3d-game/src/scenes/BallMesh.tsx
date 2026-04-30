@@ -32,8 +32,11 @@ export function BallMesh({ ball, config }: BallMeshProps) {
 
   const matCfg = config.graphics.ball_material ?? { roughness: 0.05, metalness: 0.85, emissive_intensity: 0.25 };
   const isProjectile = ball.metadata?.isProjectile === true;
+  const isHidden = ball.metadata?.hidden === true;
   const tint = (ball.metadata?.colorTint as string | null | undefined) ?? null;
   const tintColor = tint ? new THREE.Color(tint) : null;
+
+  if (isHidden) return null;
 
   useFrame((_, delta) => {
     if (!meshRef.current) return;

@@ -112,6 +112,7 @@ export class GameEngine {
     this.registerRuleHandler("neutral",           this.handleNeutral.bind(this));
     this.registerRuleHandler("absorb",            this.handleAbsorb.bind(this));
     this.registerRuleHandler("hp_grow_bouncer",   this.handleHpGrowBouncer.bind(this));
+    this.registerRuleHandler("blink_hp_bouncer",  this.handleBlinkHpBouncer.bind(this));
     this.registerRuleHandler("player_projectile", this.handlePlayerProjectile.bind(this));
   }
 
@@ -368,6 +369,10 @@ export class GameEngine {
       const p = this.config.rule_parameters.hp_grow_bouncer;
       hp = p?.default_hp ?? 2;
       maxHp = p?.max_hp ?? 5;
+    } else if (rule === "blink_hp_bouncer") {
+      const p = this.config.rule_parameters.blink_hp_bouncer;
+      hp = p?.default_hp ?? 4;
+      maxHp = p?.max_hp ?? 4;
     }
 
     const ball = new Ball(color, size, position, velocity, diameter, rule, bounceCondition, hp, maxHp);
@@ -850,6 +855,20 @@ export class GameEngine {
     }
 
     // Out of bounds shouldn't really happen (against_wall), but safety
+    if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
+  }
+
+  /** YELLOW — blink_hp_bouncer.
+   * Bounces on walls, starts with fixed HP, and periodically disappears:
+   * hidden for hidden_duration_seconds every blink_period_seconds.
+   */
+  private handleBlinkHpBouncer(ball: Ball, delta: number, ctx: RuleContext): void {
+    this.applyMovement(ball, delta, ctx.arena);
+    const p = ctx.config.rule_parameters.blink_hp_bouncer;
+    const period = Math.max(0.001, p?.blink_period_seconds ?? 1);
+    const hiddenDuration = Math.max(0, Math.min(period, p?.hidden_duration_seconds ?? 0.5));
+    const phase = this.elapsedTime % period;
+    ball.metadata.hidden = phase < hiddenDuration;
     if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
   }
 

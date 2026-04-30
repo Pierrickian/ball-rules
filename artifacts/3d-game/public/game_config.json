@@ -83,8 +83,9 @@
   "ball_rules": {
     "_description": "Règle de comportement de chaque couleur de balle (hors mécanismes système comme l'orange). IMPORTANT: toute modification de règle doit passer par ce fichier. Les handlers sont dans game_engine.ts. La règle 'player_projectile' est attribuée dynamiquement aux tirs du joueur. Orange est un mécanisme système (lanceur) géré dans la section 'gameplay.orange' et ne figure pas ici.",
     "white":       { "rule": "bounce",            "_description": "Rebondit sur les murs sans perdre de vitesse." },
-    "dark_green":  { "rule": "hp_grow_bouncer",    "_description": "Rebondit sur les murs. Démarre avec 2 PV (5 PV max). Disparaît à 0 PV. Gagne 1 PV en traversant une autre balle. Sa taille augmente avec les PV." },
-    "blue":        { "rule": "hp_grow_bouncer",    "_description": "Comme la verte foncée : rebondit sur les murs, démarre avec 2 PV (5 PV max), disparaît à 0 PV, gagne 1 PV à chaque traversée et grossit en conséquence. Les projectiles du joueur rebondissent dessus selon le type de tir." },
+    "yellow":      { "rule": "blink_hp_bouncer",  "_description": "Rebondit sur les murs. Démarre avec 4 PV. Disparaît visuellement 0,5 s toutes les 1 s." },
+    "dark_green":  { "rule": "hp_grow_bouncer",    "_description": "Rebondit sur les murs. Démarre avec 2 PV (6 PV max). Disparaît à 0 PV. Gagne 1 PV en traversant une autre balle. Sa taille augmente avec les PV." },
+    "blue":        { "rule": "hp_grow_bouncer",    "_description": "Comme la verte foncée : rebondit sur les murs, démarre avec 2 PV (6 PV max), disparaît à 0 PV, gagne 1 PV à chaque traversée et grossit en conséquence. Les projectiles du joueur rebondissent dessus selon le type de tir." },
     "gray":        { "rule": "neutral",            "_description": "Aucun effet spécial. Se déplace et rebondit. Couleur dédiée aux projectiles du joueur (réservée à la file de tir, jamais lancée par l'orange)." }
   },
 
@@ -100,6 +101,7 @@
     "ball_bounce_conditions": {
       "_description": "Condition de rebond attribuée à chaque couleur de balle ayant une règle. Orange n'est pas listé (mécanisme système, despawn immédiat après lancement).",
       "white":       "against_wall",
+      "yellow":      "against_wall",
       "dark_green":  "against_wall",
       "blue":        "against_wall",
       "gray":        "against_wall"
@@ -119,10 +121,17 @@
     "hp_grow_bouncer": {
       "_description": "Paramètres de la règle dark_green: PV de départ, PV maxi, gain par traversée, et facteur de croissance de diamètre.",
       "default_hp": 2,
-      "max_hp": 5,
+      "max_hp": 6,
       "hp_gained_per_traversal": 1,
       "diameter_per_extra_hp": 0.18,
-      "_diameter_per_extra_hp_comment": "À 2 PV (défaut): ×1.0. À 5 PV: ×1 + (5-2)×0.18 = ×1.54. À 1 PV: ×0.82."
+      "_diameter_per_extra_hp_comment": "À 2 PV (défaut): ×1.0. À 6 PV: ×1 + (6-2)×0.18 = ×1.72. À 1 PV: ×0.82."
+    },
+    "blink_hp_bouncer": {
+      "_description": "Paramètres de la règle yellow: PV fixes et cycle de disparition périodique.",
+      "default_hp": 4,
+      "max_hp": 4,
+      "blink_period_seconds": 1.0,
+      "hidden_duration_seconds": 0.5
     },
     "player_projectile": {
       "_description": "Paramètres globaux des projectiles du joueur. Voir gameplay_controls.shot_types pour les variantes par type de tir.",
@@ -150,12 +159,13 @@
         "size": "small",
         "speed": 45.0,
         "direction": "random",
-        "allow_colors": ["white", "dark_green", "blue"],
+        "allow_colors": ["white", "yellow", "dark_green", "blue"],
         "_allow_colors_comment": "Couleurs que le lanceur orange peut faire entrer dans l'arène. Le gris est volontairement exclu : c'est une couleur dédiée au joueur (file de tir / projectiles)."
       }
     },
 
     "white":       { "spawn": { "condition": "launched_by_orange" }, "despawn": { "condition": "out_of_bounds" } },
+    "yellow":      { "spawn": { "condition": "launched_by_orange" }, "despawn": { "condition": "killed_at_zero_hp" } },
     "dark_green":  { "spawn": { "condition": "launched_by_orange" }, "despawn": { "condition": "killed_at_zero_hp" } },
     "blue":        { "spawn": { "condition": "launched_by_orange" }, "despawn": { "condition": "killed_at_zero_hp" } },
     "gray":        { "spawn": { "condition": "launched_by_orange" }, "despawn": { "condition": "out_of_bounds" } }
@@ -264,6 +274,12 @@
         "name": "Niveau 4 — Marée bleue",
         "description": "Introduction de la balle bleue : moitié blanches, moitié bleues. Les bleues se comportent comme les vert foncé (2 PV, grossissent à chaque traversée, disparaissent à 0 PV). Apprends à distinguer les couleurs en plein chaos.",
         "launch_color_weights": { "white": 0.5, "blue": 0.5 }
+      },
+      {
+        "id": 5,
+        "name": "Niveau 5 — Tempête jaune",
+        "description": "100% de balles jaunes. Elles ont 4 PV et disparaissent visuellement une demi-seconde toutes les secondes : anticipe leurs réapparitions pour viser juste.",
+        "launch_color_weights": { "yellow": 1.0 }
       }
     ]
   },
@@ -275,12 +291,16 @@
     "sections": [
       { "heading": "La file d'attente", "text": "3 balles sont visibles en bas. La balle la plus à GAUCHE est celle qui partira au prochain tir. Les autres avancent d'un cran et une nouvelle apparaît à droite." },
       { "heading": "Les types de tir", "text": "Clic court (<0.5s) = tir léger (-1 PV, s'arrête sur la 1ère cible). Clic 0.5–1s = tir appuyé (-2 PV, traverse les balles, s'arrête au mur). Clic >1s = méga tir (-2 PV, traverse + 2 rebonds sur les murs)." },
-      { "heading": "Les cibles", "text": "Chaque balle a des PV. Les balles vert foncé démarrent à 2 PV (5 max) et grossissent en traversant d'autres balles. Détruisez-les avant qu'elles ne deviennent trop grosses." },
+      { "heading": "Les cibles", "text": "Chaque balle a des PV. Les balles vert foncé démarrent à 2 PV (6 max) et grossissent en traversant d'autres balles. Détruisez-les avant qu'elles ne deviennent trop grosses." },
       { "heading": "Fin de partie", "text": "Le lanceur orange spawn 20 balles maximum par partie. Une fois la 20e détruite, la partie redémarre automatiquement." }
     ]
   },
 
   "release_notes": [
+    "Niveau 5 jaune : 4 PV et disparition périodique",
+    "Workflow GitHub Pages restauré pour éviter sa suppression",
+    "Retrait du workflow GitHub Pages en doublon local",
+    "Balles vert foncé et bleues : PV max augmenté à 6",
     "Sous-menu Niveau : bouton Jouer entre Précédent et Suivant pour démarrer le niveau choisi",
     "Sous-menu Couleur lancée : démarre une session mono-couleur (un seul niveau qui boucle, hors mode niveaux)",
     "Balles bleues : surface rebondissante (les 3 tirs du joueur et les autres balles ricochent dessus)",
@@ -296,11 +316,7 @@
     "Prompts de tutoriels simplifiés (sans jargon technique)",
     "Carrousel des balles : badge En attente de règle pour les couleurs sans comportement",
     "Réduction des règles actives à blanc, vert foncé, gris (palette intacte)",
-    "Sous-menu Comment demander avec 4 tutoriels et copie de prompt",
-    "Tir maintenu : seuils raccourcis (appuyé 0.3s, méga 0.8s)",
-    "Correction du bug de tir maintenu sur mobile et trackpad",
-    "Sous-menu Couleur joueur (multi-sélection de la file de tir)",
-    "Sous-menu Couleur lancée pour configurer le lanceur orange"
+    "Sous-menu Comment demander avec 4 tutoriels et copie de prompt"
   ],
 
   "debug": {
