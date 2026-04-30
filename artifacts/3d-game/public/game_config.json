@@ -5,7 +5,7 @@
     "ball_sizes": {
       "_description": "Diamètre de chaque taille de balle (en unités du monde).",
       "small": {
-        "diameter": 5.0,
+        "diameter": 5,
         "_label": "Petite balle"
       },
       "medium": {
@@ -13,7 +13,7 @@
         "_label": "Balle moyenne"
       },
       "large": {
-        "diameter": 11.0,
+        "diameter": 11,
         "_label": "Grande balle"
       }
     },
@@ -294,31 +294,31 @@
   "rule_parameters": {
     "_description": "Paramètres fins pour chaque règle. Distances et vitesses en unités du monde (~×10 par rapport à l'échelle précédente).",
     "bounce": {
-      "restitution": 1.0
+      "restitution": 1
     },
     "ball_collision": {
       "restitution": 0.95
     },
     "accelerate": {
-      "acceleration_per_second": 4.0
+      "acceleration_per_second": 4
     },
     "slow_nearby": {
-      "radius": 20.0,
+      "radius": 20,
       "slow_factor": 0.5
     },
     "attract": {
-      "radius": 30.0,
-      "strength": 8.0
+      "radius": 30,
+      "strength": 8
     },
     "freeze_nearby": {
-      "radius": 25.0,
+      "radius": 25,
       "freeze_duration_seconds": 1.5
     },
     "gravity_sink": {
-      "strength": 6.0
+      "strength": 6
     },
     "absorb": {
-      "max_diameter_multiplier": 3.0
+      "max_diameter_multiplier": 3
     },
     "hp_grow_bouncer": {
       "_description": "Paramètres de la règle dark_green: PV de départ, PV maxi, gain par traversée, et facteur de croissance de diamètre.",
@@ -330,25 +330,25 @@
     },
     "player_projectile": {
       "_description": "Paramètres globaux des projectiles du joueur. Voir gameplay_controls.shot_types pour les variantes par type de tir.",
-      "max_lifetime_seconds": 4.0,
+      "max_lifetime_seconds": 4,
       "_max_lifetime_comment": "Sécurité: tout projectile disparaît après ce délai même s'il n'a rien touché."
     },
     "yellow_blinker": {
       "default_hp": 4,
       "max_hp": 4,
       "invisible_duration_seconds": 0.5,
-      "cycle_seconds": 1.0
+      "cycle_seconds": 1
     }
   },
   "gameplay": {
     "_description": "Conditions d'apparition et de disparition de chaque couleur.",
     "orange": {
       "_label": "Balle orange (Lanceur)",
-      "launch_delay_seconds": 1.0,
+      "launch_delay_seconds": 1,
       "_launch_delay_seconds_comment": "Délai en secondes pendant lequel la balle orange reste visible et immobile sur son bord d'apparition avant de tirer son projectile. Mettre 0 pour un tir instantané (ancien comportement).",
       "spawn": {
         "condition": "timer",
-        "interval_seconds": 1.0,
+        "interval_seconds": 1,
         "spawn_on_edge": true
       },
       "despawn": {
@@ -358,7 +358,7 @@
         "_description": "Paramètres de la balle lancée par orange. Modifiable via le menu 'Couleur lancée'.",
         "color": "dark_green",
         "size": "small",
-        "speed": 45.0,
+        "speed": 45,
         "direction": "random",
         "allow_colors": [
           "white",
@@ -430,12 +430,12 @@
       "_description": "3 types de tir, déterminés par la durée de maintien du clic. Le premier dont 'min_hold_seconds' est dépassé S'APPLIQUE — chercher du plus exigeant au plus simple.",
       "light": {
         "_label": "Tir léger",
-        "min_hold_seconds": 0.0,
+        "min_hold_seconds": 0,
         "max_hold_seconds": 0.3,
         "damage": 1,
         "passes_through_balls": false,
         "wall_bounces": 0,
-        "diameter_multiplier": 1.0,
+        "diameter_multiplier": 1,
         "speed": 80,
         "color_tint": "#cccccc",
         "_description": "Maintien < 0.3s. -1 PV. S'arrête à la 1ère balle ou au mur."
@@ -487,7 +487,7 @@
         "name": "Niveau 1 — Apprentissage",
         "description": "Que des balles blanches. Elles rebondissent sur les murs sans rien faire d'autre. Idéal pour apprivoiser la file de tir et les trois types de tir.",
         "launch_color_weights": {
-          "white": 1.0
+          "white": 1
         }
       },
       {
@@ -504,7 +504,7 @@
         "name": "Niveau 3 — Forêt verte",
         "description": "100% de balles vert foncé. Le terrain se remplit vite de gros boulets qui s'auto-renforcent. Privilégie les méga tirs pour traverser la mêlée et toucher plusieurs balles à la fois.",
         "launch_color_weights": {
-          "dark_green": 1.0
+          "dark_green": 1
         }
       },
       {
@@ -521,7 +521,7 @@
         "name": "Niveau 5 — Éclipse jaune",
         "description": "100% de balles jaunes. Elles ont 4 PV et clignotent: invisibles 0,5 s toutes les 1 s, ce qui perturbe visée et timing.",
         "launch_color_weights": {
-          "yellow": 1.0
+          "yellow": 1
         }
       }
     ]
@@ -550,6 +550,8 @@
     ]
   },
   "release_notes": [
+    "Renommage du skill git-setup en new",
+    "Ajout du skill Git de démarrage guidé",
     "Niveau 5 jaune : 4 PV et clignotement",
     "Workflow GitHub Pages restauré pour éviter sa suppression",
     "Retrait du workflow GitHub Pages en doublon local",
@@ -567,9 +569,7 @@
     "Sous-menu Notes de version",
     "Glossaire d'agent dans le menu Comment demander",
     "Prompts de tutoriels simplifiés (sans jargon technique)",
-    "Carrousel des balles : badge En attente de règle pour les couleurs sans comportement",
-    "Réduction des règles actives à blanc, vert foncé, gris (palette intacte)",
-    "Sous-menu Comment demander avec 4 tutoriels et copie de prompt"
+    "Carrousel des balles : badge En attente de règle pour les couleurs sans comportement"
   ],
   "debug": {
     "show_velocities": false,
