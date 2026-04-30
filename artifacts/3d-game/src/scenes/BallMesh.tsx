@@ -16,11 +16,12 @@ import type { BallState, GameConfig } from "../engine/types";
 interface BallMeshProps {
   ball: BallState;
   config: GameConfig;
+  showBlackHpLabel?: boolean;
 }
 
 const UNIT_RADIUS = 0.5;
 
-export function BallMesh({ ball, config }: BallMeshProps) {
+export function BallMesh({ ball, config, showBlackHpLabel = false }: BallMeshProps) {
   const meshRef  = useRef<THREE.Mesh>(null);
   const glowRef  = useRef<THREE.Mesh>(null);
   const trailRef = useRef<THREE.Mesh>(null);
@@ -35,6 +36,7 @@ export function BallMesh({ ball, config }: BallMeshProps) {
   const tint = (ball.metadata?.colorTint as string | null | undefined) ?? null;
   const tintColor = tint ? new THREE.Color(tint) : null;
   const visibilityAlpha = typeof ball.metadata?.visibilityAlpha === "number" ? Math.max(0, Math.min(1, ball.metadata.visibilityAlpha as number)) : 1;
+  const isInvisibleSprite = ball.color === "black";
 
   useFrame((_, delta) => {
     if (!meshRef.current) return;
@@ -79,7 +81,11 @@ export function BallMesh({ ball, config }: BallMeshProps) {
 
   // HP label is shown on every gameplay ball (not on player projectiles
   // and not on the orange launcher, which is HP-less by design).
-  const showHpLabel = !isProjectile && ball.color !== "orange" && ball.maxHp > 0;
+  const showHpLabel =
+    !isProjectile &&
+    ball.color !== "orange" &&
+    ball.maxHp > 0 &&
+    (ball.color !== "black" || showBlackHpLabel);
   // Slight screen-up offset so the label sits visually above the ball.
   const hpLabelZ = -ball.position.y - ball.diameter * 0.65;
   const hpLabelY = ball.diameter * 0.5 + 0.5;
@@ -87,7 +93,7 @@ export function BallMesh({ ball, config }: BallMeshProps) {
   return (
     <group>
       {/* Main metallic ball */}
-      <mesh
+      {!isInvisibleSprite && <mesh
         ref={meshRef}
         position={[ball.position.x, ball.diameter * UNIT_RADIUS, -ball.position.y]}
         castShadow
@@ -103,16 +109,16 @@ export function BallMesh({ ball, config }: BallMeshProps) {
           transparent={visibilityAlpha < 1}
           opacity={visibilityAlpha}
         />
-      </mesh>
+      </mesh>}
 
       {/* Frozen ice glow */}
-      <mesh ref={glowRef} position={[ball.position.x, ball.diameter * UNIT_RADIUS, -ball.position.y]}>
+      {!isInvisibleSprite && <mesh ref={glowRef} position={[ball.position.x, ball.diameter * UNIT_RADIUS, -ball.position.y]}>
         <sphereGeometry args={[UNIT_RADIUS, 16, 12]} />
         <meshBasicMaterial color="#88ddff" transparent opacity={0} side={THREE.BackSide} depthWrite={false} />
-      </mesh>
+      </mesh>}
 
       {/* Projectile aura (colored by shot tint) */}
-      {isProjectile && (
+      {!isInvisibleSprite && isProjectile && (
         <mesh ref={trailRef} position={[ball.position.x, ball.diameter * UNIT_RADIUS, -ball.position.y]}>
           <sphereGeometry args={[UNIT_RADIUS, 16, 12]} />
           <meshBasicMaterial
@@ -126,13 +132,13 @@ export function BallMesh({ ball, config }: BallMeshProps) {
       )}
 
       {/* Ground shadow disc */}
-      <mesh
+      {!isInvisibleSprite && <mesh
         position={[ball.position.x, 0.001, -ball.position.y]}
         rotation={[-Math.PI / 2, 0, 0]}
       >
         <circleGeometry args={[ball.diameter * 0.45, 20]} />
         <meshBasicMaterial color="#000000" transparent opacity={0.22} depthWrite={false} />
-      </mesh>
+      </mesh>}
 
       {/* HP label above the ball (always faces the camera via Html) */}
       {showHpLabel && (

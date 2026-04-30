@@ -12,7 +12,7 @@
 import { Canvas, useThree } from "@react-three/fiber";
 import { OrthographicCamera } from "@react-three/drei";
 import * as THREE from "three";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactElement } from "react";
 import { BallMesh } from "./BallMesh";
 import { HpPopups } from "./HpPopups";
@@ -171,9 +171,45 @@ function Arena({ config }: { config: GameConfig }) {
 
 function Scene({ gameState, config, events, onPointerDown, onPointerMove, onPointerUp, onPointerCancel }: GameSceneProps) {
   const balls: BallState[] = Array.from(gameState.balls.values()).filter((b) => b.isAlive);
+  const [blackHpVisibleUntil, setBlackHpVisibleUntil] = useState<Record<string, number>>({});
+  const hideTimersRef = useRef<Map<string, number>>(new Map());
   const w = config.graphics.arena.width;
   const h = config.graphics.arena.height;
   const lightHeight = Math.max(80, Math.max(w, h) * 0.8);
+  const blackHpRevealMs = 1000;
+
+  useEffect(() => {
+    if (!events || events.length === 0) return;
+    const now = Date.now();
+    for (const ev of events) {
+      if (ev.type !== "ball_damaged" && ev.type !== "ball_healed") continue;
+      const ball = gameState.balls.get(ev.ballId);
+      if (!ball || ball.color !== "black") continue;
+
+      const until = now + blackHpRevealMs;
+      setBlackHpVisibleUntil((prev) => ({ ...prev, [ev.ballId]: until }));
+
+      const priorTimer = hideTimersRef.current.get(ev.ballId);
+      if (priorTimer !== undefined) window.clearTimeout(priorTimer);
+
+      const timerId = window.setTimeout(() => {
+        hideTimersRef.current.delete(ev.ballId);
+        setBlackHpVisibleUntil((prev) => {
+          const next = { ...prev };
+          delete next[ev.ballId];
+          return next;
+        });
+      }, blackHpRevealMs);
+      hideTimersRef.current.set(ev.ballId, timerId);
+    }
+  }, [events, gameState.balls]);
+
+  useEffect(() => {
+    return () => {
+      for (const timerId of hideTimersRef.current.values()) window.clearTimeout(timerId);
+      hideTimersRef.current.clear();
+    };
+  }, []);
 
   return (
     <>
@@ -194,7 +230,14 @@ function Scene({ gameState, config, events, onPointerDown, onPointerMove, onPoin
       />
       <pointLight position={[0, -10, 0]} intensity={0.15} color="#4488ff" />
       <Arena config={config} />
-      {balls.map((ball) => <BallMesh key={ball.id} ball={ball} config={config} />)}
+      {balls.map((ball) => (
+        <BallMesh
+          key={ball.id}
+          ball={ball}
+          config={config}
+          showBlackHpLabel={ball.color === "black" && (blackHpVisibleUntil[ball.id] ?? 0) > Date.now()}
+        />
+      ))}
       <HpPopups events={events} />
       <ClickPlane
         config={config}
