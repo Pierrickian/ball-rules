@@ -112,6 +112,7 @@ export class GameEngine {
     this.registerRuleHandler("neutral",           this.handleNeutral.bind(this));
     this.registerRuleHandler("absorb",            this.handleAbsorb.bind(this));
     this.registerRuleHandler("hp_grow_bouncer",   this.handleHpGrowBouncer.bind(this));
+    this.registerRuleHandler("blink_hp_bouncer",  this.handleBlinkHpBouncer.bind(this));
     this.registerRuleHandler("player_projectile", this.handlePlayerProjectile.bind(this));
   }
 
@@ -368,6 +369,10 @@ export class GameEngine {
       const p = this.config.rule_parameters.hp_grow_bouncer;
       hp = p?.default_hp ?? 2;
       maxHp = p?.max_hp ?? 5;
+    } else if (rule === "blink_hp_bouncer") {
+      const p = this.config.rule_parameters.yellow_blinker;
+      hp = p?.default_hp ?? 4;
+      maxHp = p?.max_hp ?? 4;
     }
 
     const ball = new Ball(color, size, position, velocity, diameter, rule, bounceCondition, hp, maxHp);
@@ -850,6 +855,26 @@ export class GameEngine {
     }
 
     // Out of bounds shouldn't really happen (against_wall), but safety
+    if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
+  }
+
+
+  /**
+   * YELLOW — blink_hp_bouncer.
+   * - Fixed HP pool (configured), despawns at 0 HP
+   * - Periodically toggles visibility: invisible for X seconds every cycle.
+   */
+  private handleBlinkHpBouncer(ball: Ball, delta: number, ctx: RuleContext): void {
+    const p = ctx.config.rule_parameters.yellow_blinker ?? { default_hp: 4, max_hp: 4, invisible_duration_seconds: 0.5, cycle_seconds: 1.0 };
+    const age = Number(ball.metadata.ageSeconds ?? 0) + delta;
+    ball.metadata.ageSeconds = age;
+
+    const cycle = Math.max(0.01, p.cycle_seconds ?? 1.0);
+    const invis = Math.max(0, Math.min(cycle, p.invisible_duration_seconds ?? 0.5));
+    const phase = age % cycle;
+    const isInvisible = phase < invis;
+    ball.metadata.visibilityAlpha = isInvisible ? 0.0 : 1.0;
+
     if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
   }
 
