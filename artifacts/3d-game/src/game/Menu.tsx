@@ -19,10 +19,11 @@ interface MenuProps {
   config: GameConfig;
   onClose: () => void;
   onArenaChange: (width: number, height: number) => void;
-  onLauncherColorChange: (color: BallColor) => void;
   onPlayerColorsChange: (colors: BallColor[]) => void;
+  onPlayerDistributionChange: (distribution: Record<"light" | "heavy" | "mega", number>) => void;
   /** Jump to a specific story-mode level (0-based index). Resets the game. */
   onLevelSelect: (index: number) => void;
+  onLevelWeightsChange: (index: number, weights: Record<BallColor, number>) => void;
   /** Index 0-based of the currently active level, or -1 if no levels are configured. */
   currentLevelIndex: number;
 }
@@ -403,73 +404,69 @@ function TerrainMenu({ config, onArenaChange, onBack }: TerrainMenuProps) {
 // Launcher Color Sub-Menu (single-pick: orange spawns this color)
 // ============================================================
 function LauncherColorMenu({
-  config, onLauncherColorChange, onClose, onBack,
+  config, onPlayerDistributionChange, onClose, onBack,
 }: {
   config: GameConfig;
-  onLauncherColorChange: (color: BallColor) => void;
+  onPlayerDistributionChange: (distribution: Record<"light" | "heavy" | "mega", number>) => void;
   /** Closes the entire menu after a pick so the new session is visible. */
   onClose: () => void;
   onBack: () => void;
 }) {
-  const current = config.gameplay.orange.launch_config.color as BallColor | "random";
-  const [selected, setSelected] = useState<BallColor | "random">(current);
-
-  const pick = (c: BallColor | "random") => {
-    setSelected(c);
-    // Picking a color exits story-mode and starts a fresh single-color
-    // session that loops with 100% of the chosen color (handled by the
-    // engine hook). Close the menu so the new game is visible.
-    if (c === "random") {
-      // Fallback for "random": the engine handles it via allow_colors.
-      onLauncherColorChange("dark_green");
+  const [dist, setDist] = useState(() => config.gameplay_controls.player_projectile_distribution ?? { light: 0.6, heavy: 0.3, mega: 0.1 });
+  const normalize = (next: typeof dist) => {
+    const vals = { ...next };
+    const sum = vals.light + vals.heavy + vals.mega;
+    if (sum <= 0) return { light: 1, heavy: 0, mega: 0 };
+    return { light: vals.light / sum, heavy: vals.heavy / sum, mega: vals.mega / sum };
+  };
+  const setPct = (k: keyof typeof dist, v: number) => {
+    const clamped = Math.max(0, Math.min(1, v));
+    const others = (["light", "heavy", "mega"] as const).filter((x) => x !== k);
+    let next = { ...dist, [k]: clamped };
+    const rem = 1 - clamped;
+    const otherSum = others.reduce((a, c) => a + dist[c], 0);
+    if (otherSum <= 0) {
+      next[others[0]] = rem;
+      next[others[1]] = 0;
     } else {
-      onLauncherColorChange(c);
+      next[others[0]] = (dist[others[0]] / otherSum) * rem;
+      next[others[1]] = (dist[others[1]] / otherSum) * rem;
     }
-    onClose();
+    const normalized = normalize(next);
+    setDist(normalized);
+    onPlayerDistributionChange(normalized);
   };
 
   return (
     <div style={PANEL}>
       <div>
-        <div style={TITLE}>Couleur lancée</div>
-        <div style={{ fontSize: 18, fontWeight: "bold", color: "#1e90ff" }}>Session mono-couleur</div>
+        <div style={TITLE}>Projectiles joueur</div>
+        <div style={{ fontSize: 18, fontWeight: "bold", color: "#1e90ff" }}>Répartition en pourcentage</div>
       </div>
 
       <div style={{ fontSize: 12, color: "#7a9fcc", lineHeight: 1.5 }}>
-        Choisis une couleur : une nouvelle partie démarre <b>hors mode niveaux</b>,
-        avec un seul niveau qui boucle en 100 % de la couleur choisie. Aucune progression
-        de niveau, le terrain se réinitialise à chaque clear.
+        Ajuste la répartition des projectiles du joueur (blanc / tir appuyé jaune / méga tir rose).
+        Le total reste toujours à 100% et les autres curseurs s'ajustent automatiquement.
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-        {launcherColors(config).map((c) => {
-          const entry = config.ball_colors[c];
-          const isActive = selected === c;
+      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
+        {(["light", "heavy", "mega"] as const).map((k) => {
+          const color = k === "light" ? "#f5f5f5" : k === "heavy" ? "#ffe600" : "#ff66ff";
+          const label = k === "light" ? "Blanc" : k === "heavy" ? "Jaune (appuyé)" : "Rose (méga)";
+          const pct = Math.round((dist[k] ?? 0) * 100);
           return (
-            <button
-              key={c}
-              onClick={() => pick(c)}
-              style={{
-                display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
-                background: isActive ? "rgba(30,144,255,0.2)" : "rgba(8,18,40,0.7)",
-                border: isActive ? `2px solid ${entry?.hex ?? "#1e90ff"}` : "1px solid rgba(30,144,255,0.18)",
-                borderRadius: 10, padding: "10px 6px", cursor: "pointer",
-                fontFamily: "inherit", color: isActive ? "#fff" : "#7a9fcc",
-                boxShadow: isActive ? `0 0 8px ${entry?.hex ?? "#1e90ff"}55` : "none",
-                transition: "all 0.15s",
-              }}
-            >
-              <div style={{
-                width: 26, height: 26, borderRadius: "50%",
-                background: entry?.hex ?? "#888",
-                boxShadow: `0 0 8px ${entry?.hex ?? "#888"}77`,
-                border: c === "white" ? "1px solid #444" : "none",
-              }} />
-              <div style={{ fontSize: 10, textAlign: "center" }}>{entry?._label}</div>
-            </button>
+            <div key={k} style={{ background: "rgba(8,18,40,0.6)", border: "1px solid rgba(30,144,255,0.18)", borderRadius: 10, padding: 10 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 8, color: "#aac8f0" }}>
+                <span>{label}</span><span>{pct}%</span>
+              </div>
+              <input type="range" min={0} max={100} value={pct} onChange={(e) => setPct(k, Number(e.target.value) / 100)} style={{ width: "100%" }} />
+              <div style={{ width: 12, height: 12, borderRadius: "50%", background: color, marginTop: 8 }} />
+            </div>
           );
         })}
       </div>
+
+      <button style={{ ...CLOSE_BTN, color: "#0a1628", background: "#1e90ff", borderColor: "#1e90ff", fontWeight: "bold" }} onClick={onClose}>▶ Jouer</button>
 
       <button style={CLOSE_BTN} onClick={onBack}>← Retour</button>
     </div>
@@ -1230,11 +1227,15 @@ function LevelsCarousel({
   config,
   currentLevelIndex,
   onLevelSelect,
+  onLevelWeightsChange,
+  onClose,
   onBack,
 }: {
   config: GameConfig;
   currentLevelIndex: number;
   onLevelSelect: (index: number) => void;
+  onLevelWeightsChange: (index: number, weights: Record<BallColor, number>) => void;
+  onClose: () => void;
   onBack: () => void;
 }) {
   const levels = config.levels?.list ?? [];
@@ -1274,6 +1275,18 @@ function LevelsCarousel({
   const weightEntries = Object.entries(weights)
     .filter(([, w]) => typeof w === "number" && w > 0)
     .sort(([, a], [, b]) => (b as number) - (a as number)) as Array<[BallColor, number]>;
+  const setWeightPct = (color: BallColor, pctValue: number) => {
+    const keys = weightEntries.map(([c]) => c);
+    const clamped = Math.max(0, Math.min(1, pctValue / 100));
+    const next: Record<BallColor, number> = { ...(weights as Record<BallColor, number>), [color]: clamped };
+    const others = keys.filter((k) => k !== color);
+    const rem = 1 - clamped;
+    const otherSum = others.reduce((a, c) => a + (weights[c] ?? 0), 0);
+    others.forEach((k, idx) => {
+      next[k] = otherSum <= 0 ? (idx === 0 ? rem : 0) : ((weights[k] ?? 0) / otherSum) * rem;
+    });
+    onLevelWeightsChange(index, next);
+  };
 
   return (
     <div style={PANEL}>
@@ -1388,6 +1401,7 @@ function LevelsCarousel({
                     >
                       {pct}%
                     </div>
+                    <input type="range" min={0} max={100} value={pct} onChange={(e) => setWeightPct(color, Number(e.target.value))} />
                   </div>
                 );
               })}
@@ -1435,7 +1449,7 @@ function LevelsCarousel({
           ← Précédent
         </button>
         <button
-          onClick={() => { onLevelSelect(index); onBack(); }}
+          onClick={() => { onLevelSelect(index); onClose(); }}
           title={isCurrent
             ? `Relancer le niveau ${lvl.id} (${lvl.name})`
             : `Jouer le niveau ${lvl.id} (${lvl.name})`}
@@ -1523,9 +1537,10 @@ export function Menu({
   config,
   onClose,
   onArenaChange,
-  onLauncherColorChange,
   onPlayerColorsChange,
+  onPlayerDistributionChange,
   onLevelSelect,
+  onLevelWeightsChange,
   currentLevelIndex,
 }: MenuProps) {
   const [view, setView] = useState<MenuView>("main");
@@ -1546,10 +1561,10 @@ export function Menu({
         />
       )}
       {view === "rules"          && <RulesView      config={config} onBack={() => setView("main")} />}
-      {view === "levels"         && <LevelsCarousel config={config} currentLevelIndex={currentLevelIndex} onLevelSelect={onLevelSelect} onBack={() => setView("main")} />}
+      {view === "levels"         && <LevelsCarousel config={config} currentLevelIndex={currentLevelIndex} onLevelSelect={onLevelSelect} onLevelWeightsChange={onLevelWeightsChange} onClose={onClose} onBack={() => setView("main")} />}
       {view === "balls"          && <BallsCarousel  config={config} onBack={() => setView("main")} />}
       {view === "terrain"        && <TerrainMenu    config={config} onArenaChange={onArenaChange} onBack={() => setView("main")} />}
-      {view === "launcher_color" && <LauncherColorMenu config={config} onLauncherColorChange={onLauncherColorChange} onClose={onClose} onBack={() => setView("main")} />}
+      {view === "launcher_color" && <LauncherColorMenu config={config} onPlayerDistributionChange={onPlayerDistributionChange} onClose={onClose} onBack={() => setView("main")} />}
       {view === "player_colors"  && <PlayerColorsMenu  config={config} onPlayerColorsChange={onPlayerColorsChange}   onBack={() => setView("main")} />}
       {view === "how_to_ask"     && <HowToAskCarousel onBack={() => setView("main")} />}
       {view === "release_notes"  && <ReleaseNotesView config={config} onBack={() => setView("main")} />}
