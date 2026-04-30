@@ -582,8 +582,6 @@
     ]
   },
   "release_notes": [
-    "Curseur prêt auto sans maintien permanent",
-    "Tirs: logique press/release selon projectile prêt",
     "Couleur balles: curseurs projectiles + jouer",
     "Nettoyage menu: retrait option couleur lancée",
     "Niveaux: pondérations éditables avec curseurs",
@@ -601,7 +599,9 @@
     "Retrait du workflow GitHub Pages en doublon local",
     "Balles vert foncé et bleues : PV max augmenté à 6",
     "Sous-menu Niveau : bouton Jouer entre Précédent et Suivant pour démarrer le niveau choisi",
-    "Sous-menu Couleur lancée : démarre une session mono-couleur (un seul niveau qui boucle, hors mode niveaux)"
+    "Sous-menu Couleur lancée : démarre une session mono-couleur (un seul niveau qui boucle, hors mode niveaux)",
+    "Balles bleues : surface rebondissante (les 3 tirs du joueur et les autres balles ricochent dessus)",
+    "Niveau 4 et balle bleue (50% blanc / 50% bleu, comportement identique au vert foncé)"
   ],
   "debug": {
     "show_velocities": false,

@@ -32,7 +32,6 @@ export interface UseGameEngineResult {
   reset: () => void;
   setArena: (width: number, height: number) => void;
   shoot: (targetX: number, targetY: number, holdSeconds: number) => ShotKind | null;
-  shootForced: (targetX: number, targetY: number, kind: ShotKind) => ShotKind | null;
   setLauncherColor: (color: BallColor) => void;
   setPlayerColors: (colors: BallColor[]) => void;
   setPlayerProjectileDistribution: (distribution: Record<ShotKind, number>) => void;
@@ -243,11 +242,6 @@ export function useGameEngine(): UseGameEngineResult {
     return resolved;
   }, []);
 
-  const shootForced = useCallback((targetX: number, targetY: number, kind: ShotKind): ShotKind | null => {
-    const forcedHold = kind === "mega" ? 0.81 : kind === "heavy" ? 0.31 : 0.01;
-    return shoot(targetX, targetY, forcedHold);
-  }, [shoot]);
-
   const classifyHold = useCallback((holdSeconds: number): ShotKind => {
     if (!engineRef.current) return "light";
     return engineRef.current.classifyShot(holdSeconds);
@@ -345,6 +339,6 @@ export function useGameEngine(): UseGameEngineResult {
   return {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
-    shoot, shootForced, setLauncherColor, setPlayerColors, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, classifyHold,
+    shoot, setLauncherColor, setPlayerColors, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, classifyHold,
   };
 }

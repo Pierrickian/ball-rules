@@ -21,14 +21,13 @@ function App() {
   const {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
-    shoot, shootForced, setLauncherColor, setPlayerColors, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, classifyHold,
+    shoot, setLauncherColor, setPlayerColors, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, classifyHold,
   } = useGameEngine();
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [holdTime, setHoldTime] = useState(0);
-  const [isHolding, setIsHolding] = useState(true);
+  const [isHolding, setIsHolding] = useState(false);
   const holdStartRef = useRef<number | null>(null);
-  const shotFiredForCurrentHoldRef = useRef(false);
   const animRef = useRef<number>(0);
   // Latest game-space pointer position, updated on every move; used as a
   // fallback target if a pointerup arrives at the window level (e.g. the
@@ -46,7 +45,11 @@ function App() {
 
   // ---- Charge tracking (drives the visual ChargeBar) ----
   useEffect(() => {
-    if (!isHolding) return;
+    if (!isHolding) {
+      cancelAnimationFrame(animRef.current);
+      setHoldTime(0);
+      return;
+    }
     const tick = () => {
       if (holdStartRef.current != null) {
         setHoldTime((performance.now() - holdStartRef.current) / 1000);
@@ -57,23 +60,11 @@ function App() {
     return () => cancelAnimationFrame(animRef.current);
   }, [isHolding]);
 
-  useEffect(() => {
-    if (!menuOpen && isRunning && holdStartRef.current == null) {
-      holdStartRef.current = performance.now();
-      setIsHolding(true);
-    }
-  }, [menuOpen, isRunning]);
-
   const handlePointerDown = (gameX: number, gameY: number) => {
     if (menuOpenRef.current || !isRunningRef.current) return;
-    if (holdStartRef.current == null) holdStartRef.current = performance.now();
-    shotFiredForCurrentHoldRef.current = false;
+    holdStartRef.current = performance.now();
     lastTargetRef.current = { x: gameX, y: gameY };
-    const next = playerQueue[0] ?? "light";
-    if (next === "light") {
-      shootForced(gameX, gameY, "light");
-      shotFiredForCurrentHoldRef.current = true;
-    }
+    setIsHolding(true);
   };
 
   const handlePointerMove = (gameX: number, gameY: number) => {
@@ -85,21 +76,9 @@ function App() {
   const handlePointerUp = (gameX: number, gameY: number) => {
     if (holdStartRef.current == null) return; // already released
     const hold = (performance.now() - holdStartRef.current) / 1000;
-    if (holdStartRef.current == null) holdStartRef.current = performance.now();
-    if (!menuOpenRef.current && isRunningRef.current && !shotFiredForCurrentHoldRef.current) {
-      const next = playerQueue[0] ?? "light";
-      const reached = classifyHold(hold);
-      if (next === "light") shootForced(gameX, gameY, reached);
-      else if (next === "heavy") {
-        if (reached === "mega") shootForced(gameX, gameY, "mega");
-        else if (reached === "heavy") shootForced(gameX, gameY, "heavy");
-      } else {
-        if (reached === "mega") shootForced(gameX, gameY, "mega");
-      }
-    }
-    shotFiredForCurrentHoldRef.current = false;
-    holdStartRef.current = performance.now();
-    setHoldTime(0);
+    holdStartRef.current = null;
+    setIsHolding(false);
+    if (!menuOpenRef.current && isRunningRef.current) shoot(gameX, gameY, hold);
   };
 
   const handlePointerCancel = () => {
@@ -158,17 +137,6 @@ function App() {
   }
 
   const currentShotKind: ShotKind = classifyHold(holdTime);
-  useEffect(() => {
-    if (!isHolding || shotFiredForCurrentHoldRef.current) return;
-    const next = playerQueue[0] ?? "light";
-    if (next !== "mega") return;
-    if (classifyHold(holdTime) !== "mega") return;
-    const { x, y } = lastTargetRef.current;
-    shootForced(x, y, "mega");
-    shotFiredForCurrentHoldRef.current = true;
-    holdStartRef.current = performance.now();
-    setHoldTime(0);
-  }, [holdTime, isHolding, playerQueue, classifyHold, shootForced]);
 
   return (
     <div
@@ -204,7 +172,7 @@ function App() {
       <PlayerQueue queue={playerQueue} config={config} />
 
       {/* Charge bar (visible while holding) */}
-      {isRunning && !menuOpen && (
+      {isHolding && (
         <ChargeBar holdTime={holdTime} shotKind={currentShotKind} config={config} />
       )}
 
