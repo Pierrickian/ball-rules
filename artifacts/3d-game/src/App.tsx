@@ -26,7 +26,7 @@ function App() {
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [holdTime, setHoldTime] = useState(0);
-  const [isHolding, setIsHolding] = useState(false);
+  const [isHolding, setIsHolding] = useState(true);
   const holdStartRef = useRef<number | null>(null);
   const shotFiredForCurrentHoldRef = useRef(false);
   const animRef = useRef<number>(0);
@@ -46,11 +46,7 @@ function App() {
 
   // ---- Charge tracking (drives the visual ChargeBar) ----
   useEffect(() => {
-    if (!isHolding) {
-      cancelAnimationFrame(animRef.current);
-      setHoldTime(0);
-      return;
-    }
+    if (!isHolding) return;
     const tick = () => {
       if (holdStartRef.current != null) {
         setHoldTime((performance.now() - holdStartRef.current) / 1000);
@@ -61,12 +57,18 @@ function App() {
     return () => cancelAnimationFrame(animRef.current);
   }, [isHolding]);
 
+  useEffect(() => {
+    if (!menuOpen && isRunning && holdStartRef.current == null) {
+      holdStartRef.current = performance.now();
+      setIsHolding(true);
+    }
+  }, [menuOpen, isRunning]);
+
   const handlePointerDown = (gameX: number, gameY: number) => {
     if (menuOpenRef.current || !isRunningRef.current) return;
-    holdStartRef.current = performance.now();
+    if (holdStartRef.current == null) holdStartRef.current = performance.now();
     shotFiredForCurrentHoldRef.current = false;
     lastTargetRef.current = { x: gameX, y: gameY };
-    setIsHolding(true);
     const next = playerQueue[0] ?? "light";
     if (next === "light") {
       shootForced(gameX, gameY, "light");
@@ -83,8 +85,7 @@ function App() {
   const handlePointerUp = (gameX: number, gameY: number) => {
     if (holdStartRef.current == null) return; // already released
     const hold = (performance.now() - holdStartRef.current) / 1000;
-    holdStartRef.current = null;
-    setIsHolding(false);
+    if (holdStartRef.current == null) holdStartRef.current = performance.now();
     if (!menuOpenRef.current && isRunningRef.current && !shotFiredForCurrentHoldRef.current) {
       const next = playerQueue[0] ?? "light";
       const reached = classifyHold(hold);
@@ -97,6 +98,8 @@ function App() {
       }
     }
     shotFiredForCurrentHoldRef.current = false;
+    holdStartRef.current = performance.now();
+    setHoldTime(0);
   };
 
   const handlePointerCancel = () => {
@@ -163,8 +166,8 @@ function App() {
     const { x, y } = lastTargetRef.current;
     shootForced(x, y, "mega");
     shotFiredForCurrentHoldRef.current = true;
-    holdStartRef.current = null;
-    setIsHolding(false);
+    holdStartRef.current = performance.now();
+    setHoldTime(0);
   }, [holdTime, isHolding, playerQueue, classifyHold, shootForced]);
 
   return (
@@ -201,7 +204,7 @@ function App() {
       <PlayerQueue queue={playerQueue} config={config} />
 
       {/* Charge bar (visible while holding) */}
-      {isHolding && (
+      {isRunning && !menuOpen && (
         <ChargeBar holdTime={holdTime} shotKind={currentShotKind} config={config} />
       )}
 
