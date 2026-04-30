@@ -428,8 +428,8 @@
   },
   "gameplay_controls": {
     "_description": "Système de tir du joueur. File d'attente de balles visible sous le terrain et types de tir basés sur la durée de pression.",
-    "queue_size": 3,
-    "_queue_size_comment": "Nombre de balles visibles dans la file d'attente sous l'écran. La gauche = prochaine à tirer.",
+    "queue_size": 12,
+    "_queue_size_comment": "Nombre de projectiles visibles en file d'attente sous l'écran.",
     "queue_ball_colors": [
       "gray"
     ],
@@ -480,7 +480,13 @@
         "color_tint": "#ff66ff",
         "_description": "Maintien > 0.8s. -2 PV. Traverse les balles. Rebondit 2× sur les murs avant de disparaître."
       }
-    }
+    },
+    "player_projectile_distribution": {
+      "light": 0.6,
+      "heavy": 0.3,
+      "mega": 0.1
+    },
+    "_player_projectile_distribution_comment": "Répartition par défaut des projectiles joueur (blanc/jaune/rose)."
   },
   "game_session": {
     "_description": "Conditions de fin de partie et redémarrage automatique.",
@@ -576,6 +582,15 @@
     ]
   },
   "release_notes": [
+    "Tirs: logique press/release selon projectile prêt",
+    "Couleur balles: curseurs projectiles + jouer",
+    "Nettoyage menu: retrait option couleur lancée",
+    "Niveaux: pondérations éditables avec curseurs",
+    "Menu projectile: curseurs live + bouton Jouer",
+    "Curseurs % projectiles joueur dans le menu",
+    "Jouer niveau ferme maintenant le menu",
+    "File joueur 12 projectiles et répartition %",
+    "Refonte interne du moteur",
     "Balle noire: PV visible 1s après popups",
     "Niveau triade et balle noire invisible",
     "Renommage du skill git-setup en new",
@@ -586,16 +601,7 @@
     "Balles vert foncé et bleues : PV max augmenté à 6",
     "Sous-menu Niveau : bouton Jouer entre Précédent et Suivant pour démarrer le niveau choisi",
     "Sous-menu Couleur lancée : démarre une session mono-couleur (un seul niveau qui boucle, hors mode niveaux)",
-    "Balles bleues : surface rebondissante (les 3 tirs du joueur et les autres balles ricochent dessus)",
-    "Niveau 4 et balle bleue (50% blanc / 50% bleu, comportement identique au vert foncé)",
-    "Lanceur orange : délai de 1 s avant tir (visible au bord avant de lancer)",
-    "Système de niveaux : 3 niveaux (blanc → mix → vert foncé) avec progression au clear",
-    "Sous-menu Niveau avec carrousel descriptif et pondération par couleur",
-    "Drapeaux selectable_by_player et for_terrain par couleur (menus dérivés)",
-    "Carrousel : encart Rôle système pour orange (lanceur sans règle)",
-    "Cohérence couleurs : orange retiré des règles, gris retiré du lanceur",
-    "Sous-menu Notes de version",
-    "Glossaire d'agent dans le menu Comment demander"
+    "Balles bleues : surface rebondissante (les 3 tirs du joueur et les autres balles ricochent dessus)"
   ],
   "debug": {
     "show_velocities": false,

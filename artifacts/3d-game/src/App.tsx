@@ -15,19 +15,20 @@ import { useGameEngine } from "./engine/useGameEngine";
 import { GameScene } from "./scenes/GameScene";
 import { HUD } from "./game/HUD";
 import { Menu } from "./game/Menu";
-import type { BallColor, GameConfig, GameState, ShotKind } from "./engine/types";
+import type { GameConfig, GameState, ShotKind } from "./engine/types";
 
 function App() {
   const {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
-    shoot, setLauncherColor, setPlayerColors, setActiveLevel, classifyHold,
+    shoot, shootForced, setLauncherColor, setPlayerColors, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, classifyHold,
   } = useGameEngine();
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [holdTime, setHoldTime] = useState(0);
   const [isHolding, setIsHolding] = useState(false);
   const holdStartRef = useRef<number | null>(null);
+  const shotFiredForCurrentHoldRef = useRef(false);
   const animRef = useRef<number>(0);
   // Latest game-space pointer position, updated on every move; used as a
   // fallback target if a pointerup arrives at the window level (e.g. the
@@ -63,8 +64,14 @@ function App() {
   const handlePointerDown = (gameX: number, gameY: number) => {
     if (menuOpenRef.current || !isRunningRef.current) return;
     holdStartRef.current = performance.now();
+    shotFiredForCurrentHoldRef.current = false;
     lastTargetRef.current = { x: gameX, y: gameY };
     setIsHolding(true);
+    const next = playerQueue[0] ?? "light";
+    if (next === "light") {
+      shootForced(gameX, gameY, "light");
+      shotFiredForCurrentHoldRef.current = true;
+    }
   };
 
   const handlePointerMove = (gameX: number, gameY: number) => {
@@ -78,7 +85,18 @@ function App() {
     const hold = (performance.now() - holdStartRef.current) / 1000;
     holdStartRef.current = null;
     setIsHolding(false);
-    if (!menuOpenRef.current && isRunningRef.current) shoot(gameX, gameY, hold);
+    if (!menuOpenRef.current && isRunningRef.current && !shotFiredForCurrentHoldRef.current) {
+      const next = playerQueue[0] ?? "light";
+      const reached = classifyHold(hold);
+      if (next === "light") shootForced(gameX, gameY, reached);
+      else if (next === "heavy") {
+        if (reached === "mega") shootForced(gameX, gameY, "mega");
+        else if (reached === "heavy") shootForced(gameX, gameY, "heavy");
+      } else {
+        if (reached === "mega") shootForced(gameX, gameY, "mega");
+      }
+    }
+    shotFiredForCurrentHoldRef.current = false;
   };
 
   const handlePointerCancel = () => {
@@ -137,6 +155,17 @@ function App() {
   }
 
   const currentShotKind: ShotKind = classifyHold(holdTime);
+  useEffect(() => {
+    if (!isHolding || shotFiredForCurrentHoldRef.current) return;
+    const next = playerQueue[0] ?? "light";
+    if (next !== "mega") return;
+    if (classifyHold(holdTime) !== "mega") return;
+    const { x, y } = lastTargetRef.current;
+    shootForced(x, y, "mega");
+    shotFiredForCurrentHoldRef.current = true;
+    holdStartRef.current = null;
+    setIsHolding(false);
+  }, [holdTime, isHolding, playerQueue, classifyHold, shootForced]);
 
   return (
     <div
@@ -200,7 +229,9 @@ function App() {
           onArenaChange={setArena}
           onLauncherColorChange={setLauncherColor}
           onPlayerColorsChange={setPlayerColors}
+          onPlayerDistributionChange={setPlayerProjectileDistribution}
           onLevelSelect={setActiveLevel}
+          onLevelWeightsChange={setLevelWeights}
           currentLevelIndex={gameState.currentLevelIndex}
         />
       )}
@@ -211,7 +242,7 @@ function App() {
 // ============================================================
 // PlayerQueue — strip showing next balls (left = next to shoot)
 // ============================================================
-function PlayerQueue({ queue, config }: { queue: BallColor[]; config: GameConfig }) {
+function PlayerQueue({ queue, config }: { queue: ShotKind[]; config: GameConfig }) {
   if (queue.length === 0) return null;
   return (
     <div
@@ -221,22 +252,25 @@ function PlayerQueue({ queue, config }: { queue: BallColor[]; config: GameConfig
         display: "flex",
         justifyContent: "center",
         alignItems: "flex-end",
-        gap: 14,
+        gap: 8,
+        flexWrap: "wrap",
+        maxWidth: 280,
         pointerEvents: "none",
         zIndex: 8,
       }}
     >
-      {queue.map((color, i) => {
-        const entry = config.ball_colors[color];
+      {queue.map((kind, i) => {
+        const entry = kind === "light" ? { hex: "#F5F5F5" } : kind === "heavy" ? { hex: "#FFE600" } : { hex: "#ff66ff" };
         const isNext = i === 0;
-        const sz = isNext ? 46 : 30;
+        const base = kind === "light" ? 12 : kind === "heavy" ? 15 : 18;
+        const sz = isNext ? base + 2 : base;
         return (
           <div
             key={i}
             style={{
               display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
               opacity: i === 0 ? 1 : (i === 1 ? 0.78 : 0.55),
-              transform: isNext ? "translateY(-6px)" : "none",
+              transform: isNext ? "translateY(-2px)" : "none",
               transition: "all 0.25s",
             }}
           >

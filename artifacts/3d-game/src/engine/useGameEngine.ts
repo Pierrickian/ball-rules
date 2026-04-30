@@ -26,15 +26,18 @@ export interface UseGameEngineResult {
   config: GameConfig | null;
   lastEvents: GameEvent[];
   isRunning: boolean;
-  playerQueue: BallColor[];
+  playerQueue: ShotKind[];
   pause: () => void;
   resume: () => void;
   reset: () => void;
   setArena: (width: number, height: number) => void;
   shoot: (targetX: number, targetY: number, holdSeconds: number) => ShotKind | null;
+  shootForced: (targetX: number, targetY: number, kind: ShotKind) => ShotKind | null;
   setLauncherColor: (color: BallColor) => void;
   setPlayerColors: (colors: BallColor[]) => void;
+  setPlayerProjectileDistribution: (distribution: Record<ShotKind, number>) => void;
   setActiveLevel: (index: number) => void;
+  setLevelWeights: (index: number, weights: Record<BallColor, number>) => void;
   classifyHold: (holdSeconds: number) => ShotKind;
 }
 
@@ -56,10 +59,15 @@ function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-function buildQueue(size: number, pool: BallColor[]): BallColor[] {
-  const colors = pool.length > 0 ? pool : (["gray"] as BallColor[]);
-  const out: BallColor[] = [];
-  for (let i = 0; i < size; i++) out.push(pickRandom(colors));
+function buildQueue(size: number, distribution: Record<ShotKind, number>): ShotKind[] {
+  const weighted: ShotKind[] = [];
+  (["light", "heavy", "mega"] as ShotKind[]).forEach((k) => {
+    const n = Math.max(0, Math.round((distribution[k] ?? 0) * 100));
+    for (let i = 0; i < n; i++) weighted.push(k);
+  });
+  if (weighted.length === 0) weighted.push("light");
+  const out: ShotKind[] = [];
+  for (let i = 0; i < size; i++) out.push(pickRandom(weighted));
   return out;
 }
 
@@ -68,14 +76,14 @@ export function useGameEngine(): UseGameEngineResult {
   const [config, setConfig] = useState<GameConfig | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [lastEvents, setLastEvents] = useState<GameEvent[]>([]);
-  const [playerQueue, setPlayerQueue] = useState<BallColor[]>([]);
+  const [playerQueue, setPlayerQueue] = useState<ShotKind[]>([]);
 
   const engineRef          = useRef<GameEngine | null>(null);
   const animFrameRef       = useRef<number>(0);
   const lastTimeRef        = useRef<number>(0);
   const pausedRef          = useRef(false);
   const configRef          = useRef<GameConfig | null>(null);
-  const queueRef           = useRef<BallColor[]>([]);
+  const queueRef           = useRef<ShotKind[]>([]);
   const rebootingRef       = useRef(false);
   const currentLevelIdxRef = useRef(0);
   // "levels"       — story mode: use level weights, advance on clear (loop)
@@ -93,7 +101,7 @@ export function useGameEngine(): UseGameEngineResult {
         setConfig(cfg);
         currentLevelIdxRef.current = 0;
         engineRef.current = new GameEngine(cfg, currentLevelIdxRef.current);
-        const q = buildQueue(cfg.gameplay_controls.queue_size, cfg.gameplay_controls.queue_ball_colors);
+        const q = buildQueue(cfg.gameplay_controls.queue_size, cfg.gameplay_controls.player_projectile_distribution ?? { light: 0.6, heavy: 0.3, mega: 0.1 });
         queueRef.current = q;
         setPlayerQueue(q);
         const lvl = engineRef.current.getCurrentLevel();
@@ -175,7 +183,7 @@ export function useGameEngine(): UseGameEngineResult {
     if (sessionModeRef.current === "single_color") {
       engineRef.current.setSingleColorMode(true);
     }
-    const q = buildQueue(cfg.gameplay_controls.queue_size, cfg.gameplay_controls.queue_ball_colors);
+    const q = buildQueue(cfg.gameplay_controls.queue_size, cfg.gameplay_controls.player_projectile_distribution ?? { light: 0.6, heavy: 0.3, mega: 0.1 });
     queueRef.current = q;
     setPlayerQueue(q);
     const lvl = engineRef.current.getCurrentLevel();
@@ -214,20 +222,31 @@ export function useGameEngine(): UseGameEngineResult {
     // Pop the leftmost queue color
     const queue = queueRef.current;
     if (queue.length === 0) return null;
-    const color = queue[0];
-
-    const proj = engineRef.current.playerShoot(targetX, targetY, holdSeconds, color);
+    const requested = queue[0];
+    const effective: ShotKind = holdSeconds >= 0.8 ? "mega" : holdSeconds >= 0.3 ? "heavy" : "light";
+    const resolved: ShotKind =
+      requested === "light" ? "light" :
+      requested === "heavy" ? (effective === "mega" ? "heavy" : effective) :
+      effective;
+    const holdForResolved = resolved === "mega" ? 0.81 : resolved === "heavy" ? 0.31 : 0.01;
+    const projectileColor: BallColor = resolved === "light" ? "white" : resolved === "heavy" ? "yellow" : "gray";
+    const proj = engineRef.current.playerShoot(targetX, targetY, holdForResolved, projectileColor);
     if (!proj) return null;
 
     // Shift queue and refill
-    const pool = cfg.gameplay_controls.queue_ball_colors;
     const next = queue.slice(1);
-    next.push(pickRandom(pool.length > 0 ? pool : (["gray"] as BallColor[])));
+    const distribution = cfg.gameplay_controls.player_projectile_distribution ?? { light: 0.6, heavy: 0.3, mega: 0.1 };
+    next.push(buildQueue(1, distribution)[0]);
     queueRef.current = next;
     setPlayerQueue(next);
 
-    return engineRef.current.classifyShot(holdSeconds);
+    return resolved;
   }, []);
+
+  const shootForced = useCallback((targetX: number, targetY: number, kind: ShotKind): ShotKind | null => {
+    const forcedHold = kind === "mega" ? 0.81 : kind === "heavy" ? 0.31 : 0.01;
+    return shoot(targetX, targetY, forcedHold);
+  }, [shoot]);
 
   const classifyHold = useCallback((holdSeconds: number): ShotKind => {
     if (!engineRef.current) return "light";
@@ -276,6 +295,18 @@ export function useGameEngine(): UseGameEngineResult {
     doReset();
   }, [doReset]);
 
+  const setLevelWeights = useCallback((index: number, weights: Record<BallColor, number>) => {
+    const cfg = configRef.current;
+    if (!cfg || !cfg.levels?.list?.length) return;
+    const list = cfg.levels.list.map((lvl, i) =>
+      i === index ? { ...lvl, launch_color_weights: { ...weights } } : lvl
+    );
+    const newConfig: GameConfig = { ...cfg, levels: { ...cfg.levels, list } };
+    configRef.current = newConfig;
+    setConfig(newConfig);
+    engineRef.current?.updateConfig(newConfig);
+  }, []);
+
   const setPlayerColors = useCallback((colors: BallColor[]) => {
     const cfg = configRef.current;
     if (!cfg || !engineRef.current) return;
@@ -288,7 +319,25 @@ export function useGameEngine(): UseGameEngineResult {
     setConfig(newConfig);
     engineRef.current.updateConfig(newConfig);
     // Regenerate the queue with the new pool
-    const q = buildQueue(newConfig.gameplay_controls.queue_size, safe);
+    const q = buildQueue(
+      newConfig.gameplay_controls.queue_size,
+      newConfig.gameplay_controls.player_projectile_distribution ?? { light: 0.6, heavy: 0.3, mega: 0.1 }
+    );
+    queueRef.current = q;
+    setPlayerQueue(q);
+  }, []);
+
+  const setPlayerProjectileDistribution = useCallback((distribution: Record<ShotKind, number>) => {
+    const cfg = configRef.current;
+    if (!cfg || !engineRef.current) return;
+    const newConfig: GameConfig = {
+      ...cfg,
+      gameplay_controls: { ...cfg.gameplay_controls, player_projectile_distribution: distribution },
+    };
+    configRef.current = newConfig;
+    setConfig(newConfig);
+    engineRef.current.updateConfig(newConfig);
+    const q = buildQueue(newConfig.gameplay_controls.queue_size, distribution);
     queueRef.current = q;
     setPlayerQueue(q);
   }, []);
@@ -296,6 +345,6 @@ export function useGameEngine(): UseGameEngineResult {
   return {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
-    shoot, setLauncherColor, setPlayerColors, setActiveLevel, classifyHold,
+    shoot, shootForced, setLauncherColor, setPlayerColors, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, classifyHold,
   };
 }

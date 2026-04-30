@@ -5,7 +5,7 @@
 //   3. Détail des balles    — carousel of ball identity cards
 //   4. Terrain              — aspect ratio + resolution
 //   5. Couleur lancée       — color spawned by orange launcher (debug, overridden by levels)
-//   6. Couleur joueur       — pool of colors used in player queue
+//   6. Couleur balles       — pool of colors used in player queue
 //   7. Comment demander     — agent prompt tutorials
 //   8. Notes de version     — recent release notes
 // ============================================================
@@ -21,8 +21,10 @@ interface MenuProps {
   onArenaChange: (width: number, height: number) => void;
   onLauncherColorChange: (color: BallColor) => void;
   onPlayerColorsChange: (colors: BallColor[]) => void;
+  onPlayerDistributionChange: (distribution: Record<"light" | "heavy" | "mega", number>) => void;
   /** Jump to a specific story-mode level (0-based index). Resets the game. */
   onLevelSelect: (index: number) => void;
+  onLevelWeightsChange: (index: number, weights: Record<BallColor, number>) => void;
   /** Index 0-based of the currently active level, or -1 if no levels are configured. */
   currentLevelIndex: number;
 }
@@ -116,7 +118,7 @@ function realColorKeys(config: GameConfig): BallColor[] {
   ) as BallColor[];
 }
 
-/** Colors picked by the player's shot queue ("Couleur joueur" menu). */
+/** Colors picked by the player's shot queue ("Couleur balles" menu). */
 function playerColors(config: GameConfig): BallColor[] {
   return realColorKeys(config).filter(
     (c) => config.ball_colors[c]?.selectable_by_player === true
@@ -413,20 +415,7 @@ function LauncherColorMenu({
 }) {
   const current = config.gameplay.orange.launch_config.color as BallColor | "random";
   const [selected, setSelected] = useState<BallColor | "random">(current);
-
-  const pick = (c: BallColor | "random") => {
-    setSelected(c);
-    // Picking a color exits story-mode and starts a fresh single-color
-    // session that loops with 100% of the chosen color (handled by the
-    // engine hook). Close the menu so the new game is visible.
-    if (c === "random") {
-      // Fallback for "random": the engine handles it via allow_colors.
-      onLauncherColorChange("dark_green");
-    } else {
-      onLauncherColorChange(c);
-    }
-    onClose();
-  };
+  const pick = (c: BallColor) => { setSelected(c); onLauncherColorChange(c); onClose(); };
 
   return (
     <div style={PANEL}>
@@ -436,38 +425,13 @@ function LauncherColorMenu({
       </div>
 
       <div style={{ fontSize: 12, color: "#7a9fcc", lineHeight: 1.5 }}>
-        Choisis une couleur : une nouvelle partie démarre <b>hors mode niveaux</b>,
-        avec un seul niveau qui boucle en 100 % de la couleur choisie. Aucune progression
-        de niveau, le terrain se réinitialise à chaque clear.
+        Choisis une couleur : une nouvelle partie démarre hors mode niveaux, avec cette couleur comme couleur lancée.
       </div>
-
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
         {launcherColors(config).map((c) => {
           const entry = config.ball_colors[c];
           const isActive = selected === c;
-          return (
-            <button
-              key={c}
-              onClick={() => pick(c)}
-              style={{
-                display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
-                background: isActive ? "rgba(30,144,255,0.2)" : "rgba(8,18,40,0.7)",
-                border: isActive ? `2px solid ${entry?.hex ?? "#1e90ff"}` : "1px solid rgba(30,144,255,0.18)",
-                borderRadius: 10, padding: "10px 6px", cursor: "pointer",
-                fontFamily: "inherit", color: isActive ? "#fff" : "#7a9fcc",
-                boxShadow: isActive ? `0 0 8px ${entry?.hex ?? "#1e90ff"}55` : "none",
-                transition: "all 0.15s",
-              }}
-            >
-              <div style={{
-                width: 26, height: 26, borderRadius: "50%",
-                background: entry?.hex ?? "#888",
-                boxShadow: `0 0 8px ${entry?.hex ?? "#888"}77`,
-                border: c === "white" ? "1px solid #444" : "none",
-              }} />
-              <div style={{ fontSize: 10, textAlign: "center" }}>{entry?._label}</div>
-            </button>
-          );
+          return <button key={c} onClick={() => pick(c)} style={{ background: isActive ? "rgba(30,144,255,0.2)" : "rgba(8,18,40,0.7)", border: isActive ? `2px solid ${entry?.hex ?? "#1e90ff"}` : "1px solid rgba(30,144,255,0.18)", borderRadius: 10, padding: "10px 6px", cursor: "pointer", color: isActive ? "#fff" : "#7a9fcc" }}>{entry?._label}</button>;
         })}
       </div>
 
@@ -480,15 +444,28 @@ function LauncherColorMenu({
 // Player Colors Sub-Menu (multi-pick: pool for player queue)
 // ============================================================
 function PlayerColorsMenu({
-  config, onPlayerColorsChange, onBack,
+  config, onPlayerColorsChange, onPlayerDistributionChange, onClose, onBack,
 }: {
   config: GameConfig;
   onPlayerColorsChange: (colors: BallColor[]) => void;
+  onPlayerDistributionChange: (distribution: Record<"light" | "heavy" | "mega", number>) => void;
+  onClose: () => void;
   onBack: () => void;
 }) {
   const [selected, setSelected] = useState<BallColor[]>(
     config.gameplay_controls.queue_ball_colors as BallColor[]
   );
+  const [dist, setDist] = useState(() => config.gameplay_controls.player_projectile_distribution ?? { light: 0.6, heavy: 0.3, mega: 0.1 });
+  const setPct = (k: "light"|"heavy"|"mega", pct: number) => {
+    const clamped = Math.max(0, Math.min(1, pct / 100));
+    const others = (["light","heavy","mega"] as const).filter((x) => x !== k);
+    const rem = 1 - clamped;
+    const otherSum = others.reduce((a,c)=>a+dist[c],0);
+    const next = { ...dist, [k]: clamped } as typeof dist;
+    next[others[0]] = otherSum <= 0 ? rem : (dist[others[0]]/otherSum)*rem;
+    next[others[1]] = otherSum <= 0 ? 0 : (dist[others[1]]/otherSum)*rem;
+    setDist(next); onPlayerDistributionChange(next);
+  };
 
   const toggle = (c: BallColor) => {
     setSelected((prev) => {
@@ -503,7 +480,7 @@ function PlayerColorsMenu({
   return (
     <div style={PANEL}>
       <div>
-        <div style={TITLE}>Couleur joueur</div>
+        <div style={TITLE}>Couleur balles</div>
         <div style={{ fontSize: 18, fontWeight: "bold", color: "#1e90ff" }}>File d'attente du joueur</div>
       </div>
 
@@ -546,6 +523,13 @@ function PlayerColorsMenu({
       <div style={{ fontSize: 11, color: "#445", textAlign: "center" }}>
         {selected.length} couleur(s) active(s)
       </div>
+      <div style={{ display: "grid", gap: 8 }}>
+        {(["light","heavy","mega"] as const).map((k) => {
+          const pct=Math.round(dist[k]*100); const label=k==="light"?"Blanc":k==="heavy"?"Jaune":"Rose";
+          return <div key={k}><div style={{fontSize:11,color:"#8ab"}}>{label} {pct}%</div><input type="range" min={0} max={100} value={pct} onChange={(e)=>setPct(k,Number(e.target.value))} style={{width:"100%"}}/></div>;
+        })}
+      </div>
+      <button style={{ ...CLOSE_BTN, color: "#0a1628", background: "#1e90ff", borderColor: "#1e90ff", fontWeight: "bold" }} onClick={onClose}>▶ Jouer</button>
 
       <button style={CLOSE_BTN} onClick={onBack}>← Retour</button>
     </div>
@@ -605,7 +589,7 @@ function MainMenu({
       <button style={MENU_BTN} onClick={onPlayerColors}>
         <span style={{ fontSize: 20 }}>🎯</span>
         <div>
-          <div style={{ fontWeight: "bold" }}>Couleur joueur</div>
+          <div style={{ fontWeight: "bold" }}>Couleur balles</div>
           <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>File d'attente du joueur (multi-couleur)</div>
         </div>
       </button>
@@ -988,9 +972,9 @@ const HOW_TO_ASK_TUTOS: HowToAskTuto[] = [
     intro:
       "Pas besoin de prompt pour ça : la sélection des couleurs disponibles dans la file de tir du joueur se fait directement depuis le menu, en jeu.",
     inGame: {
-      menuName: "Couleur joueur",
+      menuName: "Couleur balles",
       instructions:
-        "Ouvre le menu, puis va dans « Couleur joueur ». Active ou désactive les couleurs que tu veux voir apparaître dans ta file de tir (sélection multiple = tirage aléatoire). Au moins une couleur doit rester active.",
+        "Ouvre le menu, puis va dans « Couleur balles ». Active ou désactive les couleurs que tu veux voir apparaître dans ta file de tir (sélection multiple = tirage aléatoire). Au moins une couleur doit rester active.",
     },
   },
 ];
@@ -1039,7 +1023,7 @@ const HOW_TO_ASK_GLOSSARY: GlossaryEntry[] = [
     definition: "Sous-menu qui choisit la couleur des balles que la balle orange fait entrer en jeu.",
   },
   {
-    term: "Menu « Couleur joueur »",
+    term: "Menu « Couleur balles »",
     definition: "Sous-menu qui choisit le pool de couleurs piochées pour la file d'attente des tirs du joueur.",
   },
   {
@@ -1230,11 +1214,15 @@ function LevelsCarousel({
   config,
   currentLevelIndex,
   onLevelSelect,
+  onLevelWeightsChange,
+  onClose,
   onBack,
 }: {
   config: GameConfig;
   currentLevelIndex: number;
   onLevelSelect: (index: number) => void;
+  onLevelWeightsChange: (index: number, weights: Record<BallColor, number>) => void;
+  onClose: () => void;
   onBack: () => void;
 }) {
   const levels = config.levels?.list ?? [];
@@ -1272,8 +1260,20 @@ function LevelsCarousel({
   );
 
   const weightEntries = Object.entries(weights)
-    .filter(([, w]) => typeof w === "number" && w > 0)
+    .filter(([, w]) => typeof w === "number")
     .sort(([, a], [, b]) => (b as number) - (a as number)) as Array<[BallColor, number]>;
+  const setWeightPct = (color: BallColor, pctValue: number) => {
+    const keys = weightEntries.map(([c]) => c);
+    const clamped = Math.max(0, Math.min(1, pctValue / 100));
+    const next: Record<BallColor, number> = { ...(weights as Record<BallColor, number>), [color]: clamped };
+    const others = keys.filter((k) => k !== color);
+    const rem = 1 - clamped;
+    const otherSum = others.reduce((a, c) => a + (weights[c] ?? 0), 0);
+    others.forEach((k, idx) => {
+      next[k] = otherSum <= 0 ? (idx === 0 ? rem : 0) : ((weights[k] ?? 0) / otherSum) * rem;
+    });
+    onLevelWeightsChange(index, next);
+  };
 
   return (
     <div style={PANEL}>
@@ -1388,6 +1388,7 @@ function LevelsCarousel({
                     >
                       {pct}%
                     </div>
+                    <input type="range" min={0} max={100} value={pct} onChange={(e) => setWeightPct(color, Number(e.target.value))} />
                   </div>
                 );
               })}
@@ -1435,7 +1436,7 @@ function LevelsCarousel({
           ← Précédent
         </button>
         <button
-          onClick={() => { onLevelSelect(index); onBack(); }}
+          onClick={() => { onLevelSelect(index); onClose(); }}
           title={isCurrent
             ? `Relancer le niveau ${lvl.id} (${lvl.name})`
             : `Jouer le niveau ${lvl.id} (${lvl.name})`}
@@ -1525,7 +1526,9 @@ export function Menu({
   onArenaChange,
   onLauncherColorChange,
   onPlayerColorsChange,
+  onPlayerDistributionChange,
   onLevelSelect,
+  onLevelWeightsChange,
   currentLevelIndex,
 }: MenuProps) {
   const [view, setView] = useState<MenuView>("main");
@@ -1546,11 +1549,11 @@ export function Menu({
         />
       )}
       {view === "rules"          && <RulesView      config={config} onBack={() => setView("main")} />}
-      {view === "levels"         && <LevelsCarousel config={config} currentLevelIndex={currentLevelIndex} onLevelSelect={onLevelSelect} onBack={() => setView("main")} />}
+      {view === "levels"         && <LevelsCarousel config={config} currentLevelIndex={currentLevelIndex} onLevelSelect={onLevelSelect} onLevelWeightsChange={onLevelWeightsChange} onClose={onClose} onBack={() => setView("main")} />}
       {view === "balls"          && <BallsCarousel  config={config} onBack={() => setView("main")} />}
       {view === "terrain"        && <TerrainMenu    config={config} onArenaChange={onArenaChange} onBack={() => setView("main")} />}
       {view === "launcher_color" && <LauncherColorMenu config={config} onLauncherColorChange={onLauncherColorChange} onClose={onClose} onBack={() => setView("main")} />}
-      {view === "player_colors"  && <PlayerColorsMenu  config={config} onPlayerColorsChange={onPlayerColorsChange}   onBack={() => setView("main")} />}
+      {view === "player_colors"  && <PlayerColorsMenu  config={config} onPlayerColorsChange={onPlayerColorsChange} onPlayerDistributionChange={onPlayerDistributionChange} onClose={onClose} onBack={() => setView("main")} />}
       {view === "how_to_ask"     && <HowToAskCarousel onBack={() => setView("main")} />}
       {view === "release_notes"  && <ReleaseNotesView config={config} onBack={() => setView("main")} />}
     </div>
