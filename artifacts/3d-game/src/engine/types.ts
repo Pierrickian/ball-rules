@@ -177,6 +177,7 @@ export interface GameplayControlsConfig {
   _description?: string;
   queue_size: number;
   queue_ball_colors: BallColor[];
+  player_projectile_distribution?: Record<ShotKind, number>;
   queue_ball_size: BallSize;
   shot_origin: {
     mode: string;

@@ -15,13 +15,13 @@ import { useGameEngine } from "./engine/useGameEngine";
 import { GameScene } from "./scenes/GameScene";
 import { HUD } from "./game/HUD";
 import { Menu } from "./game/Menu";
-import type { BallColor, GameConfig, GameState, ShotKind } from "./engine/types";
+import type { GameConfig, GameState, ShotKind } from "./engine/types";
 
 function App() {
   const {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
-    shoot, setLauncherColor, setPlayerColors, setActiveLevel, classifyHold,
+    shoot, setPlayerColors, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, classifyHold,
   } = useGameEngine();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -198,9 +198,10 @@ function App() {
           config={config}
           onClose={handleMenuClose}
           onArenaChange={setArena}
-          onLauncherColorChange={setLauncherColor}
           onPlayerColorsChange={setPlayerColors}
+          onPlayerDistributionChange={setPlayerProjectileDistribution}
           onLevelSelect={setActiveLevel}
+          onLevelWeightsChange={setLevelWeights}
           currentLevelIndex={gameState.currentLevelIndex}
         />
       )}
@@ -211,7 +212,7 @@ function App() {
 // ============================================================
 // PlayerQueue — strip showing next balls (left = next to shoot)
 // ============================================================
-function PlayerQueue({ queue, config }: { queue: BallColor[]; config: GameConfig }) {
+function PlayerQueue({ queue, config }: { queue: ShotKind[]; config: GameConfig }) {
   if (queue.length === 0) return null;
   return (
     <div
@@ -221,22 +222,25 @@ function PlayerQueue({ queue, config }: { queue: BallColor[]; config: GameConfig
         display: "flex",
         justifyContent: "center",
         alignItems: "flex-end",
-        gap: 14,
+        gap: 8,
+        flexWrap: "wrap",
+        maxWidth: 280,
         pointerEvents: "none",
         zIndex: 8,
       }}
     >
-      {queue.map((color, i) => {
-        const entry = config.ball_colors[color];
+      {queue.map((kind, i) => {
+        const entry = kind === "light" ? { hex: "#F5F5F5" } : kind === "heavy" ? { hex: "#FFE600" } : { hex: "#ff66ff" };
         const isNext = i === 0;
-        const sz = isNext ? 46 : 30;
+        const base = kind === "light" ? 12 : kind === "heavy" ? 15 : 18;
+        const sz = isNext ? base + 2 : base;
         return (
           <div
             key={i}
             style={{
               display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
               opacity: i === 0 ? 1 : (i === 1 ? 0.78 : 0.55),
-              transform: isNext ? "translateY(-6px)" : "none",
+              transform: isNext ? "translateY(-2px)" : "none",
               transition: "all 0.25s",
             }}
           >
