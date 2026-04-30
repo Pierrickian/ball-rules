@@ -252,6 +252,7 @@ export interface GameConfig {
       default_hp: number;
       max_hp: number;
       hp_gained_per_traversal: number;
+      blue_hp_gained_per_contact?: number;
       diameter_per_extra_hp: number;
     };
     yellow_blinker?: {

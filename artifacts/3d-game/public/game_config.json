@@ -271,6 +271,10 @@
     "yellow": {
       "rule": "blink_hp_bouncer",
       "_description": "Rebondit sur les murs. Démarre avec 4 PV. Clignote: disparaît 0,5 s toutes les 1 s. Disparaît à 0 PV."
+    },
+    "black": {
+      "rule": "hp_grow_bouncer",
+      "_description": "Version invisible de la verte foncée: même comportement (2 PV de départ, 6 PV max, grossit en traversant, disparaît à 0 PV), mais sans rendu visuel."
     }
   },
   "bounce_conditions": {
@@ -288,7 +292,8 @@
       "dark_green": "against_wall",
       "blue": "against_wall",
       "gray": "against_wall",
-      "yellow": "against_wall"
+      "yellow": "against_wall",
+      "black": "against_wall"
     }
   },
   "rule_parameters": {
@@ -326,7 +331,9 @@
       "max_hp": 6,
       "hp_gained_per_traversal": 1,
       "diameter_per_extra_hp": 0.18,
-      "_diameter_per_extra_hp_comment": "À 2 PV (défaut): ×1.0. À 6 PV: ×1 + (6-2)×0.18 = ×1.72. À 1 PV: ×0.82."
+      "_diameter_per_extra_hp_comment": "À 2 PV (défaut): ×1.0. À 6 PV: ×1 + (6-2)×0.18 = ×1.72. À 1 PV: ×0.82.",
+      "blue_hp_gained_per_contact": 2,
+      "_blue_hp_gained_per_contact_comment": "La balle bleue gagne ce montant de PV à chaque nouveau contact avec une autre balle (hors murs et projectiles)."
     },
     "player_projectile": {
       "_description": "Paramètres globaux des projectiles du joueur. Voir gameplay_controls.shot_types pour les variantes par type de tir.",
@@ -364,7 +371,8 @@
           "white",
           "dark_green",
           "blue",
-          "yellow"
+          "yellow",
+          "black"
         ],
         "_allow_colors_comment": "Couleurs que le lanceur orange peut faire entrer dans l'arène. Le gris est volontairement exclu : c'est une couleur dédiée au joueur (file de tir / projectiles)."
       }
@@ -402,6 +410,14 @@
       }
     },
     "yellow": {
+      "spawn": {
+        "condition": "launched_by_orange"
+      },
+      "despawn": {
+        "condition": "killed_at_zero_hp"
+      }
+    },
+    "black": {
       "spawn": {
         "condition": "launched_by_orange"
       },
@@ -523,6 +539,16 @@
         "launch_color_weights": {
           "yellow": 1
         }
+      },
+      {
+        "id": 6,
+        "name": "Niveau 6 — Triade cachée",
+        "description": "Répartition équilibrée: 33% jaune, 33% vert foncé, 33% bleu. Alterne clignotement, PV évolutifs et rebonds sous pression.",
+        "launch_color_weights": {
+          "yellow": 0.33,
+          "dark_green": 0.33,
+          "blue": 0.33
+        }
       }
     ]
   },
@@ -550,6 +576,8 @@
     ]
   },
   "release_notes": [
+    "Balle noire: PV visible 1s après popups",
+    "Niveau triade et balle noire invisible",
     "Renommage du skill git-setup en new",
     "Ajout du skill Git de démarrage guidé",
     "Niveau 5 jaune : 4 PV et clignotement",
@@ -567,9 +595,7 @@
     "Carrousel : encart Rôle système pour orange (lanceur sans règle)",
     "Cohérence couleurs : orange retiré des règles, gris retiré du lanceur",
     "Sous-menu Notes de version",
-    "Glossaire d'agent dans le menu Comment demander",
-    "Prompts de tutoriels simplifiés (sans jargon technique)",
-    "Carrousel des balles : badge En attente de règle pour les couleurs sans comportement"
+    "Glossaire d'agent dans le menu Comment demander"
   ],
   "debug": {
     "show_velocities": false,

@@ -808,16 +808,13 @@ export class GameEngine {
   /**
    * DARK_GREEN / BLUE — hp_grow_bouncer.
    * Bounces on walls. On entering overlap with another (non-projectile, non-orange) ball:
-   *   - +1 HP (capped at max_hp)
+   *   - +HP (capped at max_hp): dark_green uses hp_gained_per_traversal,
+   *     blue uses blue_hp_gained_per_contact.
    *   - diameter recomputed from current HP
    * Tracks "touched" set in metadata to avoid double-counting per overlap event.
-   * NOTE: bouncy-surface colors (e.g. blue) deflect everything they touch,
-   *       so traversal can't actually happen — we skip the HP-growth phase
-   *       to keep their HP fixed.
    */
   private handleHpGrowBouncer(ball: Ball, delta: number, ctx: RuleContext): void {
     this.applyMovement(ball, delta, ctx.arena);
-    if (ctx.config.ball_colors[ball.color]?.bouncy_surface) return;
     const p = ctx.config.rule_parameters.hp_grow_bouncer;
     if (!p) return;
 
@@ -831,7 +828,10 @@ export class GameEngine {
       if (overlapping && !touched.has(other.id)) {
         touched.add(other.id);
         if (ball.hp < ball.maxHp) {
-          const healed = ball.heal(p.hp_gained_per_traversal ?? 1);
+          const healAmount = ball.color === "blue"
+            ? (p.blue_hp_gained_per_contact ?? 2)
+            : (p.hp_gained_per_traversal ?? 1);
+          const healed = ball.heal(healAmount);
           if (healed > 0) {
             ball.diameter = this.computeHpGrowDiameter(ball);
             ctx.events.push({
