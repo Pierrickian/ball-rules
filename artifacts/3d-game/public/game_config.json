@@ -157,7 +157,9 @@
       ],
       "_label": "Rouge",
       "selectable_by_player": false,
-      "for_terrain": true
+      "for_terrain": true,
+      "bouncy_surface": true,
+      "_bouncy_surface_description": "Surface rebondissante comme la bleue : les projectiles et balles qui la touchent ricochettent (les dégâts restent appliqués)."
     },
     "light_green": {
       "hex": "#5EFF5E",
@@ -275,6 +277,10 @@
     "black": {
       "rule": "hp_grow_bouncer",
       "_description": "Version invisible de la verte foncée: même comportement (2 PV de départ, 6 PV max, grossit en traversant, disparaît à 0 PV), mais sans rendu visuel."
+    },
+    "red": {
+      "rule": "red_split_bouncer",
+      "_description": "Rebondit sur les murs avec 5 PV. Si un tir la touche sans la détruire, elle se divise en 2 rouges, chacune avec les PV restants de la mère après impact (5→4→3→2→1)."
     }
   },
   "bounce_conditions": {
@@ -293,7 +299,8 @@
       "blue": "against_wall",
       "gray": "against_wall",
       "yellow": "against_wall",
-      "black": "against_wall"
+      "black": "against_wall",
+      "red": "against_wall"
     }
   },
   "rule_parameters": {
@@ -345,6 +352,10 @@
       "max_hp": 4,
       "invisible_duration_seconds": 0.8,
       "cycle_seconds": 1
+    },
+    "red_split_bouncer": {
+      "default_hp": 5,
+      "max_hp": 5
     }
   },
   "gameplay": {
@@ -372,7 +383,8 @@
           "dark_green",
           "blue",
           "yellow",
-          "black"
+          "black",
+          "red"
         ],
         "_allow_colors_comment": "Couleurs que le lanceur orange peut faire entrer dans l'arène. Le gris est volontairement exclu : c'est une couleur dédiée au joueur (file de tir / projectiles)."
       }
@@ -418,6 +430,14 @@
       }
     },
     "black": {
+      "spawn": {
+        "condition": "launched_by_orange"
+      },
+      "despawn": {
+        "condition": "killed_at_zero_hp"
+      }
+    },
+    "red": {
       "spawn": {
         "condition": "launched_by_orange"
       },
@@ -564,6 +584,23 @@
           "yellow": 0.5,
           "black": 0.5
         }
+      },
+      {
+        "id": 8,
+        "name": "Niveau 8 — Vague rouge",
+        "description": "100% de balles rouges. Elles se divisent en deux à chaque impact non létal, ce qui multiplie rapidement les cibles.",
+        "launch_color_weights": {
+          "red": 1
+        }
+      },
+      {
+        "id": 9,
+        "name": "Niveau 9 — Duo rouge/vert",
+        "description": "50% de rouges et 50% de vert foncé. Gère à la fois la division des rouges et la croissance des vertes.",
+        "launch_color_weights": {
+          "red": 0.5,
+          "dark_green": 0.5
+        }
       }
     ]
   },
@@ -591,6 +628,8 @@
     ]
   },
   "release_notes": [
+    "Balle rouge divisée et nouveaux niveaux dédiés",
+    "Curseur de charge bloqué au seuil max",
     "Tir au relâchement et niveau duo jaune/noir",
     "Menu couleur terrain avec sliders custom",
     "Curseur continu et tir auto par paliers",
@@ -608,9 +647,7 @@
     "Refonte interne du moteur",
     "Balle noire: PV visible 1s après popups",
     "Niveau triade et balle noire invisible",
-    "Renommage du skill git-setup en new",
-    "Ajout du skill Git de démarrage guidé",
-    "Niveau 5 jaune : 4 PV et clignotement"
+    "Renommage du skill git-setup en new"
   ],
   "debug": {
     "show_velocities": false,

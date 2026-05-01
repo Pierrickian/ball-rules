@@ -113,6 +113,7 @@ export class GameEngine {
     this.registerRuleHandler("absorb",            this.handleAbsorb.bind(this));
     this.registerRuleHandler("hp_grow_bouncer",   this.handleHpGrowBouncer.bind(this));
     this.registerRuleHandler("blink_hp_bouncer",  this.handleBlinkHpBouncer.bind(this));
+    this.registerRuleHandler("red_split_bouncer", this.handleRedSplitBouncer.bind(this));
     this.registerRuleHandler("player_projectile", this.handlePlayerProjectile.bind(this));
   }
 
@@ -373,6 +374,10 @@ export class GameEngine {
       const p = this.config.rule_parameters.yellow_blinker;
       hp = p?.default_hp ?? 4;
       maxHp = p?.max_hp ?? 4;
+    } else if (rule === "red_split_bouncer") {
+      const p = this.config.rule_parameters.red_split_bouncer;
+      hp = p?.default_hp ?? 5;
+      maxHp = p?.max_hp ?? 5;
     }
 
     const ball = new Ball(color, size, position, velocity, diameter, rule, bounceCondition, hp, maxHp);
@@ -888,6 +893,11 @@ export class GameEngine {
     if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
   }
 
+  private handleRedSplitBouncer(ball: Ball, delta: number, ctx: RuleContext): void {
+    this.applyMovement(ball, delta, ctx.arena);
+    if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
+  }
+
   /**
    * PLAYER PROJECTILE — straight-line shot fired by player click.
    * Behavior driven by metadata (set in playerShoot):
@@ -948,9 +958,11 @@ export class GameEngine {
       if (meta.damagedIds.has(other.id)) continue;
 
       if (ball.isCollidingWith(other)) {
+        const hpBeforeHit = other.hp;
         meta.damagedIds.add(other.id);
         ctx.events.push({ type: "collision", ballAId: ball.id, ballBId: other.id });
         ctx.damageBall(other, meta.damage, "killed_by_player");
+        this.trySplitRedAfterNonLethalHit(other, hpBeforeHit, ctx);
 
         // Bouncy_surface targets (e.g. blue) act as bumpers for ALL three
         // shot kinds: the projectile ricochets off them and keeps flying
@@ -972,6 +984,26 @@ export class GameEngine {
     }
 
     if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "projectile_out_of_bounds");
+  }
+
+  private trySplitRedAfterNonLethalHit(target: Ball, hpBeforeHit: number, ctx: RuleContext): void {
+    if (target.color !== "red" || !target.isAlive) return;
+    if (target.hp >= hpBeforeHit) return;
+    const childHp = Math.max(1, target.hp);
+    const speed = Math.sqrt(target.velocity.x ** 2 + target.velocity.y ** 2);
+    const dir = speed > 0.01 ? normalize(target.velocity) : { x: 1, y: 0 };
+    const perp = normalize({ x: -dir.y, y: dir.x });
+    const childSpeed = Math.max(speed, 12);
+    const b1 = ctx.spawnBall("red", target.size, { ...target.position }, {
+      x: dir.x * childSpeed * 0.75 + perp.x * childSpeed * 0.55,
+      y: dir.y * childSpeed * 0.75 + perp.y * childSpeed * 0.55,
+    }, "red_split_bouncer", { hp: childHp, maxHp: childHp });
+    const b2 = ctx.spawnBall("red", target.size, { ...target.position }, {
+      x: dir.x * childSpeed * 0.75 - perp.x * childSpeed * 0.55,
+      y: dir.y * childSpeed * 0.75 - perp.y * childSpeed * 0.55,
+    }, "red_split_bouncer", { hp: childHp, maxHp: childHp });
+    ctx.events.push({ type: "ball_split", originalId: target.id, newIds: [b1.id, b2.id] });
+    ctx.despawnBall(target, "red_split_after_hit");
   }
 
   /** Reflect a projectile's velocity off a target ball treated as a bumper.
