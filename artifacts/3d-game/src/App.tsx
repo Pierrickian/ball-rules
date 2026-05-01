@@ -86,6 +86,10 @@ function App() {
     lastTargetRef.current = { x: gameX, y: gameY };
     holdShotKindRef.current = playerQueue[0] ?? null;
     holdStartRef.current = performance.now();
+    // Show the charge UI immediately on press (without waiting for the
+    // first animation-frame tick) so the aiming feedback is visible during
+    // the current shot, not only after firing.
+    setHoldTime(0.001);
     setIsHolding(true);
   };
 
@@ -100,6 +104,7 @@ function App() {
     const hold = (performance.now() - holdStartRef.current) / 1000;
     holdStartRef.current = null;
     setIsHolding(false);
+    setHoldTime(0);
     if (!menuOpenRef.current && isRunningRef.current) {
       tryShootHeldBall(gameX, gameY, hold);
     } else {
