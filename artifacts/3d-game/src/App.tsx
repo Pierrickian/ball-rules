@@ -61,9 +61,13 @@ function App() {
   }, [isHolding]);
 
   const handlePointerDown = (gameX: number, gameY: number) => {
-    if (menuOpenRef.current || !isRunningRef.current) return;
-    holdStartRef.current = performance.now();
+    if (menuOpenRef.current || !isRunningRef.current || !playerQueue.length) return;
     lastTargetRef.current = { x: gameX, y: gameY };
+    if (playerQueue[0] === "light") {
+      shoot(gameX, gameY, 0.01, "light");
+      return;
+    }
+    holdStartRef.current = performance.now();
     setIsHolding(true);
   };
 
@@ -120,6 +124,17 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+
+  useEffect(() => {
+    if (!config || !isRunning || menuOpen || isHolding || !playerQueue.length || playerQueue[0] !== "mega") return;
+    const megaThreshold = config.gameplay_controls.shot_types.mega.max_hold_seconds ?? 0.8;
+    const id = window.setTimeout(() => {
+      if (!menuOpenRef.current && isRunningRef.current && holdStartRef.current == null && playerQueue[0] === "mega") {
+        shoot(0, 1, megaThreshold + 0.01, "mega");
+      }
+    }, megaThreshold * 1000);
+    return () => window.clearTimeout(id);
+  }, [config, isHolding, isRunning, menuOpen, playerQueue, shoot]);
   if (!gameState || !config) {
     return (
       <div

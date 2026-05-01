@@ -31,7 +31,7 @@ export interface UseGameEngineResult {
   resume: () => void;
   reset: () => void;
   setArena: (width: number, height: number) => void;
-  shoot: (targetX: number, targetY: number, holdSeconds: number) => ShotKind | null;
+  shoot: (targetX: number, targetY: number, holdSeconds: number, forcedKind?: ShotKind) => ShotKind | null;
   setLauncherColor: (color: BallColor) => void;
   setPlayerColors: (colors: BallColor[]) => void;
   setPlayerProjectileDistribution: (distribution: Record<ShotKind, number>) => void;
@@ -214,7 +214,7 @@ export function useGameEngine(): UseGameEngineResult {
    * Player shoot. Pops the leftmost queue color, fires a projectile,
    * shifts the queue and appends a new random from the pool.
    */
-  const shoot = useCallback((targetX: number, targetY: number, holdSeconds: number): ShotKind | null => {
+  const shoot = useCallback((targetX: number, targetY: number, holdSeconds: number, forcedKind?: ShotKind): ShotKind | null => {
     const cfg = configRef.current;
     if (!cfg || !engineRef.current || pausedRef.current) return null;
 
@@ -222,11 +222,14 @@ export function useGameEngine(): UseGameEngineResult {
     const queue = queueRef.current;
     if (queue.length === 0) return null;
     const requested = queue[0];
-    const effective: ShotKind = holdSeconds >= 0.8 ? "mega" : holdSeconds >= 0.3 ? "heavy" : "light";
-    const resolved: ShotKind =
-      requested === "light" ? "light" :
-      requested === "heavy" ? (effective === "mega" ? "heavy" : effective) :
-      effective;
+    const types = cfg.gameplay_controls.shot_types;
+    const effective: ShotKind = holdSeconds >= (types.mega?.max_hold_seconds ?? 0.8) ? "mega" : holdSeconds >= (types.heavy?.max_hold_seconds ?? 0.3) ? "heavy" : "light";
+    const resolved: ShotKind = forcedKind ?? (
+      requested === "light" ? effective :
+      requested === "heavy" ? (effective === "mega" ? "mega" : effective) :
+      (effective === "mega" ? "mega" : null)
+    ) as ShotKind;
+    if (!resolved) return null;
     const holdForResolved = resolved === "mega" ? 0.81 : resolved === "heavy" ? 0.31 : 0.01;
     const projectileColor: BallColor = resolved === "light" ? "white" : resolved === "heavy" ? "yellow" : "gray";
     const proj = engineRef.current.playerShoot(targetX, targetY, holdForResolved, projectileColor);
