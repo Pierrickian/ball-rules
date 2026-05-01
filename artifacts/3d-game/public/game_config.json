@@ -582,6 +582,7 @@
     ]
   },
   "release_notes": [
+    "Tir contextuel et sliders de pondération fiabilisés",
     "Nettoyage menu: retrait option couleur lancée",
     "Niveaux: pondérations éditables avec curseurs",
     "Menu projectile: curseurs live + bouton Jouer",
@@ -600,8 +601,7 @@
     "Sous-menu Niveau : bouton Jouer entre Précédent et Suivant pour démarrer le niveau choisi",
     "Sous-menu Couleur lancée : démarre une session mono-couleur (un seul niveau qui boucle, hors mode niveaux)",
     "Balles bleues : surface rebondissante (les 3 tirs du joueur et les autres balles ricochent dessus)",
-    "Niveau 4 et balle bleue (50% blanc / 50% bleu, comportement identique au vert foncé)",
-    "Lanceur orange : délai de 1 s avant tir (visible au bord avant de lancer)"
+    "Niveau 4 et balle bleue (50% blanc / 50% bleu, comportement identique au vert foncé)"
   ],
   "debug": {
     "show_velocities": false,

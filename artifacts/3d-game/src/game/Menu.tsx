@@ -1273,7 +1273,7 @@ function LevelsCarousel({
   );
 
   const weightEntries = Object.entries(weights)
-    .filter(([, w]) => typeof w === "number" && w > 0)
+     .filter(([, w]) => typeof w === "number")
     .sort(([, a], [, b]) => (b as number) - (a as number)) as Array<[BallColor, number]>;
   const setWeightPct = (color: BallColor, pctValue: number) => {
     const keys = weightEntries.map(([c]) => c);
