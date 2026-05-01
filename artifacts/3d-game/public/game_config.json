@@ -582,6 +582,7 @@
     ]
   },
   "release_notes": [
+    "Menu couleur terrain avec sliders custom",
     "Curseur continu et tir auto par paliers",
     "Mise à jour interne des consignes agent",
     "Curseur de tir affiché dès l’appui joueur",
@@ -600,8 +601,7 @@
     "Renommage du skill git-setup en new",
     "Ajout du skill Git de démarrage guidé",
     "Niveau 5 jaune : 4 PV et clignotement",
-    "Workflow GitHub Pages restauré pour éviter sa suppression",
-    "Retrait du workflow GitHub Pages en doublon local"
+    "Workflow GitHub Pages restauré pour éviter sa suppression"
   ],
   "debug": {
     "show_velocities": false,
