@@ -26,14 +26,13 @@ function App() {
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [holdTime, setHoldTime] = useState(0);
-  const [isHolding, setIsHolding] = useState(false);
-  const holdStartRef = useRef<number | null>(null);
-  const holdShotKindRef = useRef<ShotKind | null>(null);
   const animRef = useRef<number>(0);
+  const cycleStartRef = useRef<number>(performance.now());
+  const pointerActiveRef = useRef(false);
   // Latest game-space pointer position, updated on every move; used as a
   // fallback target if a pointerup arrives at the window level (e.g. the
   // user released outside the canvas DOM).
-  const lastTargetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const lastTargetRef = useRef<{ x: number; y: number }>({ x: 0, y: 1000 });
   // Refs that mirror UI state so window-level listeners (installed once at
   // mount) always read the latest values without re-subscribing.
   const menuOpenRef = useRef(menuOpen);
@@ -44,71 +43,65 @@ function App() {
   const handleMenuOpen = () => { pause(); setMenuOpen(true); };
   const handleMenuClose = () => { setMenuOpen(false); resume(); };
 
-  const tryShootHeldBall = (targetX: number, targetY: number, holdSeconds: number): boolean => {
-    const queuedKind = holdShotKindRef.current;
+  const getDisplayMax = (): number => {
+    if (!config) return 1.2;
+    const types = config.gameplay_controls.shot_types;
+    return Math.max((types.heavy?.max_hold_seconds ?? 0.8) * 1.2, 1.2);
+  };
+
+  const manualThresholdFor = (kind: ShotKind): number =>
+    !config ? Infinity : (kind === "light" ? 0 : kind === "heavy" ? config.gameplay_controls.shot_types.heavy.min_hold_seconds : config.gameplay_controls.shot_types.mega.min_hold_seconds);
+  const autoThresholdFor = (kind: ShotKind): number =>
+    !config ? Infinity : (kind === "light" ? config.gameplay_controls.shot_types.heavy.min_hold_seconds : kind === "heavy" ? config.gameplay_controls.shot_types.mega.min_hold_seconds : getDisplayMax());
+
+  const tryShootBall = (targetX: number, targetY: number, holdSeconds: number): boolean => {
+    const queuedKind = playerQueue[0];
     if (!queuedKind || !config) return false;
-    const shotCfg = config.gameplay_controls.shot_types[queuedKind];
-    if (!shotCfg) return false;
-    if (holdSeconds < shotCfg.min_hold_seconds) return false;
     const fired = shoot(targetX, targetY, holdSeconds, queuedKind);
     if (!fired) return false;
-    holdShotKindRef.current = null;
+    cycleStartRef.current = performance.now();
+    setHoldTime(0);
     return true;
   };
 
-  // ---- Charge tracking (drives the visual ChargeBar) ----
+  // ---- Charge tracking (always visible cursor) ----
   useEffect(() => {
-    if (!isHolding) {
-      cancelAnimationFrame(animRef.current);
-      setHoldTime(0);
-      return;
-    }
     const tick = () => {
-      if (holdStartRef.current != null) {
-        const hold = (performance.now() - holdStartRef.current) / 1000;
-        setHoldTime(hold);
+      const hold = (performance.now() - cycleStartRef.current) / 1000;
+      setHoldTime(hold);
+      const queuedKind = playerQueue[0];
+      if (queuedKind && !menuOpenRef.current && isRunningRef.current && hold >= autoThresholdFor(queuedKind)) {
         const { x, y } = lastTargetRef.current;
-        if (!menuOpenRef.current && isRunningRef.current && tryShootHeldBall(x, y, hold)) {
-          holdStartRef.current = null;
-          setIsHolding(false);
-          setHoldTime(0);
-          return;
-        }
+        tryShootBall(x, y, hold);
       }
       animRef.current = requestAnimationFrame(tick);
     };
     animRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animRef.current);
-  }, [isHolding]);
+  }, [playerQueue, config]);
 
   const handlePointerDown = (gameX: number, gameY: number) => {
     if (menuOpenRef.current || !isRunningRef.current || !playerQueue.length) return;
+    pointerActiveRef.current = true;
     lastTargetRef.current = { x: gameX, y: gameY };
-    holdShotKindRef.current = playerQueue[0] ?? null;
-    holdStartRef.current = performance.now();
-    // Show the charge UI immediately on press (without waiting for the
-    // first animation-frame tick) so the aiming feedback is visible during
-    // the current shot, not only after firing.
-    setHoldTime(0.001);
-    setIsHolding(true);
+    const queuedKind = playerQueue[0];
+    if (queuedKind && holdTime >= manualThresholdFor(queuedKind)) {
+      tryShootBall(gameX, gameY, holdTime);
+    }
   };
 
   const handlePointerMove = (gameX: number, gameY: number) => {
-    // Only track position while we are charging a shot.
-    if (holdStartRef.current == null) return;
+    if (!pointerActiveRef.current) return;
     lastTargetRef.current = { x: gameX, y: gameY };
   };
 
   const handlePointerUp = (gameX: number, gameY: number) => {
-    if (holdStartRef.current == null) return; // already released
-    const hold = (performance.now() - holdStartRef.current) / 1000;
-    holdStartRef.current = null;
-    setIsHolding(false);
-    setHoldTime(0);
-    if (!menuOpenRef.current && isRunningRef.current) {
-      tryShootHeldBall(gameX, gameY, hold);
-    } else {
-      holdShotKindRef.current = null;
+    pointerActiveRef.current = false;
+    if (!menuOpenRef.current && isRunningRef.current && playerQueue.length) {
+      const queuedKind = playerQueue[0];
+      if (queuedKind && holdTime >= manualThresholdFor(queuedKind)) {
+        tryShootBall(gameX, gameY, holdTime);
+      }
     }
   };
 
@@ -119,7 +112,6 @@ function App() {
     // pure abort would silently swallow legitimate shots. Instead we
     // promote it to a release at the last tracked position — this is
     // the same idempotent path as a normal pointerup.
-    if (holdStartRef.current == null) return;
     const { x, y } = lastTargetRef.current;
     handlePointerUp(x, y);
   };
@@ -134,12 +126,11 @@ function App() {
   // pointerdown and a `[isHolding]` effect remounting.
   useEffect(() => {
     const onWindowUp = () => {
-      if (holdStartRef.current == null) return;
       const { x, y } = lastTargetRef.current;
       handlePointerUp(x, y);
     };
     const onWindowCancel = () => {
-      if (holdStartRef.current == null) return;
+      if (!pointerActiveRef.current) return;
       handlePointerCancel();
     };
     window.addEventListener("pointerup", onWindowUp);
@@ -152,9 +143,6 @@ function App() {
   }, []);
 
 
-  useEffect(() => {
-    if (!isHolding) holdShotKindRef.current = null;
-  }, [isHolding]);
   if (!gameState || !config) {
     return (
       <div
@@ -206,10 +194,8 @@ function App() {
       {/* Player queue (bottom strip) */}
       <PlayerQueue queue={playerQueue} config={config} />
 
-      {/* Charge bar (visible while holding) */}
-      {isHolding && (
-        <ChargeBar holdTime={holdTime} shotKind={currentShotKind} config={config} />
-      )}
+      {/* Charge bar (always visible) */}
+      <ChargeBar holdTime={holdTime} shotKind={currentShotKind} config={config} />
 
       {/* HUD */}
       <HUD
