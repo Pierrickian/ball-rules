@@ -51,6 +51,13 @@ function App() {
 
   const manualThresholdFor = (kind: ShotKind): number =>
     !config ? Infinity : (kind === "light" ? 0 : kind === "heavy" ? config.gameplay_controls.shot_types.heavy.min_hold_seconds : config.gameplay_controls.shot_types.mega.min_hold_seconds);
+  const holdDisplayCapFor = (kind: ShotKind): number => {
+    if (!config) return 1.2;
+    const types = config.gameplay_controls.shot_types;
+    if (kind === "light") return types.heavy.min_hold_seconds;
+    if (kind === "heavy") return types.mega.min_hold_seconds;
+    return getDisplayMax();
+  };
 
   const tryShootBall = (targetX: number, targetY: number, holdSeconds: number): boolean => {
     const queuedKind = playerQueue[0];
@@ -66,7 +73,8 @@ function App() {
   useEffect(() => {
     const tick = () => {
       const hold = (performance.now() - cycleStartRef.current) / 1000;
-      setHoldTime(hold);
+      const queuedKind = playerQueue[0] ?? "mega";
+      setHoldTime(Math.min(hold, holdDisplayCapFor(queuedKind)));
       animRef.current = requestAnimationFrame(tick);
     };
     animRef.current = requestAnimationFrame(tick);
