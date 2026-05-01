@@ -601,6 +601,23 @@
           "red": 0.5,
           "dark_green": 0.5
         }
+      },
+      {
+        "id": 10,
+        "name": "Niveau 10 — Rouge intégral",
+        "description": "100% de balles rouges. Chaque impact non létal déclenche une division: la pression monte très vite, privilégie les trajectoires qui nettoient plusieurs cibles.",
+        "launch_color_weights": {
+          "red": 1
+        }
+      },
+      {
+        "id": 11,
+        "name": "Niveau 11 — Mix rouge/vert",
+        "description": "50% de rouges et 50% de vert foncé. Combine la division des rouges avec la croissance des vertes pour un terrain qui sature rapidement.",
+        "launch_color_weights": {
+          "red": 0.5,
+          "dark_green": 0.5
+        }
       }
     ]
   },
@@ -628,6 +645,7 @@
     ]
   },
   "release_notes": [
+    "Deux nouveaux niveaux rouges ajoutés",
     "Balle rouge divisée et nouveaux niveaux dédiés",
     "Curseur de charge bloqué au seuil max",
     "Tir au relâchement et niveau duo jaune/noir",
@@ -646,8 +664,7 @@
     "File joueur 12 projectiles et répartition %",
     "Refonte interne du moteur",
     "Balle noire: PV visible 1s après popups",
-    "Niveau triade et balle noire invisible",
-    "Renommage du skill git-setup en new"
+    "Niveau triade et balle noire invisible"
   ],
   "debug": {
     "show_velocities": false,
