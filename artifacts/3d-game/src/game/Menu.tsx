@@ -19,7 +19,7 @@ interface MenuProps {
   config: GameConfig;
   onClose: () => void;
   onArenaChange: (width: number, height: number) => void;
-  onPlayerColorsChange: (colors: BallColor[]) => void;
+  onTerrainDistributionPlay: (weights: Record<BallColor, number>) => void;
   onPlayerDistributionChange: (distribution: Record<"light" | "heavy" | "mega", number>) => void;
   /** Jump to a specific story-mode level (0-based index). Resets the game. */
   onLevelSelect: (index: number) => void;
@@ -477,73 +477,56 @@ function LauncherColorMenu({
 // Player Colors Sub-Menu (multi-pick: pool for player queue)
 // ============================================================
 function PlayerColorsMenu({
-  config, onPlayerColorsChange, onBack,
+  config, onTerrainDistributionPlay, onClose, onBack,
 }: {
   config: GameConfig;
-  onPlayerColorsChange: (colors: BallColor[]) => void;
+  onTerrainDistributionPlay: (weights: Record<BallColor, number>) => void;
+  onClose: () => void;
   onBack: () => void;
 }) {
-  const [selected, setSelected] = useState<BallColor[]>(
-    config.gameplay_controls.queue_ball_colors as BallColor[]
-  );
+  const colors = launcherColors(config);
+  const [weights, setWeights] = useState<Record<BallColor, number>>(() => {
+    const base = {} as Record<BallColor, number>;
+    colors.forEach((c, i) => { base[c] = i === colors.length - 1 ? 1 : 0; });
+    return base;
+  });
 
-  const toggle = (c: BallColor) => {
-    setSelected((prev) => {
-      const has = prev.includes(c);
-      const next = has ? prev.filter((x) => x !== c) : [...prev, c];
-      const safe = next.length > 0 ? next : (["gray"] as BallColor[]);
-      onPlayerColorsChange(safe);
-      return safe;
+  const setWeightPct = (color: BallColor, pctValue: number) => {
+    const clamped = Math.max(0, Math.min(1, pctValue / 100));
+    const others = colors.filter((c) => c !== color);
+    const rem = 1 - clamped;
+    const otherSum = others.reduce((a, c) => a + (weights[c] ?? 0), 0);
+    const next = { ...weights, [color]: clamped } as Record<BallColor, number>;
+    others.forEach((c, idx) => {
+      next[c] = otherSum <= 0 ? (idx === 0 ? rem : 0) : ((weights[c] ?? 0) / otherSum) * rem;
     });
+    setWeights(next);
   };
 
   return (
     <div style={PANEL}>
       <div>
-        <div style={TITLE}>Couleur joueur</div>
-        <div style={{ fontSize: 18, fontWeight: "bold", color: "#1e90ff" }}>File d'attente du joueur</div>
+        <div style={TITLE}>Couleur terrain</div>
+        <div style={{ fontSize: 18, fontWeight: "bold", color: "#1e90ff" }}>Répartition des balles de terrain</div>
       </div>
-
       <div style={{ fontSize: 12, color: "#7a9fcc", lineHeight: 1.5 }}>
-        Choisis les couleurs disponibles pour les balles que le joueur tire. Plusieurs couleurs = tirage aléatoire.
-        Au moins une couleur doit rester active.
+        Ajuste les pourcentages des couleurs de terrain pour une partie custom. Le total reste à 100%.
       </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-        {playerColors(config).map((c) => {
+      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
+        {colors.map((c) => {
           const entry = config.ball_colors[c];
-          const isActive = selected.includes(c);
+          const pct = Math.round((weights[c] ?? 0) * 100);
           return (
-            <button
-              key={c}
-              onClick={() => toggle(c)}
-              style={{
-                display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
-                background: isActive ? "rgba(30,144,255,0.2)" : "rgba(8,18,40,0.7)",
-                border: isActive ? `2px solid ${entry?.hex ?? "#1e90ff"}` : "1px solid rgba(30,144,255,0.18)",
-                borderRadius: 10, padding: "10px 6px", cursor: "pointer",
-                fontFamily: "inherit", color: isActive ? "#fff" : "#556",
-                boxShadow: isActive ? `0 0 8px ${entry?.hex ?? "#1e90ff"}55` : "none",
-                opacity: isActive ? 1 : 0.55,
-                transition: "all 0.15s",
-              }}
-            >
-              <div style={{
-                width: 26, height: 26, borderRadius: "50%",
-                background: entry?.hex ?? "#888",
-                boxShadow: isActive ? `0 0 8px ${entry?.hex ?? "#888"}77` : "none",
-                border: c === "white" ? "1px solid #444" : "none",
-              }} />
-              <div style={{ fontSize: 10, textAlign: "center" }}>{entry?._label}</div>
-            </button>
+            <div key={c} style={{ background: "rgba(8,18,40,0.6)", border: "1px solid rgba(30,144,255,0.18)", borderRadius: 10, padding: 10 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 8, color: "#aac8f0" }}>
+                <span>{entry?._label ?? c}</span><span>{pct}%</span>
+              </div>
+              <input type="range" min={0} max={100} value={pct} onChange={(e) => setWeightPct(c, Number(e.target.value))} style={{ width: "100%" }} />
+            </div>
           );
         })}
       </div>
-
-      <div style={{ fontSize: 11, color: "#445", textAlign: "center" }}>
-        {selected.length} couleur(s) active(s)
-      </div>
-
+      <button style={{ ...CLOSE_BTN, color: "#0a1628", background: "#1e90ff", borderColor: "#1e90ff", fontWeight: "bold" }} onClick={() => { onTerrainDistributionPlay(weights); onClose(); }}>▶ Play</button>
       <button style={CLOSE_BTN} onClick={onBack}>← Retour</button>
     </div>
   );
@@ -602,8 +585,8 @@ function MainMenu({
       <button style={MENU_BTN} onClick={onPlayerColors}>
         <span style={{ fontSize: 20 }}>🎯</span>
         <div>
-          <div style={{ fontWeight: "bold" }}>Couleur joueur</div>
-          <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>File d'attente du joueur (multi-couleur)</div>
+          <div style={{ fontWeight: "bold" }}>Couleur terrain</div>
+          <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Partie custom: répartition des couleurs</div>
         </div>
       </button>
       <button style={MENU_BTN} onClick={onTerrain}>
@@ -1537,7 +1520,7 @@ export function Menu({
   config,
   onClose,
   onArenaChange,
-  onPlayerColorsChange,
+  onTerrainDistributionPlay,
   onPlayerDistributionChange,
   onLevelSelect,
   onLevelWeightsChange,
@@ -1565,7 +1548,7 @@ export function Menu({
       {view === "balls"          && <BallsCarousel  config={config} onBack={() => setView("main")} />}
       {view === "terrain"        && <TerrainMenu    config={config} onArenaChange={onArenaChange} onBack={() => setView("main")} />}
       {view === "launcher_color" && <LauncherColorMenu config={config} onPlayerDistributionChange={onPlayerDistributionChange} onClose={onClose} onBack={() => setView("main")} />}
-      {view === "player_colors"  && <PlayerColorsMenu  config={config} onPlayerColorsChange={onPlayerColorsChange}   onBack={() => setView("main")} />}
+      {view === "player_colors"  && <PlayerColorsMenu  config={config} onTerrainDistributionPlay={onTerrainDistributionPlay} onClose={onClose} onBack={() => setView("main")} />}
       {view === "how_to_ask"     && <HowToAskCarousel onBack={() => setView("main")} />}
       {view === "release_notes"  && <ReleaseNotesView config={config} onBack={() => setView("main")} />}
     </div>

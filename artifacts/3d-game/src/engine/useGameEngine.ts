@@ -33,7 +33,7 @@ export interface UseGameEngineResult {
   setArena: (width: number, height: number) => void;
   shoot: (targetX: number, targetY: number, holdSeconds: number, forcedKind?: ShotKind) => ShotKind | null;
   setLauncherColor: (color: BallColor) => void;
-  setPlayerColors: (colors: BallColor[]) => void;
+  setCustomTerrainDistribution: (weights: Record<BallColor, number>) => void;
   setPlayerProjectileDistribution: (distribution: Record<ShotKind, number>) => void;
   setActiveLevel: (index: number) => void;
   setLevelWeights: (index: number, weights: Record<BallColor, number>) => void;
@@ -304,25 +304,23 @@ export function useGameEngine(): UseGameEngineResult {
     engineRef.current?.updateConfig(newConfig);
   }, []);
 
-  const setPlayerColors = useCallback((colors: BallColor[]) => {
+  const setCustomTerrainDistribution = useCallback((weights: Record<BallColor, number>) => {
     const cfg = configRef.current;
-    if (!cfg || !engineRef.current) return;
-    const safe = colors.length > 0 ? colors : (["gray"] as BallColor[]);
-    const newConfig: GameConfig = {
-      ...cfg,
-      gameplay_controls: { ...cfg.gameplay_controls, queue_ball_colors: safe },
+    if (!cfg) return;
+    const customLevel = {
+      id: 1,
+      name: "Partie custom",
+      description: "Répartition personnalisée depuis le menu Couleur terrain.",
+      launch_color_weights: { ...weights },
     };
+    const newConfig: GameConfig = { ...cfg, levels: { ...cfg.levels, list: [customLevel] } };
     configRef.current = newConfig;
     setConfig(newConfig);
-    engineRef.current.updateConfig(newConfig);
-    // Regenerate the queue with the new pool
-    const q = buildQueue(
-      newConfig.gameplay_controls.queue_size,
-      newConfig.gameplay_controls.player_projectile_distribution ?? { light: 0.6, heavy: 0.3, mega: 0.1 }
-    );
-    queueRef.current = q;
-    setPlayerQueue(q);
-  }, []);
+    sessionModeRef.current = "levels";
+    currentLevelIdxRef.current = 0;
+    rebootingRef.current = false;
+    doReset();
+  }, [doReset]);
 
   const setPlayerProjectileDistribution = useCallback((distribution: Record<ShotKind, number>) => {
     const cfg = configRef.current;
@@ -342,6 +340,6 @@ export function useGameEngine(): UseGameEngineResult {
   return {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
-    shoot, setLauncherColor, setPlayerColors, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, classifyHold,
+    shoot, setLauncherColor, setCustomTerrainDistribution, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, classifyHold,
   };
 }

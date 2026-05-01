@@ -21,7 +21,7 @@ function App() {
   const {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
-    shoot, setPlayerColors, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, classifyHold,
+    shoot, setCustomTerrainDistribution, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, classifyHold,
   } = useGameEngine();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -219,7 +219,7 @@ function App() {
           config={config}
           onClose={handleMenuClose}
           onArenaChange={setArena}
-          onPlayerColorsChange={setPlayerColors}
+          onTerrainDistributionPlay={setCustomTerrainDistribution}
           onPlayerDistributionChange={setPlayerProjectileDistribution}
           onLevelSelect={setActiveLevel}
           onLevelWeightsChange={setLevelWeights}
