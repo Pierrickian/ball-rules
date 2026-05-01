@@ -270,7 +270,7 @@
     },
     "yellow": {
       "rule": "blink_hp_bouncer",
-      "_description": "Rebondit sur les murs. Démarre avec 4 PV. Clignote: disparaît 0,5 s toutes les 1 s. Disparaît à 0 PV."
+      "_description": "Rebondit sur les murs. Démarre avec 4 PV. Clignote: disparaît 0,8 s toutes les 1 s. Disparaît à 0 PV."
     },
     "black": {
       "rule": "hp_grow_bouncer",
@@ -343,7 +343,7 @@
     "yellow_blinker": {
       "default_hp": 4,
       "max_hp": 4,
-      "invisible_duration_seconds": 0.5,
+      "invisible_duration_seconds": 0.8,
       "cycle_seconds": 1
     }
   },
@@ -541,7 +541,7 @@
       {
         "id": 5,
         "name": "Niveau 5 — Éclipse jaune",
-        "description": "100% de balles jaunes. Elles ont 4 PV et clignotent: invisibles 0,5 s toutes les 1 s, ce qui perturbe visée et timing.",
+        "description": "100% de balles jaunes. Elles ont 4 PV et clignotent: invisibles 0,8 s toutes les 1 s, ce qui perturbe visée et timing.",
         "launch_color_weights": {
           "yellow": 1
         }
@@ -554,6 +554,15 @@
           "yellow": 0.33,
           "dark_green": 0.33,
           "blue": 0.33
+        }
+      },
+      {
+        "id": 7,
+        "name": "Niveau 7 — Duo éclipse",
+        "description": "50% de balles jaunes et 50% de balles noires. Alterne cibles clignotantes intouchables et silhouettes invisibles qui grossissent en traversant.",
+        "launch_color_weights": {
+          "yellow": 0.5,
+          "black": 0.5
         }
       }
     ]
@@ -582,6 +591,7 @@
     ]
   },
   "release_notes": [
+    "Tir au relâchement et niveau duo jaune/noir",
     "Menu couleur terrain avec sliders custom",
     "Curseur continu et tir auto par paliers",
     "Mise à jour interne des consignes agent",
@@ -600,8 +610,7 @@
     "Niveau triade et balle noire invisible",
     "Renommage du skill git-setup en new",
     "Ajout du skill Git de démarrage guidé",
-    "Niveau 5 jaune : 4 PV et clignotement",
-    "Workflow GitHub Pages restauré pour éviter sa suppression"
+    "Niveau 5 jaune : 4 PV et clignotement"
   ],
   "debug": {
     "show_velocities": false,

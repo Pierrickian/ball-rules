@@ -51,8 +51,6 @@ function App() {
 
   const manualThresholdFor = (kind: ShotKind): number =>
     !config ? Infinity : (kind === "light" ? 0 : kind === "heavy" ? config.gameplay_controls.shot_types.heavy.min_hold_seconds : config.gameplay_controls.shot_types.mega.min_hold_seconds);
-  const autoThresholdFor = (kind: ShotKind): number =>
-    !config ? Infinity : (kind === "light" ? config.gameplay_controls.shot_types.heavy.min_hold_seconds : kind === "heavy" ? config.gameplay_controls.shot_types.mega.min_hold_seconds : getDisplayMax());
 
   const tryShootBall = (targetX: number, targetY: number, holdSeconds: number): boolean => {
     const queuedKind = playerQueue[0];
@@ -69,11 +67,6 @@ function App() {
     const tick = () => {
       const hold = (performance.now() - cycleStartRef.current) / 1000;
       setHoldTime(hold);
-      const queuedKind = playerQueue[0];
-      if (queuedKind && !menuOpenRef.current && isRunningRef.current && hold >= autoThresholdFor(queuedKind)) {
-        const { x, y } = lastTargetRef.current;
-        tryShootBall(x, y, hold);
-      }
       animRef.current = requestAnimationFrame(tick);
     };
     animRef.current = requestAnimationFrame(tick);
@@ -84,10 +77,6 @@ function App() {
     if (menuOpenRef.current || !isRunningRef.current || !playerQueue.length) return;
     pointerActiveRef.current = true;
     lastTargetRef.current = { x: gameX, y: gameY };
-    const queuedKind = playerQueue[0];
-    if (queuedKind && holdTime >= manualThresholdFor(queuedKind)) {
-      tryShootBall(gameX, gameY, holdTime);
-    }
   };
 
   const handlePointerMove = (gameX: number, gameY: number) => {
