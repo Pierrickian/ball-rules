@@ -28,6 +28,7 @@ function App() {
   const [holdTime, setHoldTime] = useState(0);
   const [isHolding, setIsHolding] = useState(false);
   const holdStartRef = useRef<number | null>(null);
+  const holdShotKindRef = useRef<ShotKind | null>(null);
   const animRef = useRef<number>(0);
   // Latest game-space pointer position, updated on every move; used as a
   // fallback target if a pointerup arrives at the window level (e.g. the
@@ -43,6 +44,18 @@ function App() {
   const handleMenuOpen = () => { pause(); setMenuOpen(true); };
   const handleMenuClose = () => { setMenuOpen(false); resume(); };
 
+  const tryShootHeldBall = (targetX: number, targetY: number, holdSeconds: number): boolean => {
+    const queuedKind = holdShotKindRef.current;
+    if (!queuedKind || !config) return false;
+    const shotCfg = config.gameplay_controls.shot_types[queuedKind];
+    if (!shotCfg) return false;
+    if (holdSeconds < shotCfg.min_hold_seconds) return false;
+    const fired = shoot(targetX, targetY, holdSeconds, queuedKind);
+    if (!fired) return false;
+    holdShotKindRef.current = null;
+    return true;
+  };
+
   // ---- Charge tracking (drives the visual ChargeBar) ----
   useEffect(() => {
     if (!isHolding) {
@@ -52,7 +65,15 @@ function App() {
     }
     const tick = () => {
       if (holdStartRef.current != null) {
-        setHoldTime((performance.now() - holdStartRef.current) / 1000);
+        const hold = (performance.now() - holdStartRef.current) / 1000;
+        setHoldTime(hold);
+        const { x, y } = lastTargetRef.current;
+        if (!menuOpenRef.current && isRunningRef.current && tryShootHeldBall(x, y, hold)) {
+          holdStartRef.current = null;
+          setIsHolding(false);
+          setHoldTime(0);
+          return;
+        }
       }
       animRef.current = requestAnimationFrame(tick);
     };
@@ -63,10 +84,7 @@ function App() {
   const handlePointerDown = (gameX: number, gameY: number) => {
     if (menuOpenRef.current || !isRunningRef.current || !playerQueue.length) return;
     lastTargetRef.current = { x: gameX, y: gameY };
-    if (playerQueue[0] === "light") {
-      shoot(gameX, gameY, 0.01, "light");
-      return;
-    }
+    holdShotKindRef.current = playerQueue[0] ?? null;
     holdStartRef.current = performance.now();
     setIsHolding(true);
   };
@@ -82,7 +100,11 @@ function App() {
     const hold = (performance.now() - holdStartRef.current) / 1000;
     holdStartRef.current = null;
     setIsHolding(false);
-    if (!menuOpenRef.current && isRunningRef.current) shoot(gameX, gameY, hold);
+    if (!menuOpenRef.current && isRunningRef.current) {
+      tryShootHeldBall(gameX, gameY, hold);
+    } else {
+      holdShotKindRef.current = null;
+    }
   };
 
   const handlePointerCancel = () => {
@@ -126,15 +148,8 @@ function App() {
 
 
   useEffect(() => {
-    if (!config || !isRunning || menuOpen || isHolding || !playerQueue.length || playerQueue[0] !== "mega") return;
-    const megaThreshold = config.gameplay_controls.shot_types.mega.max_hold_seconds ?? 0.8;
-    const id = window.setTimeout(() => {
-      if (!menuOpenRef.current && isRunningRef.current && holdStartRef.current == null && playerQueue[0] === "mega") {
-        shoot(0, 1, megaThreshold + 0.01, "mega");
-      }
-    }, megaThreshold * 1000);
-    return () => window.clearTimeout(id);
-  }, [config, isHolding, isRunning, menuOpen, playerQueue, shoot]);
+    if (!isHolding) holdShotKindRef.current = null;
+  }, [isHolding]);
   if (!gameState || !config) {
     return (
       <div
