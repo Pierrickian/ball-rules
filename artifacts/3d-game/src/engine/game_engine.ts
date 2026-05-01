@@ -452,6 +452,10 @@ export class GameEngine {
     );
   }
 
+  private isTemporarilyUntouchable(ball: Ball): boolean {
+    return ball.color === "yellow" && Number(ball.metadata.visibilityAlpha ?? 1) <= 0;
+  }
+
   /** Global ball-to-ball elastic collision pass — projectiles excluded. */
   private resolveBallCollisions(balls: Ball[], _arena: Arena2D): void {
     const restitution = this.config.rule_parameters.ball_collision?.restitution ?? 0.95;
@@ -461,6 +465,7 @@ export class GameEngine {
         const a = balls[i];
         const b = balls[j];
         if (!a.isAlive || !b.isAlive) continue;
+        if (this.isTemporarilyUntouchable(a) || this.isTemporarilyUntouchable(b)) continue;
         if (a.isProjectile() || b.isProjectile()) continue; // projectiles handle their own
         if (a.isFrozen && b.isFrozen) continue;
 
@@ -666,6 +671,7 @@ export class GameEngine {
     this.applyMovement(ball, delta, ctx.arena);
     for (const other of ctx.allBalls) {
       if (other.id === ball.id || !other.isAlive || other.color === "orange" || other.isProjectile()) continue;
+      if (this.isTemporarilyUntouchable(other)) continue;
       if (ball.isCollidingWith(other)) {
         ctx.events.push({ type: "collision", ballAId: ball.id, ballBId: other.id });
         ctx.despawnBall(other, "destroyed_by_red");
@@ -753,6 +759,7 @@ export class GameEngine {
     }
     for (const other of ctx.allBalls) {
       if (other.id === ball.id || !other.isAlive || other.color === "orange" || other.isProjectile()) continue;
+      if (this.isTemporarilyUntouchable(other)) continue;
       if (ball.isCollidingWith(other)) {
         const transferred = other.rule;
         ball.passRuleTo(other, this.logEnabled);
@@ -791,6 +798,7 @@ export class GameEngine {
     const maxDiam = ball.baseDiameter * p.max_diameter_multiplier;
     for (const other of ctx.allBalls) {
       if (other.id === ball.id || !other.isAlive || other.color === "black" || other.isProjectile()) continue;
+      if (this.isTemporarilyUntouchable(other)) continue;
       if (ball.isCollidingWith(other)) {
         ctx.events.push({ type: "collision", ballAId: ball.id, ballBId: other.id });
         ctx.despawnBall(other, "absorbed_by_black");
@@ -824,6 +832,7 @@ export class GameEngine {
     for (const other of ctx.allBalls) {
       if (other.id === ball.id || !other.isAlive) continue;
       if (other.color === "orange" || other.isProjectile()) continue;
+      if (this.isTemporarilyUntouchable(other)) continue;
       const overlapping = ball.isCollidingWith(other);
       if (overlapping && !touched.has(other.id)) {
         touched.add(other.id);
@@ -874,6 +883,7 @@ export class GameEngine {
     const phase = age % cycle;
     const isInvisible = phase < invis;
     ball.metadata.visibilityAlpha = isInvisible ? 0.0 : 1.0;
+    this.applyMovement(ball, delta, ctx.arena);
 
     if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
   }
@@ -934,6 +944,7 @@ export class GameEngine {
     for (const other of ctx.allBalls) {
       if (other.id === ball.id || !other.isAlive) continue;
       if (other.color === "orange" || other.isProjectile()) continue;
+      if (this.isTemporarilyUntouchable(other)) continue;
       if (meta.damagedIds.has(other.id)) continue;
 
       if (ball.isCollidingWith(other)) {
