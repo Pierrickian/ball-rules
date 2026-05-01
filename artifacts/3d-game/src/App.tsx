@@ -156,7 +156,12 @@ function App() {
     );
   }
 
-  const currentShotKind: ShotKind = classifyHold(holdTime);
+  const currentShotKind: ShotKind = (() => {
+    const types = config.gameplay_controls.shot_types;
+    if (holdTime > types.mega.min_hold_seconds) return "mega";
+    if (holdTime > types.heavy.min_hold_seconds) return "heavy";
+    return "light";
+  })();
 
   return (
     <div

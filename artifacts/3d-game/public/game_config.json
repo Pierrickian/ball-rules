@@ -645,6 +645,7 @@
     ]
   },
   "release_notes": [
+    "Intitulés de tir corrigés aux seuils",
     "Deux nouveaux niveaux rouges ajoutés",
     "Balle rouge divisée et nouveaux niveaux dédiés",
     "Curseur de charge bloqué au seuil max",
@@ -663,8 +664,7 @@
     "Jouer niveau ferme maintenant le menu",
     "File joueur 12 projectiles et répartition %",
     "Refonte interne du moteur",
-    "Balle noire: PV visible 1s après popups",
-    "Niveau triade et balle noire invisible"
+    "Balle noire: PV visible 1s après popups"
   ],
   "debug": {
     "show_velocities": false,
