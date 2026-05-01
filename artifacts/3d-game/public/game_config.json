@@ -582,6 +582,8 @@
     ]
   },
   "release_notes": [
+    "Curseur continu et tir auto par paliers",
+    "Mise à jour interne des consignes agent",
     "Curseur de tir affiché dès l’appui joueur",
     "Tir déclenché selon seuils de projectile prêt",
     "Refonte interne du moteur",
@@ -599,9 +601,7 @@
     "Ajout du skill Git de démarrage guidé",
     "Niveau 5 jaune : 4 PV et clignotement",
     "Workflow GitHub Pages restauré pour éviter sa suppression",
-    "Retrait du workflow GitHub Pages en doublon local",
-    "Balles vert foncé et bleues : PV max augmenté à 6",
-    "Sous-menu Niveau : bouton Jouer entre Précédent et Suivant pour démarrer le niveau choisi"
+    "Retrait du workflow GitHub Pages en doublon local"
   ],
   "debug": {
     "show_velocities": false,
