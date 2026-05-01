@@ -582,6 +582,7 @@
     ]
   },
   "release_notes": [
+    "Curseur de tir affiché dès l’appui joueur",
     "Tir déclenché selon seuils de projectile prêt",
     "Refonte interne du moteur",
     "Tir contextuel et sliders de pondération fiabilisés",
@@ -600,8 +601,7 @@
     "Workflow GitHub Pages restauré pour éviter sa suppression",
     "Retrait du workflow GitHub Pages en doublon local",
     "Balles vert foncé et bleues : PV max augmenté à 6",
-    "Sous-menu Niveau : bouton Jouer entre Précédent et Suivant pour démarrer le niveau choisi",
-    "Sous-menu Couleur lancée : démarre une session mono-couleur (un seul niveau qui boucle, hors mode niveaux)"
+    "Sous-menu Niveau : bouton Jouer entre Précédent et Suivant pour démarrer le niveau choisi"
   ],
   "debug": {
     "show_velocities": false,
