@@ -15,13 +15,13 @@ import { useGameEngine } from "./engine/useGameEngine";
 import { GameScene } from "./scenes/GameScene";
 import { HUD } from "./game/HUD";
 import { Menu } from "./game/Menu";
-import type { GameConfig, GameState, ShotKind } from "./engine/types";
+import type { GameConfig, GameState, ShotKind, Vec2 } from "./engine/types";
 
 function App() {
   const {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
-    shoot, setCustomTerrainDistribution, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, classifyHold,
+    shoot, setCustomTerrainDistribution, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, classifyHold, toggleGrenade, grenadesLeft,
   } = useGameEngine();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -33,6 +33,7 @@ function App() {
   // fallback target if a pointerup arrives at the window level (e.g. the
   // user released outside the canvas DOM).
   const lastTargetRef = useRef<{ x: number; y: number }>({ x: 0, y: 1000 });
+  const lastDirectionRef = useRef<Vec2>({ x: 0, y: 1 });
   // Refs that mirror UI state so window-level listeners (installed once at
   // mount) always read the latest values without re-subscribing.
   const menuOpenRef = useRef(menuOpen);
@@ -85,11 +86,13 @@ function App() {
     if (menuOpenRef.current || !isRunningRef.current || !playerQueue.length) return;
     pointerActiveRef.current = true;
     lastTargetRef.current = { x: gameX, y: gameY };
+    const dx = gameX; const dy = gameY; const len = Math.hypot(dx,dy); if (len>0.001) lastDirectionRef.current = {x: dx/len, y: dy/len};
   };
 
   const handlePointerMove = (gameX: number, gameY: number) => {
     if (!pointerActiveRef.current) return;
     lastTargetRef.current = { x: gameX, y: gameY };
+    const dx = gameX; const dy = gameY; const len = Math.hypot(dx,dy); if (len>0.001) lastDirectionRef.current = {x: dx/len, y: dy/len};
   };
 
   const handlePointerUp = (gameX: number, gameY: number) => {
@@ -203,6 +206,13 @@ function App() {
       <ChargeBar holdTime={holdTime} shotKind={currentShotKind} config={config} />
 
       {/* HUD */}
+      <button
+        onClick={() => toggleGrenade(lastDirectionRef.current)}
+        style={{position:"absolute", right:16, bottom:140, width:56, height:56, borderRadius:"50%", border:"2px solid #ffcc66", background:"radial-gradient(circle at 30% 30%, #667, #223)", color:"#fff", zIndex:12, fontWeight:"bold"}}
+      >
+        💣 {grenadesLeft}
+      </button>
+
       <HUD
         gameState={gameState}
         config={config}

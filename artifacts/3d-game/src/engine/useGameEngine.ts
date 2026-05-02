@@ -19,7 +19,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { GameEngine } from "./game_engine";
-import type { BallColor, GameConfig, GameEvent, GameState, ShotKind } from "./types";
+import type { BallColor, GameConfig, GameEvent, GameState, ShotKind, Vec2 } from "./types";
 
 export interface UseGameEngineResult {
   gameState: GameState | null;
@@ -38,6 +38,8 @@ export interface UseGameEngineResult {
   setActiveLevel: (index: number) => void;
   setLevelWeights: (index: number, weights: Record<BallColor, number>) => void;
   classifyHold: (holdSeconds: number) => ShotKind;
+  toggleGrenade: (dir: Vec2) => boolean;
+  grenadesLeft: number;
 }
 
 const DEFAULT_STATE: GameState = {
@@ -76,6 +78,7 @@ export function useGameEngine(): UseGameEngineResult {
   const [isRunning, setIsRunning] = useState(false);
   const [lastEvents, setLastEvents] = useState<GameEvent[]>([]);
   const [playerQueue, setPlayerQueue] = useState<ShotKind[]>([]);
+  const [grenadesLeft, setGrenadesLeft] = useState(5);
 
   const engineRef          = useRef<GameEngine | null>(null);
   const animFrameRef       = useRef<number>(0);
@@ -100,6 +103,8 @@ export function useGameEngine(): UseGameEngineResult {
         setConfig(cfg);
         currentLevelIdxRef.current = 0;
         engineRef.current = new GameEngine(cfg, currentLevelIdxRef.current);
+    setGrenadesLeft(engineRef.current.getGrenadesLeft());
+        setGrenadesLeft(engineRef.current.getGrenadesLeft());
         const q = buildQueue(cfg.gameplay_controls.queue_size, cfg.gameplay_controls.player_projectile_distribution ?? { light: 0.6, heavy: 0.3, mega: 0.1 });
         queueRef.current = q;
         setPlayerQueue(q);
@@ -177,6 +182,7 @@ export function useGameEngine(): UseGameEngineResult {
     const cfg = configRef.current;
     if (!cfg) return;
     engineRef.current = new GameEngine(cfg, currentLevelIdxRef.current);
+        setGrenadesLeft(engineRef.current.getGrenadesLeft());
     // Re-apply the persistent session mode so resets keep the user's choice
     // (single-color mode survives auto-reboot, manual reset, etc.).
     if (sessionModeRef.current === "single_color") {
@@ -243,6 +249,13 @@ export function useGameEngine(): UseGameEngineResult {
     setPlayerQueue(next);
 
     return resolved;
+  }, []);
+
+  const toggleGrenade = useCallback((dir: Vec2): boolean => {
+    if (!engineRef.current || pausedRef.current) return false;
+    const ok = engineRef.current.toggleGrenade(dir);
+    setGrenadesLeft(engineRef.current.getGrenadesLeft());
+    return ok;
   }, []);
 
   const classifyHold = useCallback((holdSeconds: number): ShotKind => {
@@ -340,6 +353,6 @@ export function useGameEngine(): UseGameEngineResult {
   return {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
-    shoot, setLauncherColor, setCustomTerrainDistribution, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, classifyHold,
+    shoot, setLauncherColor, setCustomTerrainDistribution, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, classifyHold, toggleGrenade, grenadesLeft,
   };
 }
