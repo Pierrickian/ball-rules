@@ -237,6 +237,15 @@ function App() {
 // ============================================================
 function PlayerQueue({ queue, config }: { queue: ShotKind[]; config: GameConfig }) {
   if (queue.length === 0) return null;
+
+  const readyKind = queue[0];
+  let readyCount = 0;
+  for (const kind of queue) {
+    if (kind !== readyKind) break;
+    readyCount += 1;
+  }
+  const readyTint = readyKind === "light" ? "#ffffff" : readyKind === "heavy" ? "#FFE600" : "#ff66ff";
+
   return (
     <div
       style={{
@@ -288,6 +297,25 @@ function PlayerQueue({ queue, config }: { queue: ShotKind[]; config: GameConfig 
           </div>
         );
       })}
+      <div
+        style={{
+          marginLeft: 6,
+          marginBottom: 2,
+          padding: "2px 8px",
+          borderRadius: 999,
+          border: `1px solid ${readyTint}`,
+          background: "rgba(8,12,20,0.85)",
+          color: readyTint,
+          fontFamily: "'Courier New', monospace",
+          fontSize: 12,
+          fontWeight: 700,
+          letterSpacing: 1,
+          textShadow: `0 0 8px ${readyTint}`,
+          boxShadow: `0 0 8px ${readyTint}55`,
+        }}
+      >
+        x{readyCount}
+      </div>
     </div>
   );
 }
