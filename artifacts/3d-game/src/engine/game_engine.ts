@@ -72,6 +72,9 @@ export class GameEngine {
   /** Orange launchers waiting their delay before firing.
    *  Each entry tracks the launcher ball's id and remaining seconds. */
   private pendingLaunches: Array<{ launcherId: string; remaining: number }> = [];
+  private activeGrenadeId: string | null = null;
+  private grenadesLeft = 5;
+
   private launchedCount = 0;
   private pendingEvents: GameEvent[] = [];
   private logEnabled: boolean;
@@ -264,6 +267,41 @@ export class GameEngine {
 
   getShotConfig(kind: ShotKind): ShotTypeConfig | null {
     return this.config.gameplay_controls?.shot_types?.[kind] ?? null;
+  }
+
+  getGrenadesLeft(): number { return this.grenadesLeft; }
+
+  toggleGrenade(direction: Vec2): boolean {
+    if (this.activeGrenadeId) {
+      const grenade = this.balls.get(this.activeGrenadeId);
+      if (grenade && grenade.isAlive) this.explodeGrenade(grenade);
+      this.activeGrenadeId = null;
+      return true;
+    }
+    if (this.grenadesLeft <= 0) return false;
+    const arena = this.getArena();
+    const origin: Vec2 = { x: 0, y: -arena.halfH + 2 };
+    const len = Math.sqrt(direction.x*direction.x + direction.y*direction.y);
+    const dir = len > 0.001 ? {x: direction.x/len, y: direction.y/len} : {x: 0, y: 1};
+    const grenade = new Ball('gray', BallSize.SMALL, origin, {x: dir.x * 36, y: dir.y * 36}, 2.0, 'player_projectile', BounceCondition.AGAINST_OBSTACLE, 999, 999);
+    grenade.metadata = {isProjectile: true, isGrenade: true, lifetime: 0, damagedIds: new Set<string>(), colorTint: '#6b7a8f'};
+    this.balls.set(grenade.id, grenade);
+    this.pendingEvents.push({ type: 'ball_spawned', ball: grenade.getState() });
+    this.activeGrenadeId = grenade.id;
+    this.grenadesLeft--;
+    return true;
+  }
+
+  private explodeGrenade(grenade: Ball): void {
+    const radius = 8;
+    for (const other of this.balls.values()) {
+      if (!other.isAlive || other.id===grenade.id || other.isProjectile() || other.color==='orange') continue;
+      if (other.color === 'white' || other.color === 'red') continue;
+      const dx = other.position.x - grenade.position.x; const dy = other.position.y - grenade.position.y;
+      if (Math.sqrt(dx*dx+dy*dy) <= radius) this.damageBall(other, 10, 'killed_by_grenade');
+    }
+    grenade.isAlive = false;
+    this.pendingEvents.push({ type: 'ball_despawned', ballId: grenade.id, reason: 'grenade_exploded' });
   }
 
   // --------------------------------------------------------
@@ -907,6 +945,23 @@ export class GameEngine {
    * - mega:  passes balls, bounces N times on walls then despawns
    */
   private handlePlayerProjectile(ball: Ball, delta: number, ctx: RuleContext): void {
+    const metaAny = ball.metadata as Record<string, unknown>;
+    if (metaAny.isGrenade === true) {
+      ball.position.x += ball.velocity.x * delta;
+      ball.position.y += ball.velocity.y * delta;
+      for (const other of ctx.allBalls) {
+        if (other.id === ball.id || !other.isAlive || other.isProjectile() || other.color === "orange") continue;
+        if (other.color === "white" || other.color === "red") continue;
+        if (ball.isCollidingWith(other)) {
+          ball.velocity.x = 0; ball.velocity.y = 0;
+          ball.metadata.stuckToId = other.id;
+          break;
+        }
+      }
+      if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "grenade_out_of_bounds");
+      return;
+    }
+
     const meta = ball.metadata as {
       damage: number;
       passesThroughBalls: boolean;

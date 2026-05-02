@@ -448,7 +448,7 @@
   },
   "gameplay_controls": {
     "_description": "Système de tir du joueur. File d'attente de balles visible sous le terrain et types de tir basés sur la durée de pression.",
-    "queue_size": 12,
+    "queue_size": 10,
     "_queue_size_comment": "Nombre de projectiles visibles en file d'attente sous l'écran.",
     "queue_ball_colors": [
       "gray"
@@ -645,6 +645,7 @@
     ]
   },
   "release_notes": [
+    "Grenade dédiée avec compteur et explosion",
     "Aperçu visuel des tirs déplacé en haut",
     "Compteur des projectiles prêts par couleur",
     "Intitulés de tir corrigés aux seuils",
@@ -663,8 +664,7 @@
     "Niveaux: pondérations éditables avec curseurs",
     "Menu projectile: curseurs live + bouton Jouer",
     "Curseurs % projectiles joueur dans le menu",
-    "Jouer niveau ferme maintenant le menu",
-    "File joueur 12 projectiles et répartition %"
+    "Jouer niveau ferme maintenant le menu"
   ],
   "debug": {
     "show_velocities": false,
