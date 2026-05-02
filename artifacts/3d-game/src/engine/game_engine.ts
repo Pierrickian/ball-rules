@@ -271,6 +271,12 @@ export class GameEngine {
 
   getGrenadesLeft(): number { return this.grenadesLeft; }
 
+  private getPlayerBaseDiameter(): number {
+    const controls = this.config.gameplay_controls;
+    const baseSize = controls?.queue_ball_size ?? BallSize.SMALL;
+    return this.config.graphics.ball_sizes[baseSize]?.diameter ?? 1.0;
+  }
+
   toggleGrenade(direction: Vec2): boolean {
     if (this.activeGrenadeId) {
       const grenade = this.balls.get(this.activeGrenadeId);
@@ -283,7 +289,8 @@ export class GameEngine {
     const origin: Vec2 = { x: 0, y: -arena.halfH + 2 };
     const len = Math.sqrt(direction.x*direction.x + direction.y*direction.y);
     const dir = len > 0.001 ? {x: direction.x/len, y: direction.y/len} : {x: 0, y: 1};
-    const grenade = new Ball('gray', BallSize.SMALL, origin, {x: dir.x * 36, y: dir.y * 36}, 2.0, 'player_projectile', BounceCondition.AGAINST_OBSTACLE, 999, 999);
+    const baseDiameter = this.getPlayerBaseDiameter();
+    const grenade = new Ball('gray', BallSize.SMALL, origin, {x: dir.x * 36, y: dir.y * 36}, baseDiameter, 'player_projectile', BounceCondition.AGAINST_OBSTACLE, 999, 999);
     grenade.metadata = {isProjectile: true, isGrenade: true, lifetime: 0, damagedIds: new Set<string>(), colorTint: '#6b7a8f'};
     this.balls.set(grenade.id, grenade);
     this.pendingEvents.push({ type: 'ball_spawned', ball: grenade.getState() });
@@ -293,10 +300,9 @@ export class GameEngine {
   }
 
   private explodeGrenade(grenade: Ball): void {
-    const radius = 8;
+    const radius = this.getPlayerBaseDiameter() * 3;
     for (const other of this.balls.values()) {
       if (!other.isAlive || other.id===grenade.id || other.isProjectile() || other.color==='orange') continue;
-      if (other.color === 'white' || other.color === 'red') continue;
       const dx = other.position.x - grenade.position.x; const dy = other.position.y - grenade.position.y;
       if (Math.sqrt(dx*dx+dy*dy) <= radius) this.damageBall(other, 10, 'killed_by_grenade');
     }
@@ -947,15 +953,31 @@ export class GameEngine {
   private handlePlayerProjectile(ball: Ball, delta: number, ctx: RuleContext): void {
     const metaAny = ball.metadata as Record<string, unknown>;
     if (metaAny.isGrenade === true) {
-      ball.position.x += ball.velocity.x * delta;
-      ball.position.y += ball.velocity.y * delta;
-      for (const other of ctx.allBalls) {
-        if (other.id === ball.id || !other.isAlive || other.isProjectile() || other.color === "orange") continue;
-        if (other.color === "white" || other.color === "red") continue;
-        if (ball.isCollidingWith(other)) {
-          ball.velocity.x = 0; ball.velocity.y = 0;
-          ball.metadata.stuckToId = other.id;
-          break;
+      const stuckToId = typeof metaAny.stuckToId === "string" ? metaAny.stuckToId : null;
+      if (stuckToId) {
+        const carrier = ctx.allBalls.find((b) => b.id === stuckToId && b.isAlive);
+        if (carrier) {
+          const offset = (metaAny.stuckOffset as Vec2 | undefined) ?? { x: 0, y: 0 };
+          ball.position.x = carrier.position.x + offset.x;
+          ball.position.y = carrier.position.y + offset.y;
+          ball.velocity.x = carrier.velocity.x;
+          ball.velocity.y = carrier.velocity.y;
+        } else {
+          delete metaAny.stuckToId;
+          delete metaAny.stuckOffset;
+        }
+      } else {
+        ball.position.x += ball.velocity.x * delta;
+        ball.position.y += ball.velocity.y * delta;
+        for (const other of ctx.allBalls) {
+          if (other.id === ball.id || !other.isAlive || other.isProjectile() || other.color === "orange") continue;
+          if (ball.isCollidingWith(other)) {
+            ball.metadata.stuckToId = other.id;
+            ball.metadata.stuckOffset = { x: ball.position.x - other.position.x, y: ball.position.y - other.position.y };
+            ball.velocity.x = other.velocity.x;
+            ball.velocity.y = other.velocity.y;
+            break;
+          }
         }
       }
       if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "grenade_out_of_bounds");

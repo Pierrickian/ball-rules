@@ -645,6 +645,7 @@
     ]
   },
   "release_notes": [
+    "Grenade collante embarquée et explosion ajustée",
     "Grenade dédiée avec compteur et explosion",
     "Aperçu visuel des tirs déplacé en haut",
     "Compteur des projectiles prêts par couleur",
@@ -663,8 +664,7 @@
     "Nettoyage menu: retrait option couleur lancée",
     "Niveaux: pondérations éditables avec curseurs",
     "Menu projectile: curseurs live + bouton Jouer",
-    "Curseurs % projectiles joueur dans le menu",
-    "Jouer niveau ferme maintenant le menu"
+    "Curseurs % projectiles joueur dans le menu"
   ],
   "debug": {
     "show_velocities": false,
