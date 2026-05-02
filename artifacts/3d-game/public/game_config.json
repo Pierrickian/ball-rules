@@ -645,6 +645,7 @@
     ]
   },
   "release_notes": [
+    "Encart animé des explosions balle et grenade",
     "Préviews d'explosions grenade et balle restaurées",
     "Menu effets et explosions balle/grenade personnalisées",
     "Visée grenade dynamique et popups PV visibles",
@@ -663,8 +664,7 @@
     "Curseur de tir affiché dès l’appui joueur",
     "Tir déclenché selon seuils de projectile prêt",
     "Refonte interne du moteur",
-    "Tir contextuel et sliders de pondération fiabilisés",
-    "Nettoyage menu: retrait option couleur lancée"
+    "Tir contextuel et sliders de pondération fiabilisés"
   ],
   "debug": {
     "show_velocities": false,
