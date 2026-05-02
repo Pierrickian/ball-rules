@@ -22,6 +22,8 @@ interface GameSceneProps {
   gameState: GameState;
   config: GameConfig;
   events: GameEvent[];
+  ballEffect?: string;
+  grenadeEffect?: string;
   aimDirection?: { x: number; y: number };
   onPointerDown?: (gameX: number, gameY: number) => void;
   onPointerMove?: (gameX: number, gameY: number) => void;
@@ -170,7 +172,7 @@ function Arena({ config }: { config: GameConfig }) {
   );
 }
 
-function Scene({ gameState, config, events, aimDirection, onPointerDown, onPointerMove, onPointerUp, onPointerCancel }: GameSceneProps) {
+function Scene({ gameState, config, events, aimDirection, ballEffect, onPointerDown, onPointerMove, onPointerUp, onPointerCancel }: GameSceneProps) {
   const balls: BallState[] = Array.from(gameState.balls.values()).filter((b) => b.isAlive);
   const [blackHpVisibleUntil, setBlackHpVisibleUntil] = useState<Record<string, number>>({});
   const hideTimersRef = useRef<Map<string, number>>(new Map());
@@ -257,6 +259,10 @@ function Scene({ gameState, config, events, aimDirection, onPointerDown, onPoint
         />
       ))}
       <HpPopups events={events} />
+      {events.filter((e) => e.type === "ball_damaged").slice(-8).map((e, i) => {
+        const ev = e as Extract<GameEvent, { type: "ball_damaged" }>;
+        return <mesh key={`${ev.ballId}-${i}`} position={[ev.position.x, 0.1, -ev.position.y]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[0.2, 0.35, 20]} /><meshBasicMaterial color={ballEffect === "shock" ? "#ffcc66" : "#66ccff"} transparent opacity={0.4} /></mesh>;
+      })}
       <ClickPlane
         config={config}
         onPointerDown={onPointerDown}
@@ -268,7 +274,7 @@ function Scene({ gameState, config, events, aimDirection, onPointerDown, onPoint
   );
 }
 
-export function GameScene({ gameState, config, events, aimDirection, onPointerDown, onPointerMove, onPointerUp, onPointerCancel }: GameSceneProps) {
+export function GameScene({ gameState, config, events, aimDirection, ballEffect, grenadeEffect, onPointerDown, onPointerMove, onPointerUp, onPointerCancel }: GameSceneProps) {
   return (
     <Canvas
       shadows
@@ -287,6 +293,8 @@ export function GameScene({ gameState, config, events, aimDirection, onPointerDo
           config={config}
           events={events}
           aimDirection={aimDirection}
+          ballEffect={ballEffect}
+          grenadeEffect={grenadeEffect}
           onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
