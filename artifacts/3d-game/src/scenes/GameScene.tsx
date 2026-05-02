@@ -172,7 +172,7 @@ function Arena({ config }: { config: GameConfig }) {
   );
 }
 
-function Scene({ gameState, config, events, aimDirection, ballEffect, onPointerDown, onPointerMove, onPointerUp, onPointerCancel }: GameSceneProps) {
+function Scene({ gameState, config, events, aimDirection, ballEffect, grenadeEffect, onPointerDown, onPointerMove, onPointerUp, onPointerCancel }: GameSceneProps) {
   const balls: BallState[] = Array.from(gameState.balls.values()).filter((b) => b.isAlive);
   const [blackHpVisibleUntil, setBlackHpVisibleUntil] = useState<Record<string, number>>({});
   const hideTimersRef = useRef<Map<string, number>>(new Map());
@@ -262,6 +262,19 @@ function Scene({ gameState, config, events, aimDirection, ballEffect, onPointerD
       {events.filter((e) => e.type === "ball_damaged").slice(-8).map((e, i) => {
         const ev = e as Extract<GameEvent, { type: "ball_damaged" }>;
         return <mesh key={`${ev.ballId}-${i}`} position={[ev.position.x, 0.1, -ev.position.y]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[0.2, 0.35, 20]} /><meshBasicMaterial color={ballEffect === "shock" ? "#ffcc66" : "#66ccff"} transparent opacity={0.4} /></mesh>;
+      })}
+      {events.filter((e) => e.type === "ball_despawned" && (e.reason === "killed_by_grenade" || e.reason === "grenade_exploded")).slice(-8).map((e, i) => {
+        const ev = e as Extract<GameEvent, { type: "ball_despawned" }>;
+        const source = gameState.balls.get(ev.ballId);
+        const pos = source?.position ?? { x: 0, y: 0 };
+        const effect = grenadeEffect ?? "ring";
+        const color = effect === "flash" ? "#fff2b5" : effect === "smoke" ? "#aab4c4" : effect === "flare" ? "#ffb35c" : effect === "shard" ? "#7fd0ff" : "#ffcc66";
+        return (
+          <mesh key={`grenade-${ev.ballId}-${i}`} position={[pos.x, 0.11, -pos.y]} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[0.35, effect === "burst" ? 1.2 : 0.9, 28]} />
+            <meshBasicMaterial color={color} transparent opacity={effect === "smoke" ? 0.25 : 0.55} />
+          </mesh>
+        );
       })}
       <ClickPlane
         config={config}
