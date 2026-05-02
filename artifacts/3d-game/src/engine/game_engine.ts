@@ -290,7 +290,8 @@ export class GameEngine {
     const len = Math.sqrt(direction.x*direction.x + direction.y*direction.y);
     const dir = len > 0.001 ? {x: direction.x/len, y: direction.y/len} : {x: 0, y: 1};
     const baseDiameter = this.getPlayerBaseDiameter();
-    const grenade = new Ball('gray', BallSize.SMALL, origin, {x: dir.x * 36, y: dir.y * 36}, baseDiameter, 'player_projectile', BounceCondition.AGAINST_OBSTACLE, 999, 999);
+    const baseSpeed = this.config.gameplay_controls?.shot_types?.light?.speed ?? 9;
+    const grenade = new Ball('gray', BallSize.SMALL, origin, {x: dir.x * baseSpeed * 4, y: dir.y * baseSpeed * 4}, baseDiameter, 'player_projectile', BounceCondition.AGAINST_OBSTACLE, 999, 999);
     grenade.metadata = {isProjectile: true, isGrenade: true, lifetime: 0, damagedIds: new Set<string>(), colorTint: '#6b7a8f'};
     this.balls.set(grenade.id, grenade);
     this.pendingEvents.push({ type: 'ball_spawned', ball: grenade.getState() });
@@ -980,7 +981,19 @@ export class GameEngine {
           }
         }
       }
-      if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "grenade_out_of_bounds");
+      if (this.isOutOfBounds(ball, ctx.arena)) {
+        this.explodeGrenade(ball);
+        this.activeGrenadeId = null;
+      }
+      // Grenade is sticky to all non-projectile balls on its path.
+      for (const other of ctx.allBalls) {
+        if (other.id === ball.id || !other.isAlive || other.isProjectile() || other.color === "orange") continue;
+        if (ball.isCollidingWith(other)) {
+          const sticky = other.metadata.stuckGrenades instanceof Set ? other.metadata.stuckGrenades : new Set<string>();
+          sticky.add(ball.id);
+          other.metadata.stuckGrenades = sticky;
+        }
+      }
       return;
     }
 

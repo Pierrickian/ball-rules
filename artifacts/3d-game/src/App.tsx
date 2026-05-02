@@ -35,6 +35,10 @@ function App() {
   const lastTargetRef = useRef<{ x: number; y: number }>({ x: 0, y: 1000 });
   const lastDirectionRef = useRef<Vec2>({ x: 0, y: 1 });
   const [aimDirection, setAimDirection] = useState<Vec2>({ x: 0, y: 1 });
+  const [ballEffect, setBallEffect] = useState(() => localStorage.getItem("bg_effect_ball") ?? "pulse");
+  const [grenadeEffect, setGrenadeEffect] = useState(() => localStorage.getItem("bg_effect_grenade") ?? "ring");
+  useEffect(() => { localStorage.setItem("bg_effect_ball", ballEffect); }, [ballEffect]);
+  useEffect(() => { localStorage.setItem("bg_effect_grenade", grenadeEffect); }, [grenadeEffect]);
   // Refs that mirror UI state so window-level listeners (installed once at
   // mount) always read the latest values without re-subscribing.
   const menuOpenRef = useRef(menuOpen);
@@ -203,6 +207,8 @@ function App() {
           gameState={gameState}
           config={config}
           events={lastEvents}
+          ballEffect={ballEffect}
+          grenadeEffect={grenadeEffect}
           aimDirection={aimDirection}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
@@ -254,6 +260,10 @@ function App() {
           onLevelSelect={setActiveLevel}
           onLevelWeightsChange={setLevelWeights}
           currentLevelIndex={gameState.currentLevelIndex}
+          ballEffect={ballEffect}
+          grenadeEffect={grenadeEffect}
+          onBallEffectChange={setBallEffect}
+          onGrenadeEffectChange={setGrenadeEffect}
         />
       )}
     </div>

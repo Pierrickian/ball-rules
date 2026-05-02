@@ -13,7 +13,7 @@
 import { useState, useRef, useCallback } from "react";
 import type { BallColor, GameConfig } from "../engine/types";
 
-type MenuView = "main" | "rules" | "balls" | "terrain" | "launcher_color" | "player_colors" | "how_to_ask" | "release_notes" | "levels";
+type MenuView = "main" | "rules" | "balls" | "terrain" | "launcher_color" | "player_colors" | "how_to_ask" | "release_notes" | "levels" | "effects";
 
 interface MenuProps {
   config: GameConfig;
@@ -26,6 +26,10 @@ interface MenuProps {
   onLevelWeightsChange: (index: number, weights: Record<BallColor, number>) => void;
   /** Index 0-based of the currently active level, or -1 if no levels are configured. */
   currentLevelIndex: number;
+  ballEffect: string;
+  grenadeEffect: string;
+  onBallEffectChange: (effect: string) => void;
+  onGrenadeEffectChange: (effect: string) => void;
 }
 
 // ---- Shared styles ----
@@ -536,7 +540,7 @@ function PlayerColorsMenu({
 // Main Menu
 // ============================================================
 function MainMenu({
-  onRules, onLevels, onBalls, onTerrain, onLauncherColor, onPlayerColors, onHowToAsk, onReleaseNotes, onClose,
+  onRules, onLevels, onBalls, onTerrain, onLauncherColor, onPlayerColors, onHowToAsk, onReleaseNotes, onEffects, onClose,
 }: {
   onRules:          () => void;
   onLevels:         () => void;
@@ -546,6 +550,7 @@ function MainMenu({
   onPlayerColors:   () => void;
   onHowToAsk:       () => void;
   onReleaseNotes:   () => void;
+  onEffects:        () => void;
   onClose:          () => void;
 }) {
   return (
@@ -609,6 +614,9 @@ function MainMenu({
           <div style={{ fontWeight: "bold" }}>Notes de version</div>
           <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Les dernières évolutions du jeu</div>
         </div>
+      </button>
+      <button style={MENU_BTN} onClick={onEffects}>
+        <span style={{ fontSize: 20 }}>💥</span><div><div style={{ fontWeight: "bold" }}>Effects</div></div>
       </button>
       <button style={CLOSE_BTN} onClick={onClose}>✕ Retour au jeu</button>
     </div>
@@ -1525,6 +1533,10 @@ export function Menu({
   onLevelSelect,
   onLevelWeightsChange,
   currentLevelIndex,
+  ballEffect,
+  grenadeEffect,
+  onBallEffectChange,
+  onGrenadeEffectChange,
 }: MenuProps) {
   const [view, setView] = useState<MenuView>("main");
 
@@ -1540,6 +1552,7 @@ export function Menu({
           onPlayerColors={() => setView("player_colors")}
           onHowToAsk={() => setView("how_to_ask")}
           onReleaseNotes={() => setView("release_notes")}
+          onEffects={() => setView("effects")}
           onClose={onClose}
         />
       )}
@@ -1551,6 +1564,15 @@ export function Menu({
       {view === "player_colors"  && <PlayerColorsMenu  config={config} onTerrainDistributionPlay={onTerrainDistributionPlay} onClose={onClose} onBack={() => setView("main")} />}
       {view === "how_to_ask"     && <HowToAskCarousel onBack={() => setView("main")} />}
       {view === "release_notes"  && <ReleaseNotesView config={config} onBack={() => setView("main")} />}
+      {view === "effects"        && <EffectsMenu ballEffect={ballEffect} grenadeEffect={grenadeEffect} onBallEffectChange={onBallEffectChange} onGrenadeEffectChange={onGrenadeEffectChange} onBack={() => setView("main")} />}
     </div>
   );
+}
+
+function EffectsMenu({ ballEffect, grenadeEffect, onBallEffectChange, onGrenadeEffectChange, onBack }: { ballEffect: string; grenadeEffect: string; onBallEffectChange: (e: string) => void; onGrenadeEffectChange: (e: string) => void; onBack: () => void; }) {
+  const [tab, setTab] = useState<"ball" | "grenade">("ball");
+  const items = tab === "ball" ? ["pulse", "ring", "spark", "shock", "nova", "wave"] : ["ring", "burst", "flash", "smoke", "flare", "shard"];
+  const active = tab === "ball" ? ballEffect : grenadeEffect;
+  const setActive = (e: string) => (tab === "ball" ? onBallEffectChange(e) : onGrenadeEffectChange(e));
+  return <div style={PANEL}><div style={{display:"flex",gap:8}}><button style={CLOSE_BTN} onClick={() => setTab("ball")}>ball</button><button style={CLOSE_BTN} onClick={() => setTab("grenade")}>grenade</button></div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>{items.map((it)=><button key={it} onClick={()=>setActive(it)} style={{...CLOSE_BTN,borderColor:active===it?"#1e90ff":"rgba(30,144,255,0.3)",boxShadow:active===it?"0 0 8px #1e90ff":"none"}}>{it}</button>)}</div><button style={CLOSE_BTN} onClick={onBack}>← Retour</button></div>;
 }

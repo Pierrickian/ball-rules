@@ -645,6 +645,7 @@
     ]
   },
   "release_notes": [
+    "Menu effets et explosions balle/grenade personnalisées",
     "Visée grenade dynamique et popups PV visibles",
     "Grenade collante embarquée et explosion ajustée",
     "Grenade dédiée avec compteur et explosion",
@@ -663,8 +664,7 @@
     "Refonte interne du moteur",
     "Tir contextuel et sliders de pondération fiabilisés",
     "Nettoyage menu: retrait option couleur lancée",
-    "Niveaux: pondérations éditables avec curseurs",
-    "Menu projectile: curseurs live + bouton Jouer"
+    "Niveaux: pondérations éditables avec curseurs"
   ],
   "debug": {
     "show_velocities": false,
