@@ -84,7 +84,9 @@ export function HpPopups({ events }: HpPopupsProps) {
             key={p.id}
             position={[p.x, 1.2, -p.y]}
             center
-            zIndexRange={[30, 0]}
+            zIndexRange={[300, 0]}
+            occlude={false}
+            prepend
             style={{ pointerEvents: "none" }}
           >
             <div
