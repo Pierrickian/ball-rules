@@ -34,6 +34,7 @@ function App() {
   // user released outside the canvas DOM).
   const lastTargetRef = useRef<{ x: number; y: number }>({ x: 0, y: 1000 });
   const lastDirectionRef = useRef<Vec2>({ x: 0, y: 1 });
+  const [aimDirection, setAimDirection] = useState<Vec2>({ x: 0, y: 1 });
   // Refs that mirror UI state so window-level listeners (installed once at
   // mount) always read the latest values without re-subscribing.
   const menuOpenRef = useRef(menuOpen);
@@ -86,13 +87,26 @@ function App() {
     if (menuOpenRef.current || !isRunningRef.current || !playerQueue.length) return;
     pointerActiveRef.current = true;
     lastTargetRef.current = { x: gameX, y: gameY };
-    const dx = gameX; const dy = gameY; const len = Math.hypot(dx,dy); if (len>0.001) lastDirectionRef.current = {x: dx/len, y: dy/len};
+    const dx = gameX;
+    const dy = gameY + (config?.graphics.arena.height ?? 0) * 0.5;
+    const len = Math.hypot(dx, dy);
+    if (len > 0.001) {
+      const next = { x: dx / len, y: dy / len };
+      lastDirectionRef.current = next;
+      setAimDirection(next);
+    }
   };
 
   const handlePointerMove = (gameX: number, gameY: number) => {
-    if (!pointerActiveRef.current) return;
     lastTargetRef.current = { x: gameX, y: gameY };
-    const dx = gameX; const dy = gameY; const len = Math.hypot(dx,dy); if (len>0.001) lastDirectionRef.current = {x: dx/len, y: dy/len};
+    const dx = gameX;
+    const dy = gameY + (config?.graphics.arena.height ?? 0) * 0.5;
+    const len = Math.hypot(dx, dy);
+    if (len > 0.001) {
+      const next = { x: dx / len, y: dy / len };
+      lastDirectionRef.current = next;
+      setAimDirection(next);
+    }
   };
 
   const handlePointerUp = (gameX: number, gameY: number) => {
@@ -189,6 +203,7 @@ function App() {
           gameState={gameState}
           config={config}
           events={lastEvents}
+          aimDirection={aimDirection}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}

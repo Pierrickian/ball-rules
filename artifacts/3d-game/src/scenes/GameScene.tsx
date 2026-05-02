@@ -22,6 +22,7 @@ interface GameSceneProps {
   gameState: GameState;
   config: GameConfig;
   events: GameEvent[];
+  aimDirection?: { x: number; y: number };
   onPointerDown?: (gameX: number, gameY: number) => void;
   onPointerMove?: (gameX: number, gameY: number) => void;
   onPointerUp?: (gameX: number, gameY: number) => void;
@@ -169,7 +170,7 @@ function Arena({ config }: { config: GameConfig }) {
   );
 }
 
-function Scene({ gameState, config, events, onPointerDown, onPointerMove, onPointerUp, onPointerCancel }: GameSceneProps) {
+function Scene({ gameState, config, events, aimDirection, onPointerDown, onPointerMove, onPointerUp, onPointerCancel }: GameSceneProps) {
   const balls: BallState[] = Array.from(gameState.balls.values()).filter((b) => b.isAlive);
   const [blackHpVisibleUntil, setBlackHpVisibleUntil] = useState<Record<string, number>>({});
   const hideTimersRef = useRef<Map<string, number>>(new Map());
@@ -177,6 +178,11 @@ function Scene({ gameState, config, events, onPointerDown, onPointerMove, onPoin
   const h = config.graphics.arena.height;
   const lightHeight = Math.max(80, Math.max(w, h) * 0.8);
   const blackHpRevealMs = 1000;
+  const baseDiameter = config.graphics.ball_sizes[config.gameplay_controls.queue_ball_size]?.diameter ?? 1;
+  const grenadeRadius = baseDiameter * 3;
+  const arenaHalfH = h / 2;
+  const grenadeTemplateOriginY = -arenaHalfH + 2;
+  const aimLength = Math.max(8, Math.min(w, h) * 0.22);
 
   useEffect(() => {
     if (!events || events.length === 0) return;
@@ -230,6 +236,18 @@ function Scene({ gameState, config, events, onPointerDown, onPointerMove, onPoin
       />
       <pointLight position={[0, -10, 0]} intensity={0.15} color="#4488ff" />
       <Arena config={config} />
+      {aimDirection && (
+        <>
+          <mesh position={[0, 0.08, -grenadeTemplateOriginY]} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[grenadeRadius - 0.1, grenadeRadius, 64]} />
+            <meshBasicMaterial color="#ffcc66" transparent opacity={0.55} />
+          </mesh>
+          <mesh position={[aimDirection.x * (aimLength * 0.5), 0.07, -(grenadeTemplateOriginY + aimDirection.y * (aimLength * 0.5))]} rotation={[-Math.PI / 2, 0, Math.atan2(aimDirection.y, aimDirection.x)]}>
+            <planeGeometry args={[aimLength, 0.35]} />
+            <meshBasicMaterial color="#78c8ff" transparent opacity={0.7} />
+          </mesh>
+        </>
+      )}
       {balls.map((ball) => (
         <BallMesh
           key={ball.id}
@@ -250,7 +268,7 @@ function Scene({ gameState, config, events, onPointerDown, onPointerMove, onPoin
   );
 }
 
-export function GameScene({ gameState, config, events, onPointerDown, onPointerMove, onPointerUp, onPointerCancel }: GameSceneProps) {
+export function GameScene({ gameState, config, events, aimDirection, onPointerDown, onPointerMove, onPointerUp, onPointerCancel }: GameSceneProps) {
   return (
     <Canvas
       shadows
@@ -264,11 +282,12 @@ export function GameScene({ gameState, config, events, onPointerDown, onPointerM
       // enough to look like a scroll, which aborts the shot charge.
       style={{ width: "100%", height: "100%", touchAction: "none" }}
     >
-      <Scene
-        gameState={gameState}
-        config={config}
-        events={events}
-        onPointerDown={onPointerDown}
+        <Scene
+          gameState={gameState}
+          config={config}
+          events={events}
+          aimDirection={aimDirection}
+          onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}

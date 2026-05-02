@@ -645,6 +645,7 @@
     ]
   },
   "release_notes": [
+    "Visée grenade dynamique et popups PV visibles",
     "Grenade collante embarquée et explosion ajustée",
     "Grenade dédiée avec compteur et explosion",
     "Aperçu visuel des tirs déplacé en haut",
@@ -663,8 +664,7 @@
     "Tir contextuel et sliders de pondération fiabilisés",
     "Nettoyage menu: retrait option couleur lancée",
     "Niveaux: pondérations éditables avec curseurs",
-    "Menu projectile: curseurs live + bouton Jouer",
-    "Curseurs % projectiles joueur dans le menu"
+    "Menu projectile: curseurs live + bouton Jouer"
   ],
   "debug": {
     "show_velocities": false,
