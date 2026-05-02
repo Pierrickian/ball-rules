@@ -193,6 +193,9 @@ function App() {
         />
       </div>
 
+      {/* Top incoming balls preview */}
+      <IncomingBallsOverlay queue={playerQueue} />
+
       {/* Player queue (bottom strip) */}
       <PlayerQueue queue={playerQueue} config={config} />
 
@@ -228,6 +231,55 @@ function App() {
           currentLevelIndex={gameState.currentLevelIndex}
         />
       )}
+    </div>
+  );
+}
+
+// ============================================================
+// IncomingBallsOverlay — centered balls preview above arena frame
+// ============================================================
+function IncomingBallsOverlay({ queue }: { queue: ShotKind[] }) {
+  if (queue.length === 0) return null;
+
+  const readyKind = queue[0];
+  let readyCount = 0;
+  for (const kind of queue) {
+    if (kind !== readyKind) break;
+    readyCount += 1;
+  }
+
+  const tint = readyKind === "light" ? "#F5F5F5" : readyKind === "heavy" ? "#FFE600" : "#ff66ff";
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: 64,
+        left: "50%",
+        transform: "translateX(-50%)",
+        pointerEvents: "none",
+        zIndex: 9,
+        display: "flex",
+        gap: 4,
+        padding: "4px 8px",
+        borderRadius: 999,
+        background: "rgba(0, 8, 24, 0.72)",
+        border: "1px solid rgba(30,144,255,0.3)",
+      }}
+    >
+      {Array.from({ length: readyCount }).map((_, i) => (
+        <div
+          key={i}
+          style={{
+            width: 12,
+            height: 12,
+            borderRadius: "50%",
+            background: `radial-gradient(circle at 30% 30%, ${tint}, ${tint}cc 70%, #000 100%)`,
+            border: `1px solid ${tint}`,
+            boxShadow: `0 0 8px ${tint}aa`,
+          }}
+        />
+      ))}
     </div>
   );
 }
@@ -287,35 +339,37 @@ function PlayerQueue({ queue, config }: { queue: ShotKind[]; config: GameConfig 
               }}
             />
             {isNext && (
-              <div style={{
-                fontSize: 9, color: "#1e90ff", letterSpacing: 2,
-                fontFamily: "'Courier New', monospace", textTransform: "uppercase",
-              }}>
-                ▲ tirer
-              </div>
+              <>
+                <div style={{
+                  fontSize: 9, color: "#1e90ff", letterSpacing: 2,
+                  fontFamily: "'Courier New', monospace", textTransform: "uppercase",
+                }}>
+                  ▲ tirer
+                </div>
+                <div
+                  style={{
+                    alignSelf: "flex-start",
+                    marginTop: 2,
+                    padding: "2px 8px",
+                    borderRadius: 999,
+                    border: `1px solid ${readyTint}`,
+                    background: "rgba(8,12,20,0.85)",
+                    color: readyTint,
+                    fontFamily: "'Courier New', monospace",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    letterSpacing: 1,
+                    textShadow: `0 0 8px ${readyTint}`,
+                    boxShadow: `0 0 8px ${readyTint}55`,
+                  }}
+                >
+                  x{readyCount}
+                </div>
+              </>
             )}
           </div>
         );
       })}
-      <div
-        style={{
-          marginLeft: 6,
-          marginBottom: 2,
-          padding: "2px 8px",
-          borderRadius: 999,
-          border: `1px solid ${readyTint}`,
-          background: "rgba(8,12,20,0.85)",
-          color: readyTint,
-          fontFamily: "'Courier New', monospace",
-          fontSize: 12,
-          fontWeight: 700,
-          letterSpacing: 1,
-          textShadow: `0 0 8px ${readyTint}`,
-          boxShadow: `0 0 8px ${readyTint}55`,
-        }}
-      >
-        x{readyCount}
-      </div>
     </div>
   );
 }

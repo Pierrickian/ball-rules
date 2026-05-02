@@ -645,6 +645,7 @@
     ]
   },
   "release_notes": [
+    "Aperçu visuel des tirs déplacé en haut",
     "Compteur des projectiles prêts par couleur",
     "Intitulés de tir corrigés aux seuils",
     "Deux nouveaux niveaux rouges ajoutés",
@@ -663,8 +664,7 @@
     "Menu projectile: curseurs live + bouton Jouer",
     "Curseurs % projectiles joueur dans le menu",
     "Jouer niveau ferme maintenant le menu",
-    "File joueur 12 projectiles et répartition %",
-    "Refonte interne du moteur"
+    "File joueur 12 projectiles et répartition %"
   ],
   "debug": {
     "show_velocities": false,
