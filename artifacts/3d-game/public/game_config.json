@@ -645,6 +645,7 @@
     ]
   },
   "release_notes": [
+    "Diamètre des explosions de disparition x10",
     "Explosions persistantes et previews par sprite",
     "Encart animé des explosions balle et grenade",
     "Préviews d'explosions grenade et balle restaurées",
@@ -663,8 +664,7 @@
     "Curseur continu et tir auto par paliers",
     "Mise à jour interne des consignes agent",
     "Curseur de tir affiché dès l’appui joueur",
-    "Tir déclenché selon seuils de projectile prêt",
-    "Refonte interne du moteur"
+    "Tir déclenché selon seuils de projectile prêt"
   ],
   "debug": {
     "show_velocities": false,

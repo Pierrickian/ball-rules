@@ -301,7 +301,7 @@ function Scene({ gameState, config, events, aimDirection, ballEffect, grenadeEff
           : (effect === "flash" ? "#fff2b5" : effect === "smoke" ? "#aab4c4" : effect === "flare" ? "#ffb35c" : effect === "shard" ? "#7fd0ff" : "#ffcc66");
         return (
           <mesh key={ev.id} position={[pos.x, 0.11, -pos.y]} rotation={[-Math.PI / 2, 0, 0]}>
-            <ringGeometry args={isBall ? [0.2, 0.58, 24] : [0.45, effect === "burst" ? 1.7 : 1.35, 28]} />
+            <ringGeometry args={isBall ? [2.0, 5.8, 24] : [4.5, effect === "burst" ? 17 : 13.5, 28]} />
             <meshBasicMaterial color={color} transparent opacity={!isBall && effect === "smoke" ? 0.25 : 0.55} />
           </mesh>
         );
