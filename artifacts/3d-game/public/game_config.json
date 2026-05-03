@@ -13,7 +13,7 @@
         "_label": "Balle moyenne"
       },
       "large": {
-        "diameter": 11,
+        "diameter": 16,
         "_label": "Grande balle"
       }
     },
@@ -526,10 +526,18 @@
     "list": [
       {
         "id": 1,
-        "name": "Niveau 1 — Apprentissage",
-        "description": "Que des balles blanches. Elles rebondissent sur les murs sans rien faire d'autre. Idéal pour apprivoiser la file de tir et les trois types de tir.",
+        "name": "Niveau 1 — Boss noir",
+        "description": "Un boss unique: balle noire géante avec 100 PV. Apprenez à gérer un gros sac à PV lent mais dangereux.",
         "launch_color_weights": {
-          "white": 1
+          "black": 1
+        },
+        "launch_overrides": {
+          "black": {
+            "size": "large",
+            "hp": 100,
+            "maxHp": 100,
+            "diameter_multiplier": 2.4
+          }
         }
       },
       {
@@ -645,6 +653,7 @@
     ]
   },
   "release_notes": [
+    "Boss noir niveau 1 paramétré par niveau",
     "Fréquence de spawn terrain accélérée",
     "Build Vite robuste sans variables obligatoires",
     "Grenade agrandie et déflagration visuelle ajoutée",
@@ -663,8 +672,7 @@
     "Préviews d'explosions grenade et balle restaurées",
     "Menu effets et explosions balle/grenade personnalisées",
     "Visée grenade dynamique et popups PV visibles",
-    "Grenade collante embarquée et explosion ajustée",
-    "Grenade dédiée avec compteur et explosion"
+    "Grenade collante embarquée et explosion ajustée"
   ],
   "debug": {
     "show_velocities": false,

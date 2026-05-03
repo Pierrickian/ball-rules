@@ -128,6 +128,13 @@ export interface LevelEntry {
   /** Relative weights per ball color for the orange launcher's pick.
    *  Total is normalised to 1; values can be on any scale. */
   launch_color_weights: Partial<Record<BallColor, number>>;
+  /** Optional per-color overrides applied to balls launched by orange on this level. */
+  launch_overrides?: Partial<Record<BallColor, {
+    size?: BallSize;
+    hp?: number;
+    maxHp?: number;
+    diameter_multiplier?: number;
+  }>>;
 }
 
 export interface LevelsConfig {

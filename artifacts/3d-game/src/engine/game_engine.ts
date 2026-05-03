@@ -714,7 +714,8 @@ export class GameEngine {
       color = launchCfg.color as BallColor;
     }
 
-    const size = (launchCfg.size as BallSize) ?? BallSize.SMALL;
+    const levelOverride = lvl?.launch_overrides?.[color];
+    const size = (levelOverride?.size as BallSize) ?? (launchCfg.size as BallSize) ?? BallSize.SMALL;
     const speed = launchCfg.speed ?? 4.5;
     const toCenter = normalize({ x: -launcher.position.x, y: -launcher.position.y });
     const randomAngle = (Math.random() - 0.5) * Math.PI * 0.8;
@@ -725,7 +726,16 @@ export class GameEngine {
     const dir: Vec2 = { x: toCenter.x * cos + perpX * sin, y: toCenter.y * cos + perpY * sin };
 
     void arena;
-    const launched = this.spawnBall(color, size, { ...launcher.position }, { x: dir.x * speed, y: dir.y * speed });
+    const overrideHp =
+      typeof levelOverride?.hp === "number" || typeof levelOverride?.maxHp === "number"
+        ? { hp: levelOverride?.hp ?? levelOverride?.maxHp ?? 1, maxHp: levelOverride?.maxHp ?? levelOverride?.hp ?? 1 }
+        : undefined;
+
+    const launched = this.spawnBall(color, size, { ...launcher.position }, { x: dir.x * speed, y: dir.y * speed }, undefined, overrideHp);
+    if (levelOverride?.diameter_multiplier && levelOverride.diameter_multiplier > 0) {
+      launched.baseDiameter *= levelOverride.diameter_multiplier;
+      launched.diameter *= levelOverride.diameter_multiplier;
+    }
     this.launchedCount++;
     this.pendingEvents.push({ type: "orange_launched", launcherId: launcher.id, launchedId: launched.id });
 
