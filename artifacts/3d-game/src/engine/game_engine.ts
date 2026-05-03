@@ -77,6 +77,8 @@ export class GameEngine {
 
   private launchedCount = 0;
   private pendingEvents: GameEvent[] = [];
+  private queuedExternalEvents: GameEvent[] = [];
+  private isInsideUpdate = false;
   private logEnabled: boolean;
   private elapsedTime = 0;
   private sessionCleared = false;
@@ -252,8 +254,8 @@ export class GameEngine {
       effect: shotKind === 'mega' ? 'nova' : shotKind === 'heavy' ? 'shock' : 'pulse',
     };
     this.balls.set(projectile.id, projectile);
-    this.pendingEvents.push({ type: "ball_spawned", ball: projectile.getState() });
-    this.pendingEvents.push({ type: "player_shot", projectileId: projectile.id, shotKind });
+    this.emitEvent({ type: "ball_spawned", ball: projectile.getState() }, "external");
+    this.emitEvent({ type: "player_shot", projectileId: projectile.id, shotKind }, "external");
     return projectile;
   }
 
@@ -272,6 +274,14 @@ export class GameEngine {
 
   getGrenadesLeft(): number { return this.grenadesLeft; }
 
+  private emitEvent(event: GameEvent, source: "update" | "external"): void {
+    if (source === "update") {
+      this.pendingEvents.push(event);
+      return;
+    }
+    this.queuedExternalEvents.push(event);
+  }
+
   private getPlayerBaseDiameter(): number {
     const controls = this.config.gameplay_controls;
     const baseSize = controls?.queue_ball_size ?? BallSize.SMALL;
@@ -285,7 +295,7 @@ export class GameEngine {
         if (grenade.metadata.touchedTarget === true) this.explodeGrenade(grenade);
         else {
           grenade.isAlive = false;
-          this.pendingEvents.push({ type: 'ball_despawned', ballId: grenade.id, reason: 'grenade_fizzled', position: { ...grenade.position }, velocity: { ...grenade.velocity }, effect: String(grenade.metadata?.effect ?? 'ring') });
+          this.emitEvent({ type: 'ball_despawned', ballId: grenade.id, reason: 'grenade_fizzled', position: { ...grenade.position }, velocity: { ...grenade.velocity }, effect: String(grenade.metadata?.effect ?? 'ring') }, "external");
         }
       }
       this.activeGrenadeId = null;
@@ -301,7 +311,7 @@ export class GameEngine {
     const grenade = new Ball('gray', BallSize.SMALL, origin, {x: dir.x * baseSpeed * 4, y: dir.y * baseSpeed * 4}, baseDiameter, 'player_projectile', BounceCondition.AGAINST_OBSTACLE, 999, 999);
     grenade.metadata = {isProjectile: true, isGrenade: true, lifetime: 0, damagedIds: new Set<string>(), colorTint: '#6b7a8f', effect};
     this.balls.set(grenade.id, grenade);
-    this.pendingEvents.push({ type: 'ball_spawned', ball: grenade.getState() });
+    this.emitEvent({ type: 'ball_spawned', ball: grenade.getState() }, "external");
     this.activeGrenadeId = grenade.id;
     this.grenadesLeft--;
     return true;
@@ -315,14 +325,16 @@ export class GameEngine {
       if (Math.sqrt(dx*dx+dy*dy) <= radius) this.damageBall(other, 10, 'killed_by_grenade');
     }
     grenade.isAlive = false;
-    this.pendingEvents.push({ type: 'ball_despawned', ballId: grenade.id, reason: 'grenade_exploded', position: { ...grenade.position }, velocity: { ...grenade.velocity }, effect: String(grenade.metadata?.effect ?? 'ring') });
+    this.emitEvent({ type: 'ball_despawned', ballId: grenade.id, reason: 'grenade_exploded', position: { ...grenade.position }, velocity: { ...grenade.velocity }, effect: String(grenade.metadata?.effect ?? 'ring') }, "external");
   }
 
   // --------------------------------------------------------
   // Main Update Loop
   // --------------------------------------------------------
   update(delta: number): GameState {
-    this.pendingEvents = [];
+    this.pendingEvents = [...this.queuedExternalEvents];
+    this.queuedExternalEvents = [];
+    this.isInsideUpdate = true;
     this.elapsedTime += delta;
     const arena = this.getArena();
 
@@ -373,23 +385,25 @@ export class GameEngine {
     // Step 4: Session-clear flag
     this.sessionCleared = this.isSessionFinished();
 
-    return this.getState();
+    const state = this.getState();
+    this.isInsideUpdate = false;
+    return state;
   }
 
   /** Apply damage and despawn at 0 HP. Returns true if killed. */
   private damageBall(ball: Ball, amount: number, reason = "damaged"): boolean {
     if (!ball.isAlive) return false;
     const died = ball.takeDamage(amount);
-    this.pendingEvents.push({
+    this.emitEvent({
       type: "ball_damaged",
       ballId: ball.id,
       amount,
       remainingHp: ball.hp,
       position: { ...ball.position },
-    });
+    }, this.isInsideUpdate ? "update" : "external");
     if (died) {
       ball.isAlive = false;
-      this.pendingEvents.push({ type: "ball_despawned", ballId: ball.id, reason, position: { ...ball.position }, velocity: { ...ball.velocity }, effect: String(ball.metadata?.effect ?? "") });
+      this.emitEvent({ type: "ball_despawned", ballId: ball.id, reason, position: { ...ball.position }, velocity: { ...ball.velocity }, effect: String(ball.metadata?.effect ?? "") }, this.isInsideUpdate ? "update" : "external");
     } else if (ball.rule === "hp_grow_bouncer") {
       // Keep visual diameter in sync with current HP so damage is visible.
       ball.diameter = this.computeHpGrowDiameter(ball);

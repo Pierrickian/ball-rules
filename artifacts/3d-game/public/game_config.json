@@ -645,6 +645,7 @@
     ]
   },
   "release_notes": [
+    "File d’événements externe synchronisée par frame",
     "Explosions terrain et grenade rendues visibles",
     "Pipeline sprite unifiée menu et jeu",
     "Effet grenade menu propagé au moteur",
@@ -663,8 +664,7 @@
     "Intitulés de tir corrigés aux seuils",
     "Deux nouveaux niveaux rouges ajoutés",
     "Balle rouge divisée et nouveaux niveaux dédiés",
-    "Curseur de charge bloqué au seuil max",
-    "Tir au relâchement et niveau duo jaune/noir"
+    "Curseur de charge bloqué au seuil max"
   ],
   "debug": {
     "show_velocities": false,
