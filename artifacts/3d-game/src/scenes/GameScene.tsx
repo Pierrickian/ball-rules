@@ -178,6 +178,8 @@ interface SpawnedExplosion {
   kind: "ball" | "grenade";
   effect: string;
   position: { x: number; y: number };
+  velocity: { x: number; y: number };
+  spawnedAt: number;
   expiresAt: number;
 }
 
@@ -241,6 +243,8 @@ function Scene({ gameState, config, events, aimDirection, ballEffect, grenadeEff
           kind,
           effect: ev.effect || (kind === "ball" ? ballEffect ?? "pulse" : grenadeEffect ?? "ring"),
           position: ev.position!,
+          velocity: ev.velocity ?? { x: 0, y: 0 },
+          spawnedAt: now,
           expiresAt: now + (kind === "ball" ? 1000 : 2000),
         };
       });
@@ -293,17 +297,29 @@ function Scene({ gameState, config, events, aimDirection, ballEffect, grenadeEff
         return <mesh key={`${ev.ballId}-${i}`} position={[ev.position.x, 0.1, -ev.position.y]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[0.2, 0.35, 20]} /><meshBasicMaterial color={ballEffect === "shock" ? "#ffcc66" : "#66ccff"} transparent opacity={0.4} /></mesh>;
       })}
       {spawnedExplosions.map((ev) => {
+        const now = Date.now();
+        const total = Math.max(1, ev.expiresAt - ev.spawnedAt);
+        const t = Math.max(0, Math.min(1, (now - ev.spawnedAt) / total));
+        const inertia = t - 0.5 * t * t;
+        const pos = { x: ev.position.x + ev.velocity.x * inertia, y: ev.position.y + ev.velocity.y * inertia };
+        const fade = 1 - t;
+        const scale = 0.75 + t * 1.35;
         const effect = ev.effect;
-        const pos = ev.position;
         const isBall = ev.kind === "ball";
         const color = isBall
           ? (effect === "shock" ? "#ffe089" : effect === "nova" ? "#9de0ff" : "#66ccff")
           : (effect === "flash" ? "#fff2b5" : effect === "smoke" ? "#aab4c4" : effect === "flare" ? "#ffb35c" : effect === "shard" ? "#7fd0ff" : "#ffcc66");
         return (
-          <mesh key={ev.id} position={[pos.x, 0.11, -pos.y]} rotation={[-Math.PI / 2, 0, 0]}>
-            <ringGeometry args={isBall ? [2.0, 5.8, 24] : [4.5, effect === "burst" ? 17 : 13.5, 28]} />
-            <meshBasicMaterial color={color} transparent opacity={!isBall && effect === "smoke" ? 0.25 : 0.55} />
-          </mesh>
+          <group key={ev.id} position={[pos.x, 0.11, -pos.y]} rotation={[-Math.PI / 2, 0, 0]} scale={[scale, scale, scale]}>
+            <mesh>
+              <ringGeometry args={isBall ? [1.8, 5.0, 24] : [4.0, effect === "burst" ? 15.5 : 12.5, 28]} />
+              <meshBasicMaterial color={color} transparent opacity={fade * (!isBall && effect === "smoke" ? 0.2 : 0.48)} />
+            </mesh>
+            <mesh>
+              <circleGeometry args={[isBall ? 1.15 : 2.25, 20]} />
+              <meshBasicMaterial color={color} transparent opacity={fade * 0.22} />
+            </mesh>
+          </group>
         );
       })}
       <ClickPlane

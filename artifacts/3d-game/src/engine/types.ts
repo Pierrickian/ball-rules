@@ -93,7 +93,7 @@ export interface BallState {
 
 export type GameEvent =
   | { type: "ball_spawned"; ball: BallState }
-  | { type: "ball_despawned"; ballId: string; reason: string; position?: Vec2; effect?: string }
+  | { type: "ball_despawned"; ballId: string; reason: string; position?: Vec2; velocity?: Vec2; effect?: string }
   | { type: "rule_transferred"; fromId: string; toId: string; rule: BallRule }
   | { type: "ball_split"; originalId: string; newIds: string[] }
   | { type: "collision"; ballAId: string; ballBId: string }

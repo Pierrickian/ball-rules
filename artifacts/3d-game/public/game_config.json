@@ -645,6 +645,8 @@
     ]
   },
   "release_notes": [
+    "Explosion sprite animé avec inertie dynamique",
+    "Clarification des consignes de configuration jeu",
     "Diamètre des explosions de disparition x10",
     "Explosions persistantes et previews par sprite",
     "Encart animé des explosions balle et grenade",
@@ -662,9 +664,7 @@
     "Tir au relâchement et niveau duo jaune/noir",
     "Menu couleur terrain avec sliders custom",
     "Curseur continu et tir auto par paliers",
-    "Mise à jour interne des consignes agent",
-    "Curseur de tir affiché dès l’appui joueur",
-    "Tir déclenché selon seuils de projectile prêt"
+    "Mise à jour interne des consignes agent"
   ],
   "debug": {
     "show_velocities": false,
