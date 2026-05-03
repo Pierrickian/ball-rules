@@ -319,7 +319,7 @@ export class GameEngine {
         const dir = len > 0.001 ? {x: command.direction.x/len, y: command.direction.y/len} : {x: 0, y: 1};
         const baseDiameter = this.getPlayerBaseDiameter();
         const baseSpeed = this.config.gameplay_controls?.shot_types?.light?.speed ?? 9;
-        const grenade = new Ball('gray', BallSize.SMALL, origin, {x: dir.x * baseSpeed * 4, y: dir.y * baseSpeed * 4}, baseDiameter, 'player_projectile', BounceCondition.AGAINST_OBSTACLE, 999, 999);
+        const grenade = new Ball('gray', BallSize.SMALL, origin, {x: dir.x * baseSpeed * 4, y: dir.y * baseSpeed * 4}, baseDiameter * 2, 'player_projectile', BounceCondition.AGAINST_OBSTACLE, 999, 999);
         grenade.metadata = {isProjectile: true, isGrenade: true, lifetime: 0, damagedIds: new Set<string>(), colorTint: '#6b7a8f', effect: command.effect};
         this.balls.set(grenade.id, grenade);
         this.emitEvent({ type: 'ball_spawned', ball: grenade.getState() }, "update");
