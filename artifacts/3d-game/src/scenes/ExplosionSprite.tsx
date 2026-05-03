@@ -46,7 +46,7 @@ export function ExplosionSprite({ kind, effect, t, debugTexture = false }: { kin
   const color = effectColor(kind, effect);
   const texture = useMemo(() => makeSpriteTexture(effect, color), [effect, color]);
   const fade = Math.max(0, 1 - t);
-  const scale = (kind === "ball" ? 4.8 : 12) * (0.75 + t * 1.35);
+  const scale = (kind === "ball" ? 14.4 : 240) * (0.75 + t * 1.35);
   return (
     <group renderOrder={20}>
       <sprite scale={[scale, scale, 1]}>
@@ -57,7 +57,7 @@ export function ExplosionSprite({ kind, effect, t, debugTexture = false }: { kin
           depthWrite={false}
           depthTest={false}
           blending={THREE.AdditiveBlending}
-          opacity={fade * (kind === "ball" ? 0.65 : 0.75)}
+          opacity={fade * (kind === "ball" ? 0.975 : 0.75)}
         />
       </sprite>
     </group>

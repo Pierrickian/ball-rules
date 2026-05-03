@@ -240,7 +240,7 @@ function Scene({ gameState, config, events, aimDirection, ballEffect, grenadeEff
       .filter((e): e is Extract<GameEvent, { type: "ball_despawned" }> => e.type === "ball_despawned" && !!e.position)
       .filter((e) => e.reason === "killed_by_player" || e.reason === "killed_by_grenade" || e.reason === "grenade_exploded")
       .map((ev, i) => {
-        const kind = ev.reason === "killed_by_player" ? "ball" as const : "grenade" as const;
+        const kind = ev.reason === "grenade_exploded" ? "grenade" as const : "ball" as const;
         return {
           id: `${ev.ballId}-${ev.reason}-${i}-${now}`,
           kind,
