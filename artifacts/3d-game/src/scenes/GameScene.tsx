@@ -317,7 +317,7 @@ function Scene({ gameState, config, events, aimDirection, ballEffect, grenadeEff
           : (effect === "flash" ? "#fff2b5" : effect === "smoke" ? "#aab4c4" : effect === "flare" ? "#ffb35c" : effect === "shard" ? "#7fd0ff" : "#ffcc66");
         return (
           <group key={ev.id} position={[pos.x, 0.14, -pos.y]}>
-            <ExplosionSprite kind={isBall ? "ball" : "grenade"} effect={effect} t={t} debugTexture={debugExplosionTexture} />
+            <ExplosionSprite kind={isBall ? "ball" : "grenade"} effect={effect} t={t} baseBallDiameter={baseDiameter} debugTexture={debugExplosionTexture} />
           </group>
         );
       })}
