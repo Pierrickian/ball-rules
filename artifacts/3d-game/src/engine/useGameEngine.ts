@@ -19,6 +19,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { GameEngine } from "./game_engine";
+import { addGrenadeZones, createGrenadeZoneStore, updateGrenadeZones } from "./grenade_lingering";
 import type { BallColor, GameConfig, GameEvent, GameState, ShotKind, Vec2 } from "./types";
 
 export interface UseGameEngineResult {
@@ -81,6 +82,7 @@ export function useGameEngine(): UseGameEngineResult {
   const [grenadesLeft, setGrenadesLeft] = useState(5);
 
   const engineRef          = useRef<GameEngine | null>(null);
+  const grenadeZonesRef    = useRef(createGrenadeZoneStore());
   const animFrameRef       = useRef<number>(0);
   const lastTimeRef        = useRef<number>(0);
   const pausedRef          = useRef(false);
@@ -103,6 +105,7 @@ export function useGameEngine(): UseGameEngineResult {
         setConfig(cfg);
         currentLevelIdxRef.current = 0;
         engineRef.current = new GameEngine(cfg, currentLevelIdxRef.current);
+        grenadeZonesRef.current = createGrenadeZoneStore();
         setGrenadesLeft(engineRef.current.getGrenadesLeft());
         const q = buildQueue(cfg.gameplay_controls.queue_size, cfg.gameplay_controls.player_projectile_distribution ?? { light: 0.6, heavy: 0.3, mega: 0.1 });
         queueRef.current = q;
@@ -137,15 +140,20 @@ export function useGameEngine(): UseGameEngineResult {
 
       if (engineRef.current) {
         const state = engineRef.current.update(delta);
+        const cfg = configRef.current;
+        if (cfg) {
+          addGrenadeZones(state.events, grenadeZonesRef.current, cfg);
+          updateGrenadeZones(engineRef.current, grenadeZonesRef.current, delta);
+        }
+        const visibleState = engineRef.current.getState();
         if (state.events.length > 0) setLastEvents(state.events);
-        setGameState({ ...state, time: timestamp / 1000 });
+        setGameState({ ...visibleState, time: timestamp / 1000 });
 
         // ---- Auto-reboot detection ----
-        const cfg = configRef.current;
         if (
           cfg &&
           cfg.game_session.auto_reboot_on_clear &&
-          state.sessionCleared &&
+          visibleState.sessionCleared &&
           !rebootingRef.current
         ) {
           rebootingRef.current = true;
@@ -181,6 +189,7 @@ export function useGameEngine(): UseGameEngineResult {
     const cfg = configRef.current;
     if (!cfg) return;
     engineRef.current = new GameEngine(cfg, currentLevelIdxRef.current);
+    grenadeZonesRef.current = createGrenadeZoneStore();
     setGrenadesLeft(engineRef.current.getGrenadesLeft());
     // Re-apply the persistent session mode so resets keep the user's choice
     // (single-color mode survives auto-reboot, manual reset, etc.).
