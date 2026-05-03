@@ -53,6 +53,10 @@ interface Arena2D {
   halfH: number;
 }
 
+type PendingCommand =
+  | { type: "launch_grenade"; direction: Vec2; effect: string }
+  | { type: "detonate_active_grenade" };
+
 // ---- Math helpers ----
 function normalize(v: Vec2): Vec2 {
   const len = Math.sqrt(v.x * v.x + v.y * v.y);
@@ -77,6 +81,7 @@ export class GameEngine {
 
   private launchedCount = 0;
   private pendingEvents: GameEvent[] = [];
+  private pendingCommands: PendingCommand[] = [];
   private queuedExternalEvents: GameEvent[] = [];
   private isInsideUpdate = false;
   private logEnabled: boolean;
@@ -288,33 +293,54 @@ export class GameEngine {
     return this.config.graphics.ball_sizes[baseSize]?.diameter ?? 1.0;
   }
 
+  // ARCHITECTURE NOTE: any gameplay mutation that must produce visual effects
+  // must be funneled through update() to guarantee event delivery to rendering.
   toggleGrenade(direction: Vec2, effect: string = 'ring'): boolean {
     if (this.activeGrenadeId) {
-      const grenade = this.balls.get(this.activeGrenadeId);
-      if (grenade && grenade.isAlive) {
-        if (grenade.metadata.touchedTarget === true) this.explodeGrenade(grenade);
-        else {
-          grenade.isAlive = false;
-          this.emitEvent({ type: 'ball_despawned', ballId: grenade.id, reason: 'grenade_fizzled', position: { ...grenade.position }, velocity: { ...grenade.velocity }, effect: String(grenade.metadata?.effect ?? 'ring') }, "external");
-        }
-      }
-      this.activeGrenadeId = null;
+      this.pendingCommands.push({ type: "detonate_active_grenade" });
       return true;
     }
     if (this.grenadesLeft <= 0) return false;
-    const arena = this.getArena();
-    const origin: Vec2 = { x: 0, y: -arena.halfH + 2 };
-    const len = Math.sqrt(direction.x*direction.x + direction.y*direction.y);
-    const dir = len > 0.001 ? {x: direction.x/len, y: direction.y/len} : {x: 0, y: 1};
-    const baseDiameter = this.getPlayerBaseDiameter();
-    const baseSpeed = this.config.gameplay_controls?.shot_types?.light?.speed ?? 9;
-    const grenade = new Ball('gray', BallSize.SMALL, origin, {x: dir.x * baseSpeed * 4, y: dir.y * baseSpeed * 4}, baseDiameter, 'player_projectile', BounceCondition.AGAINST_OBSTACLE, 999, 999);
-    grenade.metadata = {isProjectile: true, isGrenade: true, lifetime: 0, damagedIds: new Set<string>(), colorTint: '#6b7a8f', effect};
-    this.balls.set(grenade.id, grenade);
-    this.emitEvent({ type: 'ball_spawned', ball: grenade.getState() }, "external");
-    this.activeGrenadeId = grenade.id;
+    this.pendingCommands.push({ type: "launch_grenade", direction: { ...direction }, effect });
     this.grenadesLeft--;
     return true;
+  }
+
+  private processPendingCommands(): void {
+    if (this.pendingCommands.length === 0) return;
+    const commands = this.pendingCommands;
+    this.pendingCommands = [];
+
+    for (const command of commands) {
+      if (command.type === "launch_grenade") {
+        const arena = this.getArena();
+        const origin: Vec2 = { x: 0, y: -arena.halfH + 2 };
+        const len = Math.sqrt(command.direction.x*command.direction.x + command.direction.y*command.direction.y);
+        const dir = len > 0.001 ? {x: command.direction.x/len, y: command.direction.y/len} : {x: 0, y: 1};
+        const baseDiameter = this.getPlayerBaseDiameter();
+        const baseSpeed = this.config.gameplay_controls?.shot_types?.light?.speed ?? 9;
+        const grenade = new Ball('gray', BallSize.SMALL, origin, {x: dir.x * baseSpeed * 4, y: dir.y * baseSpeed * 4}, baseDiameter, 'player_projectile', BounceCondition.AGAINST_OBSTACLE, 999, 999);
+        grenade.metadata = {isProjectile: true, isGrenade: true, lifetime: 0, damagedIds: new Set<string>(), colorTint: '#6b7a8f', effect: command.effect};
+        this.balls.set(grenade.id, grenade);
+        this.emitEvent({ type: 'ball_spawned', ball: grenade.getState() }, "update");
+        this.activeGrenadeId = grenade.id;
+        continue;
+      }
+
+      if (command.type === "detonate_active_grenade") {
+        const grenadeId = this.activeGrenadeId;
+        this.activeGrenadeId = null;
+        if (!grenadeId) continue;
+        const grenade = this.balls.get(grenadeId);
+        if (!grenade || !grenade.isAlive) continue;
+
+        if (grenade.metadata.touchedTarget === true) this.explodeGrenade(grenade);
+        else {
+          grenade.isAlive = false;
+          this.emitEvent({ type: 'ball_despawned', ballId: grenade.id, reason: 'grenade_fizzled', position: { ...grenade.position }, velocity: { ...grenade.velocity }, effect: String(grenade.metadata?.effect ?? 'ring') }, "update");
+        }
+      }
+    }
   }
 
   private explodeGrenade(grenade: Ball): void {
@@ -325,7 +351,7 @@ export class GameEngine {
       if (Math.sqrt(dx*dx+dy*dy) <= radius) this.damageBall(other, 10, 'killed_by_grenade');
     }
     grenade.isAlive = false;
-    this.emitEvent({ type: 'ball_despawned', ballId: grenade.id, reason: 'grenade_exploded', position: { ...grenade.position }, velocity: { ...grenade.velocity }, effect: String(grenade.metadata?.effect ?? 'ring') }, "external");
+    this.emitEvent({ type: 'ball_despawned', ballId: grenade.id, reason: 'grenade_exploded', position: { ...grenade.position }, velocity: { ...grenade.velocity }, effect: String(grenade.metadata?.effect ?? 'ring') }, "update");
   }
 
   // --------------------------------------------------------
@@ -337,6 +363,9 @@ export class GameEngine {
     this.isInsideUpdate = true;
     this.elapsedTime += delta;
     const arena = this.getArena();
+
+    // Process cross-frame gameplay intentions before rule handlers.
+    this.processPendingCommands();
 
     // Spawn orange launchers (capped by max_balls_spawned)
     this.updateOrangeSpawn(delta, arena);

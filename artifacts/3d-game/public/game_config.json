@@ -645,6 +645,8 @@
     ]
   },
   "release_notes": [
+    "File d’intentions UI pour actions grenade",
+    "Détonation grenade synchronisée à la frame update",
     "File d’événements externe synchronisée par frame",
     "Explosions terrain et grenade rendues visibles",
     "Pipeline sprite unifiée menu et jeu",
@@ -662,9 +664,7 @@
     "Aperçu visuel des tirs déplacé en haut",
     "Compteur des projectiles prêts par couleur",
     "Intitulés de tir corrigés aux seuils",
-    "Deux nouveaux niveaux rouges ajoutés",
-    "Balle rouge divisée et nouveaux niveaux dédiés",
-    "Curseur de charge bloqué au seuil max"
+    "Deux nouveaux niveaux rouges ajoutés"
   ],
   "debug": {
     "show_velocities": false,
