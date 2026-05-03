@@ -1584,12 +1584,12 @@ export function Menu({
 
 function EffectsMenu({ ballEffect, grenadeEffect, debugExplosionTexture, onDebugExplosionTextureChange, onBallEffectChange, onGrenadeEffectChange, onBack }: { ballEffect: string; grenadeEffect: string; debugExplosionTexture: boolean; onDebugExplosionTextureChange: (v: boolean) => void; onBallEffectChange: (e: string) => void; onGrenadeEffectChange: (e: string) => void; onBack: () => void; }) {
   const [tab, setTab] = useState<"ball" | "grenade">("ball");
-  const items = tab === "ball" ? ["pulse", "ring", "spark", "shock", "nova", "wave"] : ["ring", "burst", "flash", "smoke", "flare", "shard"];
+  const items = tab === "ball" ? ["pulse", "ring", "spark", "shock", "nova", "wave"] : ["spark", "ring", "burst", "flash", "smoke", "flare", "shard"];
   const active = tab === "ball" ? ballEffect : grenadeEffect;
   const setActive = (e: string) => (tab === "ball" ? onBallEffectChange(e) : onGrenadeEffectChange(e));
   const colorFor = (it: string) => tab === "ball"
     ? (it === "shock" ? "#ffcc66" : it === "nova" ? "#9de0ff" : "#66ccff")
-    : (it === "flash" ? "#fff2b5" : it === "smoke" ? "#aab4c4" : it === "flare" ? "#ffb35c" : it === "shard" ? "#7fd0ff" : "#ffcc66");
+    : (it === "flash" ? "#fff2b5" : it === "smoke" ? "#aab4c4" : it === "flare" ? "#ffb35c" : it === "shard" ? "#7fd0ff" : it === "spark" ? "#9de0ff" : "#ffcc66");
   return <div style={PANEL}>
     <div style={{display:"flex",gap:8}}>
       <button style={CLOSE_BTN} onClick={() => setTab("ball")}>balles terrain</button>

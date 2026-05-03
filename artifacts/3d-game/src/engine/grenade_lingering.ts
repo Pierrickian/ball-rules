@@ -54,7 +54,7 @@ export function addGrenadeZones(events: GameEvent[], zones: LingeringGrenadeZone
       id: event.ballId,
       position: { ...event.position },
       radius: getRadius(config),
-      remaining: 2,
+      remaining: 0.8,
       affectedIds: new Set(alreadyAffected),
     });
   }

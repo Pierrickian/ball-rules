@@ -35,8 +35,8 @@ function App() {
   const lastTargetRef = useRef<{ x: number; y: number }>({ x: 0, y: 1000 });
   const lastDirectionRef = useRef<Vec2>({ x: 0, y: 1 });
   const [aimDirection, setAimDirection] = useState<Vec2>({ x: 0, y: 1 });
-  const [ballEffect, setBallEffect] = useState(() => localStorage.getItem("bg_effect_ball") ?? "pulse");
-  const [grenadeEffect, setGrenadeEffect] = useState(() => localStorage.getItem("bg_effect_grenade") ?? "ring");
+  const [ballEffect, setBallEffect] = useState(() => localStorage.getItem("bg_effect_ball") ?? "spark");
+  const [grenadeEffect, setGrenadeEffect] = useState(() => localStorage.getItem("bg_effect_grenade") ?? "spark");
   const [debugExplosionTexture, setDebugExplosionTexture] = useState(() => localStorage.getItem("bg_debug_explosion_texture") === "1");
   useEffect(() => { localStorage.setItem("bg_effect_ball", ballEffect); }, [ballEffect]);
   useEffect(() => { localStorage.setItem("bg_effect_grenade", grenadeEffect); }, [grenadeEffect]);
