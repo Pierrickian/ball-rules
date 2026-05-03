@@ -46,11 +46,12 @@ export function ExplosionSprite({ kind, effect, t, baseBallDiameter = 1, debugTe
   const color = effectColor(kind, effect);
   const texture = useMemo(() => makeSpriteTexture(effect, color), [effect, color]);
   const fade = Math.max(0, 1 - t);
+  const grenadeScaleMultiplier = 2;
   const scale = kind === "ball"
     ? 14.4 * (0.75 + t * 1.35)
     : kind === "deflagration"
-      ? baseBallDiameter * 120
-      : baseBallDiameter * 6;
+      ? baseBallDiameter * 120 * grenadeScaleMultiplier
+      : baseBallDiameter * 6 * grenadeScaleMultiplier;
   return (
     <group renderOrder={20}>
       <sprite scale={[scale, scale, 1]}>
