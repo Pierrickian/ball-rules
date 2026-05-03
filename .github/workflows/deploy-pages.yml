@@ -59,7 +59,7 @@ jobs:
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: artifacts/3d-game/dist/public
+          path: artifacts/3d-game/dist
 
   deploy:
     needs: build
