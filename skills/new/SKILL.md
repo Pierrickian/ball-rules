@@ -1,33 +1,23 @@
 ---
 name: new
-description: Exécuter automatiquement une séquence Git de démarrage de tâche: checkout main, pull, journaliser le titre du dernier commit, créer une nouvelle branche, puis lire replit.md comme source d'instructions. Utiliser ce skill quand l'utilisateur demande de lancer une nouvelle branche avec cette checklist.
+description: Exécuter automatiquement une séquence Git de démarrage de tâche.
 ---
 
 # Procédure
 
-1. Vérifier l'état du dépôt:
-   - `git status --short --branch`
+1. git status --short --branch
+2. git checkout main
+3. git pull
+4. git log -1 --pretty=%s
+5. git checkout -b <nouvelle-branche>
 
-2. Basculer sur `main`:
-   - `git checkout main`
+# Branch rules
 
-3. Mettre à jour `main`:
-   - `git pull`
+- Si branche déjà mergée → en créer une nouvelle
+- Ne jamais réutiliser une branche mergée
 
-4. Journaliser le titre du dernier commit de `main`:
-   - `git log -1 --pretty=%s`
+# Link rules
 
-5. Créer une nouvelle branche (nom fourni par l'utilisateur, sinon proposer `feat/<sujet>`):
-   - `git checkout -b <nouvelle-branche>`
-
-6. Charger les instructions du dépôt:
-   - Lire `replit.md` à la racine
-   - Appliquer ces règles pour toute la suite du travail
-
-# Sortie attendue
-
-- Donner un récapitulatif court:
-  - branche source (`main`) synchronisée ou non,
-  - titre du dernier commit,
-  - nom de la nouvelle branche créée,
-  - confirmation de lecture de `replit.md`.
+- PR: https://github.com/<owner>/<repo>/pull/<number>
+- Pas de lien compare
+- Deploy: lien GitHub Pages après merge
