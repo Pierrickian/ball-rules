@@ -645,6 +645,7 @@
     ]
   },
   "release_notes": [
+    "Build Vite robuste sans variables obligatoires",
     "Grenade agrandie et déflagration visuelle ajoutée",
     "Diamètre visuel grenade aligné sur zone de dégâts",
     "File d’intentions UI pour actions grenade",
@@ -663,8 +664,7 @@
     "Visée grenade dynamique et popups PV visibles",
     "Grenade collante embarquée et explosion ajustée",
     "Grenade dédiée avec compteur et explosion",
-    "Aperçu visuel des tirs déplacé en haut",
-    "Compteur des projectiles prêts par couleur"
+    "Aperçu visuel des tirs déplacé en haut"
   ],
   "debug": {
     "show_velocities": false,
