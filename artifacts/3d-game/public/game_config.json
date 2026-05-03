@@ -645,6 +645,7 @@
     ]
   },
   "release_notes": [
+    "Effet grenade menu propagé au moteur",
     "Explosion sprite animé avec inertie dynamique",
     "Clarification des consignes de configuration jeu",
     "Diamètre des explosions de disparition x10",
@@ -663,8 +664,7 @@
     "Curseur de charge bloqué au seuil max",
     "Tir au relâchement et niveau duo jaune/noir",
     "Menu couleur terrain avec sliders custom",
-    "Curseur continu et tir auto par paliers",
-    "Mise à jour interne des consignes agent"
+    "Curseur continu et tir auto par paliers"
   ],
   "debug": {
     "show_velocities": false,

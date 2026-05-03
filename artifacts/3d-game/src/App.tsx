@@ -228,7 +228,7 @@ function App() {
 
       {/* HUD */}
       <button
-        onClick={() => toggleGrenade(lastDirectionRef.current)}
+        onClick={() => toggleGrenade(lastDirectionRef.current, grenadeEffect)}
         style={{position:"absolute", right:16, bottom:140, width:56, height:56, borderRadius:"50%", border:"2px solid #ffcc66", background:"radial-gradient(circle at 30% 30%, #667, #223)", color:"#fff", zIndex:12, fontWeight:"bold"}}
       >
         💣 {grenadesLeft}
