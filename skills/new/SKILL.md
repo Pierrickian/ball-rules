@@ -42,5 +42,7 @@ description: Exécuter automatiquement une séquence Git de démarrage de tâche
 - Après création d'une pull request, afficher son URL GitHub brute.
 - L'URL doit être celle de la PR déjà créée et finir par `/pull/<number>`.
 - Ne pas donner d'URL `compare` sauf si la création de PR échoue vraiment.
-- Après merge, afficher l'URL GitHub Pages brute permettant de vérifier le déploiement.
+- Après merge, afficher deux URL brutes:
+  - l'URL GitHub Actions du workflow Pages pour vérifier l'état du build/deploy
+  - l'URL finale GitHub Pages du jeu publié
 - Éviter les liens enrichis pour ces sorties.
