@@ -645,6 +645,7 @@
     ]
   },
   "release_notes": [
+    "Grenade agrandie et déflagration visuelle ajoutée",
     "Diamètre visuel grenade aligné sur zone de dégâts",
     "File d’intentions UI pour actions grenade",
     "Détonation grenade synchronisée à la frame update",
@@ -663,8 +664,7 @@
     "Grenade collante embarquée et explosion ajustée",
     "Grenade dédiée avec compteur et explosion",
     "Aperçu visuel des tirs déplacé en haut",
-    "Compteur des projectiles prêts par couleur",
-    "Intitulés de tir corrigés aux seuils"
+    "Compteur des projectiles prêts par couleur"
   ],
   "debug": {
     "show_velocities": false,

@@ -598,6 +598,9 @@ function MainMenu({
           <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Partie custom: répartition des couleurs</div>
         </div>
       </button>
+      <button style={MENU_BTN} onClick={onEffects}>
+        <span style={{ fontSize: 20 }}>💥</span><div><div style={{ fontWeight: "bold" }}>Effects</div></div>
+      </button>
       <button style={MENU_BTN} onClick={onTerrain}>
         <span style={{ fontSize: 20 }}>⬛</span>
         <div>
@@ -618,9 +621,6 @@ function MainMenu({
           <div style={{ fontWeight: "bold" }}>Notes de version</div>
           <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Les dernières évolutions du jeu</div>
         </div>
-      </button>
-      <button style={MENU_BTN} onClick={onEffects}>
-        <span style={{ fontSize: 20 }}>💥</span><div><div style={{ fontWeight: "bold" }}>Effects</div></div>
       </button>
       <button style={CLOSE_BTN} onClick={onClose}>✕ Retour au jeu</button>
     </div>

@@ -178,7 +178,7 @@ function Arena({ config }: { config: GameConfig }) {
 
 interface SpawnedExplosion {
   id: string;
-  kind: "ball" | "grenade";
+  kind: "ball" | "grenade" | "deflagration";
   effect: string;
   position: { x: number; y: number };
   velocity: { x: number; y: number };
@@ -195,7 +195,7 @@ function Scene({ gameState, config, events, aimDirection, ballEffect, grenadeEff
   const lightHeight = Math.max(80, Math.max(w, h) * 0.8);
   const blackHpRevealMs = 1000;
   const baseDiameter = config.graphics.ball_sizes[config.gameplay_controls.queue_ball_size]?.diameter ?? 1;
-  const grenadeRadius = baseDiameter * 3;
+  const grenadeRadius = baseDiameter * 6;
   const [spawnedExplosions, setSpawnedExplosions] = useState<SpawnedExplosion[]>([]);
   const arenaHalfH = h / 2;
   const grenadeTemplateOriginY = -arenaHalfH + 2;
@@ -239,9 +239,9 @@ function Scene({ gameState, config, events, aimDirection, ballEffect, grenadeEff
     const fresh = events
       .filter((e): e is Extract<GameEvent, { type: "ball_despawned" }> => e.type === "ball_despawned" && !!e.position)
       .filter((e) => e.reason === "killed_by_player" || e.reason === "killed_by_grenade" || e.reason === "grenade_exploded")
-      .map((ev, i) => {
+      .flatMap((ev, i) => {
         const kind = ev.reason === "grenade_exploded" ? "grenade" as const : "ball" as const;
-        return {
+        const baseFx = {
           id: `${ev.ballId}-${ev.reason}-${i}-${now}`,
           kind,
           effect: ev.effect || (kind === "ball" ? ballEffect ?? "pulse" : grenadeEffect ?? "ring"),
@@ -250,6 +250,16 @@ function Scene({ gameState, config, events, aimDirection, ballEffect, grenadeEff
           spawnedAt: now,
           expiresAt: now + (kind === "ball" ? 1000 : 2000),
         };
+        if (ev.reason !== "grenade_exploded") return [baseFx];
+        return [
+          baseFx,
+          {
+            ...baseFx,
+            id: `${baseFx.id}-deflagration`,
+            kind: "deflagration" as const,
+            expiresAt: now + 2000,
+          },
+        ];
       });
     if (fresh.length) {
       for (const fx of fresh) console.info(`[explosion] trigger kind=${fx.kind} effect=${fx.effect} x=${fx.position.x.toFixed(2)} y=${fx.position.y.toFixed(2)}`);
@@ -317,7 +327,7 @@ function Scene({ gameState, config, events, aimDirection, ballEffect, grenadeEff
           : (effect === "flash" ? "#fff2b5" : effect === "smoke" ? "#aab4c4" : effect === "flare" ? "#ffb35c" : effect === "shard" ? "#7fd0ff" : "#ffcc66");
         return (
           <group key={ev.id} position={[pos.x, 0.14, -pos.y]}>
-            <ExplosionSprite kind={isBall ? "ball" : "grenade"} effect={effect} t={t} baseBallDiameter={baseDiameter} debugTexture={debugExplosionTexture} />
+            <ExplosionSprite kind={ev.kind} effect={effect} t={t} baseBallDiameter={baseDiameter} debugTexture={debugExplosionTexture} />
           </group>
         );
       })}
