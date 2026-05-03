@@ -38,7 +38,7 @@ export interface UseGameEngineResult {
   setActiveLevel: (index: number) => void;
   setLevelWeights: (index: number, weights: Record<BallColor, number>) => void;
   classifyHold: (holdSeconds: number) => ShotKind;
-  toggleGrenade: (dir: Vec2) => boolean;
+  toggleGrenade: (dir: Vec2, effect?: string) => boolean;
   grenadesLeft: number;
 }
 
@@ -251,9 +251,9 @@ export function useGameEngine(): UseGameEngineResult {
     return resolved;
   }, []);
 
-  const toggleGrenade = useCallback((dir: Vec2): boolean => {
+  const toggleGrenade = useCallback((dir: Vec2, effect: string = "ring"): boolean => {
     if (!engineRef.current || pausedRef.current) return false;
-    const ok = engineRef.current.toggleGrenade(dir);
+    const ok = engineRef.current.toggleGrenade(dir, effect);
     setGrenadesLeft(engineRef.current.getGrenadesLeft());
     return ok;
   }, []);

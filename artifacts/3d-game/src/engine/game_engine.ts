@@ -278,7 +278,7 @@ export class GameEngine {
     return this.config.graphics.ball_sizes[baseSize]?.diameter ?? 1.0;
   }
 
-  toggleGrenade(direction: Vec2): boolean {
+  toggleGrenade(direction: Vec2, effect: string = 'ring'): boolean {
     if (this.activeGrenadeId) {
       const grenade = this.balls.get(this.activeGrenadeId);
       if (grenade && grenade.isAlive) {
@@ -299,7 +299,7 @@ export class GameEngine {
     const baseDiameter = this.getPlayerBaseDiameter();
     const baseSpeed = this.config.gameplay_controls?.shot_types?.light?.speed ?? 9;
     const grenade = new Ball('gray', BallSize.SMALL, origin, {x: dir.x * baseSpeed * 4, y: dir.y * baseSpeed * 4}, baseDiameter, 'player_projectile', BounceCondition.AGAINST_OBSTACLE, 999, 999);
-    grenade.metadata = {isProjectile: true, isGrenade: true, lifetime: 0, damagedIds: new Set<string>(), colorTint: '#6b7a8f', effect: 'ring'};
+    grenade.metadata = {isProjectile: true, isGrenade: true, lifetime: 0, damagedIds: new Set<string>(), colorTint: '#6b7a8f', effect};
     this.balls.set(grenade.id, grenade);
     this.pendingEvents.push({ type: 'ball_spawned', ball: grenade.getState() });
     this.activeGrenadeId = grenade.id;
