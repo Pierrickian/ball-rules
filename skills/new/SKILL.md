@@ -31,3 +31,9 @@ description: Exécuter automatiquement une séquence Git de démarrage de tâche
   - titre du dernier commit,
   - nom de la nouvelle branche créée,
   - confirmation de lecture de `replit.md`.
+
+# Sortie ChatGPT
+
+- Après création d'une pull request, afficher son URL GitHub brute.
+- Après merge, afficher l'URL GitHub Pages brute permettant de vérifier le déploiement.
+- Éviter les liens enrichis pour ces deux sorties.
