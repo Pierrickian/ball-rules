@@ -42,11 +42,13 @@ function makeSpriteTexture(effect: string, color: string) {
   return texture;
 }
 
-export function ExplosionSprite({ kind, effect, t, debugTexture = false }: { kind: ExplosionKind; effect: string; t: number; debugTexture?: boolean }) {
+export function ExplosionSprite({ kind, effect, t, baseBallDiameter = 1, debugTexture = false }: { kind: ExplosionKind; effect: string; t: number; baseBallDiameter?: number; debugTexture?: boolean }) {
   const color = effectColor(kind, effect);
   const texture = useMemo(() => makeSpriteTexture(effect, color), [effect, color]);
   const fade = Math.max(0, 1 - t);
-  const scale = (kind === "ball" ? 14.4 : 240) * (0.75 + t * 1.35);
+  const scale = kind === "ball"
+    ? 14.4 * (0.75 + t * 1.35)
+    : baseBallDiameter * 6;
   return (
     <group renderOrder={20}>
       <sprite scale={[scale, scale, 1]}>

@@ -645,6 +645,7 @@
     ]
   },
   "release_notes": [
+    "Diamètre visuel grenade aligné sur zone de dégâts",
     "File d’intentions UI pour actions grenade",
     "Détonation grenade synchronisée à la frame update",
     "File d’événements externe synchronisée par frame",
@@ -663,8 +664,7 @@
     "Grenade dédiée avec compteur et explosion",
     "Aperçu visuel des tirs déplacé en haut",
     "Compteur des projectiles prêts par couleur",
-    "Intitulés de tir corrigés aux seuils",
-    "Deux nouveaux niveaux rouges ajoutés"
+    "Intitulés de tir corrigés aux seuils"
   ],
   "debug": {
     "show_velocities": false,
