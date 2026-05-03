@@ -645,6 +645,7 @@
     ]
   },
   "release_notes": [
+    "Pipeline sprite unifiée menu et jeu",
     "Effet grenade menu propagé au moteur",
     "Explosion sprite animé avec inertie dynamique",
     "Clarification des consignes de configuration jeu",
@@ -663,8 +664,7 @@
     "Balle rouge divisée et nouveaux niveaux dédiés",
     "Curseur de charge bloqué au seuil max",
     "Tir au relâchement et niveau duo jaune/noir",
-    "Menu couleur terrain avec sliders custom",
-    "Curseur continu et tir auto par paliers"
+    "Menu couleur terrain avec sliders custom"
   ],
   "debug": {
     "show_velocities": false,

@@ -16,6 +16,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactElement } from "react";
 import { BallMesh } from "./BallMesh";
 import { HpPopups } from "./HpPopups";
+import { ExplosionSprite } from "./ExplosionSprite";
 import type { BallState, GameConfig, GameEvent, GameState } from "../engine/types";
 
 interface GameSceneProps {
@@ -29,6 +30,7 @@ interface GameSceneProps {
   onPointerMove?: (gameX: number, gameY: number) => void;
   onPointerUp?: (gameX: number, gameY: number) => void;
   onPointerCancel?: () => void;
+  debugExplosionTexture?: boolean;
 }
 
 // ============================================================
@@ -80,6 +82,7 @@ function ClickPlane({
   onPointerMove?: (gameX: number, gameY: number) => void;
   onPointerUp?: (gameX: number, gameY: number) => void;
   onPointerCancel?: () => void;
+  debugExplosionTexture?: boolean;
 }) {
   const w = config.graphics.arena.width;
   const h = config.graphics.arena.height;
@@ -183,7 +186,7 @@ interface SpawnedExplosion {
   expiresAt: number;
 }
 
-function Scene({ gameState, config, events, aimDirection, ballEffect, grenadeEffect, onPointerDown, onPointerMove, onPointerUp, onPointerCancel }: GameSceneProps) {
+function Scene({ gameState, config, events, aimDirection, ballEffect, grenadeEffect, onPointerDown, onPointerMove, onPointerUp, onPointerCancel, debugExplosionTexture }: GameSceneProps) {
   const balls: BallState[] = Array.from(gameState.balls.values()).filter((b) => b.isAlive);
   const [blackHpVisibleUntil, setBlackHpVisibleUntil] = useState<Record<string, number>>({});
   const hideTimersRef = useRef<Map<string, number>>(new Map());
@@ -248,7 +251,10 @@ function Scene({ gameState, config, events, aimDirection, ballEffect, grenadeEff
           expiresAt: now + (kind === "ball" ? 1000 : 2000),
         };
       });
-    if (fresh.length) setSpawnedExplosions((prev) => [...prev.filter((x) => x.expiresAt > now), ...fresh].slice(-20));
+    if (fresh.length) {
+      for (const fx of fresh) console.info(`[explosion] trigger kind=${fx.kind} effect=${fx.effect} x=${fx.position.x.toFixed(2)} y=${fx.position.y.toFixed(2)}`);
+      setSpawnedExplosions((prev) => [...prev.filter((x) => x.expiresAt > now), ...fresh].slice(-20));
+    }
     else setSpawnedExplosions((prev) => prev.filter((x) => x.expiresAt > now));
   }, [events, ballEffect, grenadeEffect]);
 
@@ -310,15 +316,8 @@ function Scene({ gameState, config, events, aimDirection, ballEffect, grenadeEff
           ? (effect === "shock" ? "#ffe089" : effect === "nova" ? "#9de0ff" : "#66ccff")
           : (effect === "flash" ? "#fff2b5" : effect === "smoke" ? "#aab4c4" : effect === "flare" ? "#ffb35c" : effect === "shard" ? "#7fd0ff" : "#ffcc66");
         return (
-          <group key={ev.id} position={[pos.x, 0.11, -pos.y]} rotation={[-Math.PI / 2, 0, 0]} scale={[scale, scale, scale]}>
-            <mesh>
-              <ringGeometry args={isBall ? [1.8, 5.0, 24] : [4.0, effect === "burst" ? 15.5 : 12.5, 28]} />
-              <meshBasicMaterial color={color} transparent opacity={fade * (!isBall && effect === "smoke" ? 0.2 : 0.48)} />
-            </mesh>
-            <mesh>
-              <circleGeometry args={[isBall ? 1.15 : 2.25, 20]} />
-              <meshBasicMaterial color={color} transparent opacity={fade * 0.22} />
-            </mesh>
+          <group key={ev.id} position={[pos.x, 0.14, -pos.y]}>
+            <ExplosionSprite kind={isBall ? "ball" : "grenade"} effect={effect} t={t} debugTexture={debugExplosionTexture} />
           </group>
         );
       })}
@@ -333,7 +332,7 @@ function Scene({ gameState, config, events, aimDirection, ballEffect, grenadeEff
   );
 }
 
-export function GameScene({ gameState, config, events, aimDirection, ballEffect, grenadeEffect, onPointerDown, onPointerMove, onPointerUp, onPointerCancel }: GameSceneProps) {
+export function GameScene({ gameState, config, events, aimDirection, ballEffect, grenadeEffect, onPointerDown, onPointerMove, onPointerUp, onPointerCancel, debugExplosionTexture }: GameSceneProps) {
   return (
     <Canvas
       shadows

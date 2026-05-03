@@ -11,6 +11,8 @@
 // ============================================================
 
 import { useState, useRef, useCallback } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
+import { ExplosionSprite } from "../scenes/ExplosionSprite";
 import type { BallColor, GameConfig } from "../engine/types";
 
 type MenuView = "main" | "rules" | "balls" | "terrain" | "launcher_color" | "player_colors" | "how_to_ask" | "release_notes" | "levels" | "effects";
@@ -30,6 +32,8 @@ interface MenuProps {
   grenadeEffect: string;
   onBallEffectChange: (effect: string) => void;
   onGrenadeEffectChange: (effect: string) => void;
+  debugExplosionTexture: boolean;
+  onDebugExplosionTextureChange: (value: boolean) => void;
 }
 
 // ---- Shared styles ----
@@ -1521,6 +1525,13 @@ function HowToAskCarousel({ onBack }: { onBack: () => void }) {
   );
 }
 
+
+function EffectPreview3D({ kind, effect, debugTexture }: { kind: "ball" | "grenade"; effect: string; debugTexture: boolean }) {
+  const [t, setT] = useState(0);
+  useFrame((_, delta: number) => setT((prev) => (prev + delta * (kind === "ball" ? 1 : 0.6)) % 1));
+  return <ExplosionSprite kind={kind} effect={effect} t={t} debugTexture={debugTexture} />;
+}
+
 // ============================================================
 // Root Menu Component
 // ============================================================
@@ -1537,6 +1548,8 @@ export function Menu({
   grenadeEffect,
   onBallEffectChange,
   onGrenadeEffectChange,
+  debugExplosionTexture,
+  onDebugExplosionTextureChange,
 }: MenuProps) {
   const [view, setView] = useState<MenuView>("main");
 
@@ -1564,12 +1577,12 @@ export function Menu({
       {view === "player_colors"  && <PlayerColorsMenu  config={config} onTerrainDistributionPlay={onTerrainDistributionPlay} onClose={onClose} onBack={() => setView("main")} />}
       {view === "how_to_ask"     && <HowToAskCarousel onBack={() => setView("main")} />}
       {view === "release_notes"  && <ReleaseNotesView config={config} onBack={() => setView("main")} />}
-      {view === "effects"        && <EffectsMenu ballEffect={ballEffect} grenadeEffect={grenadeEffect} onBallEffectChange={onBallEffectChange} onGrenadeEffectChange={onGrenadeEffectChange} onBack={() => setView("main")} />}
+      {view === "effects"        && <EffectsMenu ballEffect={ballEffect} grenadeEffect={grenadeEffect} debugExplosionTexture={debugExplosionTexture} onDebugExplosionTextureChange={onDebugExplosionTextureChange} onBallEffectChange={onBallEffectChange} onGrenadeEffectChange={onGrenadeEffectChange} onBack={() => setView("main")} />}
     </div>
   );
 }
 
-function EffectsMenu({ ballEffect, grenadeEffect, onBallEffectChange, onGrenadeEffectChange, onBack }: { ballEffect: string; grenadeEffect: string; onBallEffectChange: (e: string) => void; onGrenadeEffectChange: (e: string) => void; onBack: () => void; }) {
+function EffectsMenu({ ballEffect, grenadeEffect, debugExplosionTexture, onDebugExplosionTextureChange, onBallEffectChange, onGrenadeEffectChange, onBack }: { ballEffect: string; grenadeEffect: string; debugExplosionTexture: boolean; onDebugExplosionTextureChange: (v: boolean) => void; onBallEffectChange: (e: string) => void; onGrenadeEffectChange: (e: string) => void; onBack: () => void; }) {
   const [tab, setTab] = useState<"ball" | "grenade">("ball");
   const items = tab === "ball" ? ["pulse", "ring", "spark", "shock", "nova", "wave"] : ["ring", "burst", "flash", "smoke", "flare", "shard"];
   const active = tab === "ball" ? ballEffect : grenadeEffect;
@@ -1577,7 +1590,6 @@ function EffectsMenu({ ballEffect, grenadeEffect, onBallEffectChange, onGrenadeE
   const colorFor = (it: string) => tab === "ball"
     ? (it === "shock" ? "#ffcc66" : it === "nova" ? "#9de0ff" : "#66ccff")
     : (it === "flash" ? "#fff2b5" : it === "smoke" ? "#aab4c4" : it === "flare" ? "#ffb35c" : it === "shard" ? "#7fd0ff" : "#ffcc66");
-  const previewClass = tab === "ball" ? "fx-preview-ball" : "fx-preview-grenade";
   return <div style={PANEL}>
     <div style={{display:"flex",gap:8}}>
       <button style={CLOSE_BTN} onClick={() => setTab("ball")}>balles terrain</button>
@@ -1588,15 +1600,12 @@ function EffectsMenu({ ballEffect, grenadeEffect, onBallEffectChange, onGrenadeE
         ? "Les balles de terrain explosent visuellement avec un petit diamètre supplémentaire, sans dégâts de zone."
         : "La grenade explose avec un grand diamètre et inflige des dégâts autour d'elle."}
     </div>
-    <div className="fx-preview-panel">
-      <div className={previewClass} data-effect={active} style={{ ["--fx-color" as string]: colorFor(active), ["--fx-core" as string]: tab === "ball" ? "34%" : "24%", ["--fx-outer" as string]: tab === "ball" ? "54%" : "84%" }}>
-        <span className="fx-wave fx-wave-1" />
-        <span className="fx-wave fx-wave-2" />
-        <span className="fx-spark fx-spark-1" />
-        <span className="fx-spark fx-spark-2" />
-        <span className="fx-spark fx-spark-3" />
-      </div>
+    <div className="fx-preview-panel" style={{ height: 110 }}>
+      <Canvas orthographic camera={{ position: [0, 0, 20], zoom: 24 }} gl={{ alpha: true, antialias: true }}>
+        <EffectPreview3D kind={tab === "ball" ? "ball" : "grenade"} effect={active} debugTexture={debugExplosionTexture} />
+      </Canvas>
     </div>
+    <button style={CLOSE_BTN} onClick={() => onDebugExplosionTextureChange(!debugExplosionTexture)}>Debug texture: {debugExplosionTexture ? "ON" : "OFF"}</button>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
       {items.map((it)=>{ const color = colorFor(it); return <button key={it} onClick={()=>setActive(it)} style={{...CLOSE_BTN,borderColor:active===it?"#1e90ff":"rgba(30,144,255,0.3)",boxShadow:active===it?"0 0 8px #1e90ff":"none",display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}><span>{it}</span><span style={{display:"inline-block",width:18,height:18,borderRadius:"50%",border:tab==="grenade"?"2px solid":"1px solid",borderColor:color,boxShadow:`0 0 8px ${color}`,opacity:it==="smoke"?0.5:0.95}} /></button>;})}
     </div>
