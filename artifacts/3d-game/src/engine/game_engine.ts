@@ -281,7 +281,13 @@ export class GameEngine {
   toggleGrenade(direction: Vec2): boolean {
     if (this.activeGrenadeId) {
       const grenade = this.balls.get(this.activeGrenadeId);
-      if (grenade && grenade.isAlive) this.explodeGrenade(grenade);
+      if (grenade && grenade.isAlive) {
+        if (grenade.metadata.touchedTarget === true) this.explodeGrenade(grenade);
+        else {
+          grenade.isAlive = false;
+          this.pendingEvents.push({ type: 'ball_despawned', ballId: grenade.id, reason: 'grenade_fizzled', position: { ...grenade.position }, velocity: { ...grenade.velocity }, effect: String(grenade.metadata?.effect ?? 'ring') });
+        }
+      }
       this.activeGrenadeId = null;
       return true;
     }
@@ -309,7 +315,7 @@ export class GameEngine {
       if (Math.sqrt(dx*dx+dy*dy) <= radius) this.damageBall(other, 10, 'killed_by_grenade');
     }
     grenade.isAlive = false;
-    this.pendingEvents.push({ type: 'ball_despawned', ballId: grenade.id, reason: 'grenade_exploded', position: { ...grenade.position }, effect: String(grenade.metadata?.effect ?? 'ring') });
+    this.pendingEvents.push({ type: 'ball_despawned', ballId: grenade.id, reason: 'grenade_exploded', position: { ...grenade.position }, velocity: { ...grenade.velocity }, effect: String(grenade.metadata?.effect ?? 'ring') });
   }
 
   // --------------------------------------------------------
@@ -343,7 +349,7 @@ export class GameEngine {
         this.spawnBall(c, s, p, v, overrideRule, overrideHp),
       despawnBall: (ball, reason) => {
         ball.isAlive = false;
-        this.pendingEvents.push({ type: "ball_despawned", ballId: ball.id, reason, position: { ...ball.position }, effect: String(ball.metadata?.effect ?? "") });
+        this.pendingEvents.push({ type: "ball_despawned", ballId: ball.id, reason, position: { ...ball.position }, velocity: { ...ball.velocity }, effect: String(ball.metadata?.effect ?? "") });
       },
       damageBall: (ball, amount, reason = "damaged") => this.damageBall(ball, amount, reason),
     };
@@ -383,7 +389,7 @@ export class GameEngine {
     });
     if (died) {
       ball.isAlive = false;
-      this.pendingEvents.push({ type: "ball_despawned", ballId: ball.id, reason, position: { ...ball.position }, effect: String(ball.metadata?.effect ?? "") });
+      this.pendingEvents.push({ type: "ball_despawned", ballId: ball.id, reason, position: { ...ball.position }, velocity: { ...ball.velocity }, effect: String(ball.metadata?.effect ?? "") });
     } else if (ball.rule === "hp_grow_bouncer") {
       // Keep visual diameter in sync with current HP so damage is visible.
       ball.diameter = this.computeHpGrowDiameter(ball);
@@ -983,13 +989,15 @@ export class GameEngine {
         }
       }
       if (this.isOutOfBounds(ball, ctx.arena)) {
-        this.explodeGrenade(ball);
+        ctx.despawnBall(ball, "grenade_out_of_bounds");
         this.activeGrenadeId = null;
+        return;
       }
       // Grenade is sticky to all non-projectile balls on its path.
       for (const other of ctx.allBalls) {
         if (other.id === ball.id || !other.isAlive || other.isProjectile() || other.color === "orange") continue;
         if (ball.isCollidingWith(other)) {
+          metaAny.touchedTarget = true;
           const sticky = other.metadata.stuckGrenades instanceof Set ? other.metadata.stuckGrenades : new Set<string>();
           sticky.add(ball.id);
           other.metadata.stuckGrenades = sticky;
