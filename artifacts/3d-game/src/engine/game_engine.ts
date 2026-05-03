@@ -249,6 +249,7 @@ export class GameEngine {
       lifetime: 0,
       damagedIds: new Set<string>(),
       colorTint: shotCfg.color_tint ?? null,
+      effect: shotKind === 'mega' ? 'nova' : shotKind === 'heavy' ? 'shock' : 'pulse',
     };
     this.balls.set(projectile.id, projectile);
     this.pendingEvents.push({ type: "ball_spawned", ball: projectile.getState() });
@@ -292,7 +293,7 @@ export class GameEngine {
     const baseDiameter = this.getPlayerBaseDiameter();
     const baseSpeed = this.config.gameplay_controls?.shot_types?.light?.speed ?? 9;
     const grenade = new Ball('gray', BallSize.SMALL, origin, {x: dir.x * baseSpeed * 4, y: dir.y * baseSpeed * 4}, baseDiameter, 'player_projectile', BounceCondition.AGAINST_OBSTACLE, 999, 999);
-    grenade.metadata = {isProjectile: true, isGrenade: true, lifetime: 0, damagedIds: new Set<string>(), colorTint: '#6b7a8f'};
+    grenade.metadata = {isProjectile: true, isGrenade: true, lifetime: 0, damagedIds: new Set<string>(), colorTint: '#6b7a8f', effect: 'ring'};
     this.balls.set(grenade.id, grenade);
     this.pendingEvents.push({ type: 'ball_spawned', ball: grenade.getState() });
     this.activeGrenadeId = grenade.id;
@@ -308,7 +309,7 @@ export class GameEngine {
       if (Math.sqrt(dx*dx+dy*dy) <= radius) this.damageBall(other, 10, 'killed_by_grenade');
     }
     grenade.isAlive = false;
-    this.pendingEvents.push({ type: 'ball_despawned', ballId: grenade.id, reason: 'grenade_exploded' });
+    this.pendingEvents.push({ type: 'ball_despawned', ballId: grenade.id, reason: 'grenade_exploded', position: { ...grenade.position }, effect: String(grenade.metadata?.effect ?? 'ring') });
   }
 
   // --------------------------------------------------------
@@ -342,7 +343,7 @@ export class GameEngine {
         this.spawnBall(c, s, p, v, overrideRule, overrideHp),
       despawnBall: (ball, reason) => {
         ball.isAlive = false;
-        this.pendingEvents.push({ type: "ball_despawned", ballId: ball.id, reason });
+        this.pendingEvents.push({ type: "ball_despawned", ballId: ball.id, reason, position: { ...ball.position }, effect: String(ball.metadata?.effect ?? "") });
       },
       damageBall: (ball, amount, reason = "damaged") => this.damageBall(ball, amount, reason),
     };
@@ -382,7 +383,7 @@ export class GameEngine {
     });
     if (died) {
       ball.isAlive = false;
-      this.pendingEvents.push({ type: "ball_despawned", ballId: ball.id, reason });
+      this.pendingEvents.push({ type: "ball_despawned", ballId: ball.id, reason, position: { ...ball.position }, effect: String(ball.metadata?.effect ?? "") });
     } else if (ball.rule === "hp_grow_bouncer") {
       // Keep visual diameter in sync with current HP so damage is visible.
       ball.diameter = this.computeHpGrowDiameter(ball);

@@ -645,6 +645,7 @@
     ]
   },
   "release_notes": [
+    "Explosions persistantes et previews par sprite",
     "Encart animé des explosions balle et grenade",
     "Préviews d'explosions grenade et balle restaurées",
     "Menu effets et explosions balle/grenade personnalisées",
@@ -663,8 +664,7 @@
     "Mise à jour interne des consignes agent",
     "Curseur de tir affiché dès l’appui joueur",
     "Tir déclenché selon seuils de projectile prêt",
-    "Refonte interne du moteur",
-    "Tir contextuel et sliders de pondération fiabilisés"
+    "Refonte interne du moteur"
   ],
   "debug": {
     "show_velocities": false,

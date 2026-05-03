@@ -1589,7 +1589,7 @@ function EffectsMenu({ ballEffect, grenadeEffect, onBallEffectChange, onGrenadeE
         : "La grenade explose avec un grand diamètre et inflige des dégâts autour d'elle."}
     </div>
     <div className="fx-preview-panel">
-      <div className={previewClass} style={{ ["--fx-color" as string]: colorFor(active), ["--fx-core" as string]: tab === "ball" ? "34%" : "24%", ["--fx-outer" as string]: tab === "ball" ? "54%" : "84%" }}>
+      <div className={previewClass} data-effect={active} style={{ ["--fx-color" as string]: colorFor(active), ["--fx-core" as string]: tab === "ball" ? "34%" : "24%", ["--fx-outer" as string]: tab === "ball" ? "54%" : "84%" }}>
         <span className="fx-wave fx-wave-1" />
         <span className="fx-wave fx-wave-2" />
         <span className="fx-spark fx-spark-1" />

@@ -172,6 +172,15 @@ function Arena({ config }: { config: GameConfig }) {
   );
 }
 
+
+interface SpawnedExplosion {
+  id: string;
+  kind: "ball" | "grenade";
+  effect: string;
+  position: { x: number; y: number };
+  expiresAt: number;
+}
+
 function Scene({ gameState, config, events, aimDirection, ballEffect, grenadeEffect, onPointerDown, onPointerMove, onPointerUp, onPointerCancel }: GameSceneProps) {
   const balls: BallState[] = Array.from(gameState.balls.values()).filter((b) => b.isAlive);
   const [blackHpVisibleUntil, setBlackHpVisibleUntil] = useState<Record<string, number>>({});
@@ -182,6 +191,7 @@ function Scene({ gameState, config, events, aimDirection, ballEffect, grenadeEff
   const blackHpRevealMs = 1000;
   const baseDiameter = config.graphics.ball_sizes[config.gameplay_controls.queue_ball_size]?.diameter ?? 1;
   const grenadeRadius = baseDiameter * 3;
+  const [spawnedExplosions, setSpawnedExplosions] = useState<SpawnedExplosion[]>([]);
   const arenaHalfH = h / 2;
   const grenadeTemplateOriginY = -arenaHalfH + 2;
   const aimLength = Math.max(8, Math.min(w, h) * 0.22);
@@ -218,6 +228,25 @@ function Scene({ gameState, config, events, aimDirection, ballEffect, grenadeEff
       hideTimersRef.current.clear();
     };
   }, []);
+
+  useEffect(() => {
+    const now = Date.now();
+    const fresh = events
+      .filter((e): e is Extract<GameEvent, { type: "ball_despawned" }> => e.type === "ball_despawned" && !!e.position)
+      .filter((e) => e.reason === "killed_by_player" || e.reason === "killed_by_grenade" || e.reason === "grenade_exploded")
+      .map((ev, i) => {
+        const kind = ev.reason === "killed_by_player" ? "ball" as const : "grenade" as const;
+        return {
+          id: `${ev.ballId}-${ev.reason}-${i}-${now}`,
+          kind,
+          effect: ev.effect || (kind === "ball" ? ballEffect ?? "pulse" : grenadeEffect ?? "ring"),
+          position: ev.position!,
+          expiresAt: now + (kind === "ball" ? 1000 : 2000),
+        };
+      });
+    if (fresh.length) setSpawnedExplosions((prev) => [...prev.filter((x) => x.expiresAt > now), ...fresh].slice(-20));
+    else setSpawnedExplosions((prev) => prev.filter((x) => x.expiresAt > now));
+  }, [events, ballEffect, grenadeEffect]);
 
   return (
     <>
@@ -263,28 +292,17 @@ function Scene({ gameState, config, events, aimDirection, ballEffect, grenadeEff
         const ev = e as Extract<GameEvent, { type: "ball_damaged" }>;
         return <mesh key={`${ev.ballId}-${i}`} position={[ev.position.x, 0.1, -ev.position.y]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[0.2, 0.35, 20]} /><meshBasicMaterial color={ballEffect === "shock" ? "#ffcc66" : "#66ccff"} transparent opacity={0.4} /></mesh>;
       })}
-      {events.filter((e) => e.type === "ball_despawned" && e.reason === "killed_by_player").slice(-8).map((e, i) => {
-        const ev = e as Extract<GameEvent, { type: "ball_despawned" }>;
-        const source = gameState.balls.get(ev.ballId);
-        const pos = source?.position ?? { x: 0, y: 0 };
-        const color = ballEffect === "shock" ? "#ffe089" : ballEffect === "nova" ? "#9de0ff" : "#66ccff";
+      {spawnedExplosions.map((ev) => {
+        const effect = ev.effect;
+        const pos = ev.position;
+        const isBall = ev.kind === "ball";
+        const color = isBall
+          ? (effect === "shock" ? "#ffe089" : effect === "nova" ? "#9de0ff" : "#66ccff")
+          : (effect === "flash" ? "#fff2b5" : effect === "smoke" ? "#aab4c4" : effect === "flare" ? "#ffb35c" : effect === "shard" ? "#7fd0ff" : "#ffcc66");
         return (
-          <mesh key={`terrain-explosion-${ev.ballId}-${i}`} position={[pos.x, 0.11, -pos.y]} rotation={[-Math.PI / 2, 0, 0]}>
-            <ringGeometry args={[0.2, 0.58, 24]} />
-            <meshBasicMaterial color={color} transparent opacity={0.5} />
-          </mesh>
-        );
-      })}
-      {events.filter((e) => e.type === "ball_despawned" && (e.reason === "killed_by_grenade" || e.reason === "grenade_exploded")).slice(-8).map((e, i) => {
-        const ev = e as Extract<GameEvent, { type: "ball_despawned" }>;
-        const source = gameState.balls.get(ev.ballId);
-        const pos = source?.position ?? { x: 0, y: 0 };
-        const effect = grenadeEffect ?? "ring";
-        const color = effect === "flash" ? "#fff2b5" : effect === "smoke" ? "#aab4c4" : effect === "flare" ? "#ffb35c" : effect === "shard" ? "#7fd0ff" : "#ffcc66";
-        return (
-          <mesh key={`grenade-${ev.ballId}-${i}`} position={[pos.x, 0.11, -pos.y]} rotation={[-Math.PI / 2, 0, 0]}>
-            <ringGeometry args={[0.45, effect === "burst" ? 1.7 : 1.35, 28]} />
-            <meshBasicMaterial color={color} transparent opacity={effect === "smoke" ? 0.25 : 0.55} />
+          <mesh key={ev.id} position={[pos.x, 0.11, -pos.y]} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={isBall ? [0.2, 0.58, 24] : [0.45, effect === "burst" ? 1.7 : 1.35, 28]} />
+            <meshBasicMaterial color={color} transparent opacity={!isBall && effect === "smoke" ? 0.25 : 0.55} />
           </mesh>
         );
       })}
