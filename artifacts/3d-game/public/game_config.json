@@ -366,7 +366,7 @@
       "_launch_delay_seconds_comment": "Délai en secondes pendant lequel la balle orange reste visible et immobile sur son bord d'apparition avant de tirer son projectile. Mettre 0 pour un tir instantané (ancien comportement).",
       "spawn": {
         "condition": "timer",
-        "interval_seconds": 1,
+        "interval_seconds": 0.6,
         "spawn_on_edge": true
       },
       "despawn": {
@@ -645,6 +645,7 @@
     ]
   },
   "release_notes": [
+    "Fréquence de spawn terrain accélérée",
     "Build Vite robuste sans variables obligatoires",
     "Grenade agrandie et déflagration visuelle ajoutée",
     "Diamètre visuel grenade aligné sur zone de dégâts",
@@ -663,8 +664,7 @@
     "Menu effets et explosions balle/grenade personnalisées",
     "Visée grenade dynamique et popups PV visibles",
     "Grenade collante embarquée et explosion ajustée",
-    "Grenade dédiée avec compteur et explosion",
-    "Aperçu visuel des tirs déplacé en haut"
+    "Grenade dédiée avec compteur et explosion"
   ],
   "debug": {
     "show_velocities": false,
