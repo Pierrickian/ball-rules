@@ -17,10 +17,15 @@ description: Exécuter automatiquement une séquence Git de démarrage de tâche
 4. Journaliser le titre du dernier commit de `main`:
    - `git log -1 --pretty=%s`
 
-5. Créer une nouvelle branche (nom fourni par l'utilisateur, sinon proposer `feat/<sujet>`):
+5. Créer une nouvelle branche (nom fourni par l'utilisateur, sinon générer automatiquement un nom court de type `feat/<sujet>` ou `chore/<sujet>`):
    - `git checkout -b <nouvelle-branche>`
 
-6. Charger les instructions du dépôt:
+6. Si la branche prévue existe déjà:
+   - si elle a déjà été mergée, créer automatiquement une nouvelle branche avec un suffixe unique
+   - ne jamais réutiliser une branche déjà mergée
+   - si elle n'est pas mergée, vérifier qu'elle correspond bien à la tâche avant de continuer dessus
+
+7. Charger les instructions du dépôt:
    - Lire `replit.md` à la racine
    - Appliquer ces règles pour toute la suite du travail
 
@@ -35,5 +40,7 @@ description: Exécuter automatiquement une séquence Git de démarrage de tâche
 # Sortie ChatGPT
 
 - Après création d'une pull request, afficher son URL GitHub brute.
+- L'URL doit être celle de la PR déjà créée et finir par `/pull/<number>`.
+- Ne pas donner d'URL `compare` sauf si la création de PR échoue vraiment.
 - Après merge, afficher l'URL GitHub Pages brute permettant de vérifier le déploiement.
-- Éviter les liens enrichis pour ces deux sorties.
+- Éviter les liens enrichis pour ces sorties.
