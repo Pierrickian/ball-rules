@@ -673,13 +673,19 @@ export class GameEngine {
     const requestedMaxHp = boss.color === "red" ? Math.min(12, boss.maxHp ?? boss.hp) : (boss.maxHp ?? boss.hp);
     const spawnCount = Math.max(1, Math.floor(boss.spawn_count ?? 1));
     const spawnedIds: string[] = [];
-    const baseHorizontalSpeed = boss.horizontal_speed ?? 8;
-    const fanStep = 6;
+    const baseVelocity = { x: boss.horizontal_speed ?? 8, y: -24 };
+    const fanStepDeg = 70;
     for (let i = 0; i < spawnCount; i += 1) {
       const spreadIdx = i - (spawnCount - 1) / 2;
       const spreadX = spawnCount === 1 ? 0 : (spreadIdx * 0.8);
-      const velocityX = baseHorizontalSpeed + spreadIdx * fanStep;
-      const spawnedBoss = this.spawnBall(boss.color, boss.size ?? BallSize.LARGE, { x: launcher.position.x + spreadX, y: launcher.position.y }, { x: velocityX, y: -24 }, undefined, { hp: requestedHp, maxHp: requestedMaxHp }, { isBoss: true });
+      const angle = (spreadIdx * fanStepDeg * Math.PI) / 180;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      const velocity = {
+        x: baseVelocity.x * cos - baseVelocity.y * sin,
+        y: baseVelocity.x * sin + baseVelocity.y * cos,
+      };
+      const spawnedBoss = this.spawnBall(boss.color, boss.size ?? BallSize.LARGE, { x: launcher.position.x + spreadX, y: launcher.position.y }, velocity, undefined, { hp: requestedHp, maxHp: requestedMaxHp }, { isBoss: true });
       const bossMul = boss.diameter_multiplier ?? 1;
       if (bossMul > 0) {
         spawnedBoss.baseDiameter *= bossMul;

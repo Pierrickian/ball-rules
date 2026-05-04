@@ -671,6 +671,7 @@
     ]
   },
   "release_notes": [
+    "Boss multi-spawn écartés de 70 degrés",
     "Boss multi-spawn éventail de trajectoires",
     "Menu custom conserve niveaux + boss multi-spawn",
     "Immunité impacts rouges/tirs unifiée à 200 ms",
@@ -689,8 +690,7 @@
     "File d’intentions UI pour actions grenade",
     "Détonation grenade synchronisée à la frame update",
     "File d’événements externe synchronisée par frame",
-    "Explosions terrain et grenade rendues visibles",
-    "Pipeline sprite unifiée menu et jeu"
+    "Explosions terrain et grenade rendues visibles"
   ],
   "debug": {
     "show_velocities": false,
