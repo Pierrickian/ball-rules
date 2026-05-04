@@ -357,7 +357,8 @@ export class GameEngine {
     for (const other of this.balls.values()) {
       if (!other.isAlive || other.id===grenade.id || other.isProjectile() || other.color==='orange') continue;
       const dx = other.position.x - grenade.position.x; const dy = other.position.y - grenade.position.y;
-      if (Math.sqrt(dx*dx+dy*dy) <= radius) this.damageBall(other, 10, 'killed_by_grenade');
+      const reach = radius + other.diameter / 2;
+      if (Math.sqrt(dx*dx+dy*dy) <= reach) this.damageBall(other, 10, 'killed_by_grenade');
     }
     grenade.isAlive = false;
     this.emitEvent({ type: 'ball_despawned', ballId: grenade.id, reason: 'grenade_exploded', position: { ...grenade.position }, velocity: { ...grenade.velocity }, effect: String(grenade.metadata?.effect ?? 'ring') }, "update");
