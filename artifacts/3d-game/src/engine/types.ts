@@ -133,6 +133,7 @@ export interface LevelBossConfig {
   launcher_diameter_multiplier?: number;
   intro_overlay_seconds?: number;
   horizontal_speed?: number;
+  spawn_count?: number;
 }
 
 export interface LevelEntry {

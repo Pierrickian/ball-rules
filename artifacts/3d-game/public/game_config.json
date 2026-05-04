@@ -563,8 +563,10 @@
         },
         "boss": {
           "color": "dark_green",
-          "hp": 100,
-          "maxHp": 100,
+          "hp": 70,
+          "maxHp": 70,
+          "diameter_multiplier": 2.4,
+          "spawn_count": 3,
           "intro_overlay_seconds": 1.6,
           "horizontal_speed": 10
         }
@@ -669,6 +671,7 @@
     ]
   },
   "release_notes": [
+    "Menu custom conserve niveaux + boss multi-spawn",
     "Immunité impacts rouges/tirs unifiée à 200 ms",
     "Cap boss rouge 12 PV + boss jaune/noir ajoutés",
     "Boss vert/red ajustés et dégâts grenade boss corrigés",
@@ -687,8 +690,7 @@
     "File d’événements externe synchronisée par frame",
     "Explosions terrain et grenade rendues visibles",
     "Pipeline sprite unifiée menu et jeu",
-    "Effet grenade menu propagé au moteur",
-    "Explosion sprite animé avec inertie dynamique"
+    "Effet grenade menu propagé au moteur"
   ],
   "debug": {
     "show_velocities": false,
