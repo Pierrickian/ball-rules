@@ -671,6 +671,7 @@
     ]
   },
   "release_notes": [
+    "Boss multi-spawn éventail de trajectoires",
     "Menu custom conserve niveaux + boss multi-spawn",
     "Immunité impacts rouges/tirs unifiée à 200 ms",
     "Cap boss rouge 12 PV + boss jaune/noir ajoutés",
@@ -689,8 +690,7 @@
     "Détonation grenade synchronisée à la frame update",
     "File d’événements externe synchronisée par frame",
     "Explosions terrain et grenade rendues visibles",
-    "Pipeline sprite unifiée menu et jeu",
-    "Effet grenade menu propagé au moteur"
+    "Pipeline sprite unifiée menu et jeu"
   ],
   "debug": {
     "show_velocities": false,
