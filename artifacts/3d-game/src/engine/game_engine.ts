@@ -94,6 +94,8 @@ export class GameEngine {
   // the "Couleur lancée" menu to play a single-color, single-level loop
   // without entering story mode.
   private singleColorMode = false;
+  private bossSpawned = false;
+  private bossDefeated = false;
 
   constructor(config: GameConfig, initialLevelIndex = 0) {
     this.config = config;
@@ -202,7 +204,10 @@ export class GameEngine {
   /** Has the session reached its spawn cap AND is now cleared? */
   isSessionFinished(): boolean {
     const max = this.config.game_session?.max_balls_spawned ?? 20;
-    return this.launchedCount >= max && this.getEnemyBallCount() === 0;
+    if (this.launchedCount < max) return false;
+    if (!this.bossSpawned) return false;
+    if (!this.bossDefeated) return false;
+    return this.getEnemyBallCount() === 0;
   }
 
   // --------------------------------------------------------
@@ -371,6 +376,8 @@ export class GameEngine {
     this.updateOrangeSpawn(delta, arena);
     // Fire orange launchers whose visibility delay has elapsed.
     this.updatePendingLaunches(delta, arena);
+    // Spawn level boss when regular wave is fully cleared.
+    this.maybeSpawnLevelBoss(arena);
 
     // Update freeze timers
     this.balls.forEach((ball) => {
@@ -412,6 +419,9 @@ export class GameEngine {
     });
 
     // Step 4: Session-clear flag
+    if (this.bossSpawned) {
+      this.bossDefeated = !Array.from(this.balls.values()).some((b) => b.isAlive && b.metadata?.isBoss === true);
+    }
     this.sessionCleared = this.isSessionFinished();
 
     const state = this.getState();
@@ -614,6 +624,37 @@ export class GameEngine {
         this.pendingEvents.push({ type: "collision", ballAId: a.id, ballBId: b.id });
       }
     }
+  }
+
+
+  private maybeSpawnLevelBoss(arena: Arena2D): void {
+    if (this.bossSpawned) return;
+    const lvl = this.getCurrentLevel();
+    const boss = lvl?.boss;
+    if (!boss) return;
+    const max = this.config.game_session?.max_balls_spawned ?? 20;
+    if (this.launchedCount < max) return;
+    if (this.getEnemyBallCount() > 0) return;
+
+    const launcher = this.spawnBall("orange", boss.launcher_size ?? BallSize.LARGE, { x: 0, y: arena.halfH - 0.05 }, { x: 0, y: 0 });
+    const launcherMul = boss.launcher_diameter_multiplier ?? 2;
+    if (launcherMul > 0) {
+      launcher.baseDiameter *= launcherMul;
+      launcher.diameter *= launcherMul;
+    }
+
+    const spawnedBoss = this.spawnBall(boss.color, boss.size ?? BallSize.LARGE, { ...launcher.position }, { x: 0, y: -24 }, undefined, { hp: boss.hp, maxHp: boss.maxHp ?? boss.hp });
+    const bossMul = boss.diameter_multiplier ?? 1;
+    if (bossMul > 0) {
+      spawnedBoss.baseDiameter *= bossMul;
+      spawnedBoss.diameter *= bossMul;
+    }
+    spawnedBoss.metadata = { ...spawnedBoss.metadata, isBoss: true };
+    this.bossSpawned = true;
+
+    launcher.isAlive = false;
+    this.pendingEvents.push({ type: "orange_launched", launcherId: launcher.id, launchedId: spawnedBoss.id });
+    this.pendingEvents.push({ type: "ball_despawned", ballId: launcher.id, reason: "after_launch" });
   }
 
   /** Pick a color from a weights map. Ignores zero/negative weights and

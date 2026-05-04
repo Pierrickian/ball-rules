@@ -121,6 +121,16 @@ export interface GameState {
 
 // ---- Levels ----
 
+export interface LevelBossConfig {
+  color: BallColor;
+  size?: BallSize;
+  hp: number;
+  maxHp?: number;
+  diameter_multiplier?: number;
+  launcher_size?: BallSize;
+  launcher_diameter_multiplier?: number;
+}
+
 export interface LevelEntry {
   id: number;
   name: string;
@@ -135,6 +145,8 @@ export interface LevelEntry {
     maxHp?: number;
     diameter_multiplier?: number;
   }>>;
+  /** Optional boss spawned once all regular enemies are cleared for the level. */
+  boss?: LevelBossConfig;
 }
 
 export interface LevelsConfig {
