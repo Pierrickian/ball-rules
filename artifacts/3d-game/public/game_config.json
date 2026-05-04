@@ -688,6 +688,7 @@
     ]
   },
   "release_notes": [
+    "Charge continue: tirs heavy/mega réactivés",
     "Charge continue conservée sans reset au pointer",
     "Suppression menu pourcentages et tirs doublés corrigés",
     "Suppression des previews et tir libre au release",
@@ -706,8 +707,7 @@
     "Boss de fin de vague avant passage niveau",
     "Boss noir niveau 1 paramétré par niveau",
     "Fréquence de spawn terrain accélérée",
-    "Build Vite robuste sans variables obligatoires",
-    "Grenade agrandie et déflagration visuelle ajoutée"
+    "Build Vite robuste sans variables obligatoires"
   ],
   "debug": {
     "show_velocities": false,

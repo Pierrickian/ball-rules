@@ -60,8 +60,6 @@ function App() {
   const tryShootBall = (targetX: number, targetY: number, holdSeconds: number): boolean => {
     const fired = shoot(targetX, targetY, holdSeconds);
     if (!fired) return false;
-    cycleStartRef.current = performance.now();
-    setHoldTime(0);
     return true;
   };
 
