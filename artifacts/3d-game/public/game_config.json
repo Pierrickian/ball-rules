@@ -688,6 +688,7 @@
     ]
   },
   "release_notes": [
+    "Rollback arrêt non létal des tirs heavy/mega",
     "Heavy +20%, mega +50%, arrêt sur hit non létal",
     "Reset de charge au release et tir conditionné au pointer down",
     "Charge continue: tirs heavy/mega réactivés",
@@ -706,8 +707,7 @@
     "Menu Boss Rush multi-niveaux et boss niveau 3",
     "Boss génériques, scaling PV et tir appuyé rebond",
     "Overlay BOSS avant spawn du boss blanc",
-    "Boss de fin de vague avant passage niveau",
-    "Boss noir niveau 1 paramétré par niveau"
+    "Boss de fin de vague avant passage niveau"
   ],
   "debug": {
     "show_velocities": false,
