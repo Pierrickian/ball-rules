@@ -78,8 +78,6 @@ function App() {
 
   const handlePointerDown = (gameX: number, gameY: number) => {
     if (menuOpenRef.current || !isRunningRef.current) return;
-    cycleStartRef.current = performance.now();
-    setHoldTime(0);
     pointerActiveRef.current = true;
     lastTargetRef.current = { x: gameX, y: gameY };
     const dx = gameX;

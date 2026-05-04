@@ -688,6 +688,7 @@
     ]
   },
   "release_notes": [
+    "Charge continue conservée sans reset au pointer",
     "Suppression menu pourcentages et tirs doublés corrigés",
     "Suppression des previews et tir libre au release",
     "Tirs curseur libres sans blocage de seuils",
@@ -706,8 +707,7 @@
     "Boss noir niveau 1 paramétré par niveau",
     "Fréquence de spawn terrain accélérée",
     "Build Vite robuste sans variables obligatoires",
-    "Grenade agrandie et déflagration visuelle ajoutée",
-    "Diamètre visuel grenade aligné sur zone de dégâts"
+    "Grenade agrandie et déflagration visuelle ajoutée"
   ],
   "debug": {
     "show_velocities": false,
