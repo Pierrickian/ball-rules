@@ -591,10 +591,9 @@
       {
         "id": 4,
         "name": "Niveau 4 — Marée bleue",
-        "description": "Introduction de la balle bleue : moitié blanches, moitié bleues. Les bleues se comportent comme les vert foncé (2 PV, grossissent à chaque traversée, disparaissent à 0 PV). Apprends à distinguer les couleurs en plein chaos.",
+        "description": "100% de balles bleues. Elles gagnent des PV au contact et grossissent vite: concentre tes tirs pour éviter l'effet boule de neige.",
         "launch_color_weights": {
-          "white": 0.5,
-          "blue": 0.5
+          "blue": 1
         }
       },
       {
@@ -646,8 +645,8 @@
         },
         "boss": {
           "color": "red",
-          "hp": 12,
-          "maxHp": 12,
+          "hp": 25,
+          "maxHp": 25,
           "intro_overlay_seconds": 1.6,
           "horizontal_speed": 10
         }
@@ -659,6 +658,23 @@
         "launch_color_weights": {
           "red": 0.5,
           "dark_green": 0.5
+        }
+      },
+      {
+        "id": 10,
+        "name": "Niveau 10 — Hôpital central",
+        "description": "50% de bleues et 50% de rouges. Un hôpital au centre soigne +1 PV par contact jusqu’à épuisement de sa réserve.",
+        "launch_color_weights": {
+          "blue": 0.5,
+          "red": 0.5
+        },
+        "hospital": {
+          "x": 0,
+          "y": 0,
+          "hp": 100,
+          "maxHp": 100,
+          "heal_per_contact": 1,
+          "diameter_from_boss_hp": 100
         }
       }
     ],
@@ -688,6 +704,9 @@
     ]
   },
   "release_notes": [
+    "Menu difficulté et hôpital poussé par les tirs",
+    "Boss rouge 25 PV appliqué et hôpital rebondissant",
+    "Niveau 10 hôpital et équilibrage bleu/rouge",
     "Rollback arrêt non létal des tirs heavy/mega",
     "Heavy +20%, mega +50%, arrêt sur hit non létal",
     "Reset de charge au release et tir conditionné au pointer down",
@@ -704,10 +723,7 @@
     "Cap boss rouge 12 PV + boss jaune/noir ajoutés",
     "Boss vert/red ajustés et dégâts grenade boss corrigés",
     "Bouton Boss visible et spawn boss vert fiabilisé",
-    "Menu Boss Rush multi-niveaux et boss niveau 3",
-    "Boss génériques, scaling PV et tir appuyé rebond",
-    "Overlay BOSS avant spawn du boss blanc",
-    "Boss de fin de vague avant passage niveau"
+    "Menu Boss Rush multi-niveaux et boss niveau 3"
   ],
   "debug": {
     "show_velocities": false,

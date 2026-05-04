@@ -14,7 +14,7 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { ExplosionSprite } from "../scenes/ExplosionSprite";
 import type { BallColor, GameConfig } from "../engine/types";
 
-type MenuView = "main" | "rules" | "balls" | "terrain" | "player_colors" | "how_to_ask" | "release_notes" | "levels" | "boss" | "effects";
+type MenuView = "main" | "rules" | "balls" | "terrain" | "player_colors" | "how_to_ask" | "release_notes" | "levels" | "boss" | "effects" | "difficulty";
 
 interface MenuProps {
   config: GameConfig;
@@ -25,6 +25,8 @@ interface MenuProps {
   onLevelSelect: (index: number) => void;
   onLevelWeightsChange: (index: number, weights: Record<BallColor, number>) => void;
   onPlayBossRush: (levelIds: number[]) => void;
+  onDifficultyChange: (difficulty: "easy" | "medium" | "hard") => void;
+  difficulty: "easy" | "medium" | "hard";
   /** Index 0-based of the currently active level, or -1 if no levels are configured. */
   currentLevelIndex: number;
   ballEffect: string;
@@ -470,7 +472,7 @@ function PlayerColorsMenu({
 // Main Menu
 // ============================================================
 function MainMenu({
-  onRules, onLevels, onBoss, onBalls, onTerrain, onPlayerColors, onHowToAsk, onReleaseNotes, onEffects, onClose,
+  onRules, onLevels, onBoss, onBalls, onTerrain, onPlayerColors, onHowToAsk, onReleaseNotes, onEffects, onDifficulty, onClose,
 }: {
   onRules:          () => void;
   onLevels:         () => void;
@@ -481,6 +483,7 @@ function MainMenu({
   onHowToAsk:       () => void;
   onReleaseNotes:   () => void;
   onEffects:        () => void;
+  onDifficulty:     () => void;
   onClose:          () => void;
 }) {
   return (
@@ -526,6 +529,9 @@ function MainMenu({
       </button>
       <button style={MENU_BTN} onClick={onEffects}>
         <span style={{ fontSize: 20 }}>💥</span><div><div style={{ fontWeight: "bold" }}>Effects</div></div>
+      </button>
+      <button style={MENU_BTN} onClick={onDifficulty}>
+        <div>🎚️</div><div><div style={{ fontWeight: "bold" }}>Difficulté</div></div>
       </button>
       <button style={MENU_BTN} onClick={onTerrain}>
         <span style={{ fontSize: 20 }}>⬛</span>
@@ -1483,6 +1489,8 @@ export function Menu({
   onLevelSelect,
   onLevelWeightsChange,
   onPlayBossRush,
+  onDifficultyChange,
+  difficulty,
   currentLevelIndex,
   ballEffect,
   grenadeEffect,
@@ -1506,6 +1514,7 @@ export function Menu({
           onHowToAsk={() => setView("how_to_ask")}
           onReleaseNotes={() => setView("release_notes")}
           onEffects={() => setView("effects")}
+          onDifficulty={() => setView("difficulty")}
           onClose={onClose}
         />
       )}
@@ -1518,8 +1527,24 @@ export function Menu({
       {view === "how_to_ask"     && <HowToAskCarousel onBack={() => setView("main")} />}
       {view === "release_notes"  && <ReleaseNotesView config={config} onBack={() => setView("main")} />}
       {view === "effects"        && <EffectsMenu ballEffect={ballEffect} grenadeEffect={grenadeEffect} debugExplosionTexture={debugExplosionTexture} onDebugExplosionTextureChange={onDebugExplosionTextureChange} onBallEffectChange={onBallEffectChange} onGrenadeEffectChange={onGrenadeEffectChange} onBack={() => setView("main")} />}
+      {view === "difficulty"     && <DifficultyMenu difficulty={difficulty} onChange={onDifficultyChange} onBack={() => setView("main")} />}
     </div>
   );
+}
+
+function DifficultyMenu({ difficulty, onChange, onBack }: { difficulty: "easy" | "medium" | "hard"; onChange: (d: "easy" | "medium" | "hard") => void; onBack: () => void; }) {
+  const button = (d: "easy" | "medium" | "hard", label: string) => (
+    <button style={{ ...CLOSE_BTN, background: difficulty === d ? "rgba(30,144,255,.3)" : "transparent" }} onClick={() => onChange(d)}>{label}</button>
+  );
+  return <div style={PANEL}>
+    <h3 style={{ margin: 0 }}>Difficulté</h3>
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+      {button("easy", "Easy")}
+      {button("medium", "Medium")}
+      {button("hard", "Hard")}
+    </div>
+    <button style={CLOSE_BTN} onClick={onBack}>← Retour</button>
+  </div>;
 }
 
 function EffectsMenu({ ballEffect, grenadeEffect, debugExplosionTexture, onDebugExplosionTextureChange, onBallEffectChange, onGrenadeEffectChange, onBack }: { ballEffect: string; grenadeEffect: string; debugExplosionTexture: boolean; onDebugExplosionTextureChange: (v: boolean) => void; onBallEffectChange: (e: string) => void; onGrenadeEffectChange: (e: string) => void; onBack: () => void; }) {

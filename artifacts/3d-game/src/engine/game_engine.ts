@@ -97,6 +97,8 @@ export class GameEngine {
   private bossSpawned = false;
   private bossDefeated = false;
   private bossIntroRemaining = 0;
+  private hospital: { x: number; y: number; vx: number; vy: number; diameter: number; hp: number; maxHp: number; healPerContact: number; contactIds: Set<string> } | null = null;
+  private difficultyBonusHp = 0;
 
   constructor(config: GameConfig, initialLevelIndex = 0) {
     this.config = config;
@@ -105,6 +107,7 @@ export class GameEngine {
     this.currentLevelIndex = levelCount > 0
       ? ((initialLevelIndex % levelCount) + levelCount) % levelCount
       : 0;
+    this.configureHospitalForCurrentLevel();
     this.registerAllHandlers();
   }
 
@@ -155,6 +158,14 @@ export class GameEngine {
       currentLevelId: lvl?.id ?? 0,
       currentLevelName: lvl?.name ?? "",
       bossIntroActive: this.bossIntroRemaining > 0,
+      hospital: this.hospital ? {
+        isActive: this.hospital.hp > 0,
+        x: this.hospital.x,
+        y: this.hospital.y,
+        diameter: this.hospital.diameter,
+        hp: this.hospital.hp,
+        maxHp: this.hospital.maxHp,
+      } : undefined,
     };
   }
 
@@ -185,7 +196,9 @@ export class GameEngine {
   updateConfig(config: GameConfig): void {
     this.config = config;
     this.logEnabled = config.debug?.log_rule_changes ?? false;
+    this.configureHospitalForCurrentLevel();
   }
+  setDifficultyBonusHp(bonus: number): void { this.difficultyBonusHp = Math.max(0, Math.floor(bonus)); }
 
   getLaunchedCount(): number {
     return this.launchedCount;
@@ -383,6 +396,7 @@ export class GameEngine {
     this.updatePendingLaunches(delta, arena);
     // Spawn level boss when regular wave is fully cleared.
     this.maybeSpawnLevelBoss(arena, delta);
+    this.updateHospitalMotion(delta, arena);
 
     // Update freeze timers
     this.balls.forEach((ball) => {
@@ -417,6 +431,7 @@ export class GameEngine {
 
     // Step 2: Resolve ball-to-ball collisions (skip projectiles — they handle their own)
     this.resolveBallCollisions(allBalls, arena);
+    this.resolveHospitalInteractions(allBalls);
 
 
     this.balls.forEach((ball) => {
@@ -437,6 +452,87 @@ export class GameEngine {
     const state = this.getState();
     this.isInsideUpdate = false;
     return state;
+  }
+
+  private configureHospitalForCurrentLevel(): void {
+    const hospital = this.getCurrentLevel()?.hospital;
+    if (!hospital) {
+      this.hospital = null;
+      return;
+    }
+    const maxHp = hospital.maxHp ?? hospital.hp;
+    const diameterFromBossHp = hospital.diameter_from_boss_hp ?? 100;
+    const baseBossDiameter = this.config.graphics.ball_sizes[BallSize.LARGE]?.diameter ?? 1;
+    const diameter = baseBossDiameter * Math.max(0.1, diameterFromBossHp / 100);
+    this.hospital = {
+      x: hospital.x,
+      y: hospital.y,
+      vx: 0,
+      vy: 0,
+      diameter,
+      hp: hospital.hp,
+      maxHp,
+      healPerContact: hospital.heal_per_contact ?? 1,
+      contactIds: new Set<string>(),
+    };
+  }
+
+  private resolveHospitalInteractions(balls: Ball[]): void {
+    if (!this.hospital || this.hospital.hp <= 0) return;
+    const currentContacts = new Set<string>();
+    const restitution = this.config.rule_parameters.ball_collision?.restitution ?? 0.95;
+    for (const ball of balls) {
+      if (!ball.isAlive || ball.color === "orange") continue;
+      const dx = ball.position.x - this.hospital.x;
+      const dy = ball.position.y - this.hospital.y;
+      const minDist = (ball.diameter + this.hospital.diameter) / 2;
+      const distSq = (dx * dx + dy * dy);
+      if (distSq > (minDist * minDist)) continue;
+      currentContacts.add(ball.id);
+
+      const dist = Math.sqrt(Math.max(distSq, 1e-9));
+      const nx = dx / dist;
+      const ny = dy / dist;
+      const overlap = minDist - dist;
+      if (overlap > 0) {
+        ball.position.x += nx * overlap;
+        ball.position.y += ny * overlap;
+      }
+
+      const dot = ball.velocity.x * nx + ball.velocity.y * ny;
+      if (dot < 0) {
+        ball.velocity.x = (ball.velocity.x - (1 + restitution) * dot * nx);
+        ball.velocity.y = (ball.velocity.y - (1 + restitution) * dot * ny);
+      }
+
+      if (ball.isProjectile()) {
+        this.hospital.vx += ball.velocity.x * 0.015;
+        this.hospital.vy += ball.velocity.y * 0.015;
+        ball.isAlive = false;
+        this.pendingEvents.push({ type: "ball_despawned", ballId: ball.id, reason: "projectile_hit_hospital", position: { ...ball.position }, velocity: { ...ball.velocity }, effect: String(ball.metadata?.effect ?? "") });
+        continue;
+      }
+      if (this.hospital.contactIds.has(ball.id)) continue;
+      const gained = ball.heal(this.hospital.healPerContact);
+      if (gained <= 0) continue;
+      this.pendingEvents.push({ type: "ball_healed", ballId: ball.id, amount: gained, remainingHp: ball.hp, position: { ...ball.position } });
+      this.hospital.hp = Math.max(0, this.hospital.hp - 1);
+      if (this.hospital.hp <= 0) { this.hospital = null; return; }
+    }
+    this.hospital.contactIds = currentContacts;
+  }
+
+  private updateHospitalMotion(delta: number, arena: Arena2D): void {
+    if (!this.hospital) return;
+    this.hospital.x += this.hospital.vx * delta;
+    this.hospital.y += this.hospital.vy * delta;
+    this.hospital.vx *= 0.985;
+    this.hospital.vy *= 0.985;
+    const r = this.hospital.diameter / 2;
+    if (this.hospital.x - r < -arena.halfW) { this.hospital.x = -arena.halfW + r; this.hospital.vx = Math.abs(this.hospital.vx) * 0.7; }
+    if (this.hospital.x + r > arena.halfW) { this.hospital.x = arena.halfW - r; this.hospital.vx = -Math.abs(this.hospital.vx) * 0.7; }
+    if (this.hospital.y - r < -arena.halfH) { this.hospital.y = -arena.halfH + r; this.hospital.vy = Math.abs(this.hospital.vy) * 0.7; }
+    if (this.hospital.y + r > arena.halfH) { this.hospital.y = arena.halfH - r; this.hospital.vy = -Math.abs(this.hospital.vy) * 0.7; }
   }
 
   /** Apply damage and despawn at 0 HP. Returns true if killed. */
@@ -498,6 +594,8 @@ export class GameEngine {
       maxHp = p?.max_hp ?? 5;
     }
 
+    hp += 1 + this.difficultyBonusHp;
+    maxHp += 1 + this.difficultyBonusHp;
     const ball = new Ball(color, size, position, velocity, diameter, rule, bounceCondition, hp, maxHp, options?.isBoss === true);
 
     // Initial diameter scaling for hp_grow_bouncer
@@ -673,8 +771,8 @@ export class GameEngine {
       launcher.diameter *= launcherMul;
     }
 
-    const requestedHp = boss.color === "red" ? Math.min(12, boss.hp) : boss.hp;
-    const requestedMaxHp = boss.color === "red" ? Math.min(12, boss.maxHp ?? boss.hp) : (boss.maxHp ?? boss.hp);
+    const requestedHp = boss.hp;
+    const requestedMaxHp = boss.maxHp ?? boss.hp;
     const spawnCount = Math.max(1, Math.floor(boss.spawn_count ?? 1));
     const spawnSpacingX = boss.spawn_spacing_x ?? 1.6;
     const spawnedIds: string[] = [];

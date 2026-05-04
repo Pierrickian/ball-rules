@@ -42,6 +42,8 @@ export interface UseGameEngineResult {
   classifyHold: (holdSeconds: number) => ShotKind;
   toggleGrenade: (dir: Vec2, effect?: string) => boolean;
   grenadesLeft: number;
+  setDifficulty: (difficulty: "easy" | "medium" | "hard") => void;
+  difficulty: "easy" | "medium" | "hard";
 }
 
 const DEFAULT_STATE: GameState = {
@@ -81,6 +83,7 @@ export function useGameEngine(): UseGameEngineResult {
   const [lastEvents, setLastEvents] = useState<GameEvent[]>([]);
   const [playerQueue, setPlayerQueue] = useState<ShotKind[]>([]);
   const [grenadesLeft, setGrenadesLeft] = useState(5);
+  const [difficulty, setDifficultyState] = useState<"easy" | "medium" | "hard">("easy");
 
   const engineRef          = useRef<GameEngine | null>(null);
   const grenadeZonesRef    = useRef(createGrenadeZoneStore());
@@ -109,6 +112,7 @@ export function useGameEngine(): UseGameEngineResult {
         setConfig(cfg);
         currentLevelIdxRef.current = 0;
         engineRef.current = new GameEngine(cfg, currentLevelIdxRef.current);
+        engineRef.current.setDifficultyBonusHp(0);
         grenadeZonesRef.current = createGrenadeZoneStore();
         setGrenadesLeft(engineRef.current.getGrenadesLeft());
         const q = buildQueue(cfg.gameplay_controls.queue_size, cfg.gameplay_controls.player_projectile_distribution ?? { light: 0.6, heavy: 0.3, mega: 0.1 });
@@ -128,7 +132,7 @@ export function useGameEngine(): UseGameEngineResult {
       });
 
     return () => { cancelAnimationFrame(animFrameRef.current); };
-  }, []);
+  }, [difficulty]);
 
   // Game loop
   useEffect(() => {
@@ -199,6 +203,8 @@ export function useGameEngine(): UseGameEngineResult {
     const cfg = configRef.current;
     if (!cfg) return;
     engineRef.current = new GameEngine(cfg, currentLevelIdxRef.current);
+    const bonus = difficulty === "easy" ? 0 : difficulty === "medium" ? 2 : 6;
+    engineRef.current.setDifficultyBonusHp(bonus);
     grenadeZonesRef.current = createGrenadeZoneStore();
     setGrenadesLeft(engineRef.current.getGrenadesLeft());
     // Re-apply the persistent session mode so resets keep the user's choice
@@ -395,9 +401,16 @@ export function useGameEngine(): UseGameEngineResult {
     setPlayerQueue(q);
   }, []);
 
+  const setDifficulty = useCallback((next: "easy" | "medium" | "hard") => {
+    setDifficultyState(next);
+    const bonus = next === "easy" ? 0 : next === "medium" ? 2 : 6;
+    engineRef.current?.setDifficultyBonusHp(bonus);
+  }, []);
+
   return {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
     shoot, setLauncherColor, setCustomTerrainDistribution, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, playBossRush, classifyHold, toggleGrenade, grenadesLeft,
+    setDifficulty, difficulty,
   };
 }

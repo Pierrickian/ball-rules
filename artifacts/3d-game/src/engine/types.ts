@@ -120,6 +120,14 @@ export interface GameState {
   currentLevelId: number;
   currentLevelName: string;
   bossIntroActive?: boolean;
+  hospital?: {
+    isActive: boolean;
+    x: number;
+    y: number;
+    diameter: number;
+    hp: number;
+    maxHp: number;
+  };
 }
 
 // ---- Levels ----
@@ -162,6 +170,14 @@ export interface LevelEntry {
   }>>;
   /** Optional boss spawned once all regular enemies are cleared for the level. */
   boss?: LevelBossConfig;
+  hospital?: {
+    x: number;
+    y: number;
+    hp: number;
+    maxHp?: number;
+    heal_per_contact?: number;
+    diameter_from_boss_hp?: number;
+  };
   dark_green_heal_bonus_percent?: number;
 }
 
