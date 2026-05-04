@@ -207,6 +207,8 @@ export class GameEngine {
   isSessionFinished(): boolean {
     const max = this.config.game_session?.max_balls_spawned ?? 20;
     if (this.launchedCount < max) return false;
+    const bossConfigured = !!this.getCurrentLevel()?.boss;
+    if (!bossConfigured) return this.getEnemyBallCount() === 0;
     if (!this.bossSpawned) return false;
     if (!this.bossDefeated) return false;
     return this.getEnemyBallCount() === 0;
@@ -395,8 +397,8 @@ export class GameEngine {
       config: this.config,
       events: this.pendingEvents,
       arena,
-      spawnBall: (c, s, p, v, overrideRule, overrideHp) =>
-        this.spawnBall(c, s, p, v, overrideRule, overrideHp),
+      spawnBall: (c, s2, p, v, overrideRule, overrideHp) =>
+        this.spawnBall(c, s2, p, v, overrideRule, overrideHp),
       despawnBall: (ball, reason) => {
         ball.isAlive = false;
         this.pendingEvents.push({ type: "ball_despawned", ballId: ball.id, reason, position: { ...ball.position }, velocity: { ...ball.velocity }, effect: String(ball.metadata?.effect ?? "") });
@@ -422,7 +424,7 @@ export class GameEngine {
 
     // Step 4: Session-clear flag
     if (this.bossSpawned) {
-      this.bossDefeated = !Array.from(this.balls.values()).some((b) => b.isAlive && b.metadata?.isBoss === true);
+      this.bossDefeated = !Array.from(this.balls.values()).some((b) => b.isAlive && b.isBoss);
     }
     this.sessionCleared = this.isSessionFinished();
 
@@ -445,6 +447,9 @@ export class GameEngine {
     if (died) {
       ball.isAlive = false;
       this.emitEvent({ type: "ball_despawned", ballId: ball.id, reason, position: { ...ball.position }, velocity: { ...ball.velocity }, effect: String(ball.metadata?.effect ?? "") }, this.isInsideUpdate ? "update" : "external");
+    } else if (ball.isBoss) {
+      const ratio = ball.maxHp > 0 ? ball.hp / ball.maxHp : 0;
+      ball.diameter = ball.baseDiameter * Math.max(0.35, ratio);
     } else if (ball.rule === "hp_grow_bouncer") {
       // Keep visual diameter in sync with current HP so damage is visible.
       ball.diameter = this.computeHpGrowDiameter(ball);
@@ -461,7 +466,8 @@ export class GameEngine {
     position: Vec2,
     velocity: Vec2,
     overrideRule?: BallRule,
-    overrideHp?: { hp: number; maxHp: number }
+    overrideHp?: { hp: number; maxHp: number },
+    options?: { isBoss?: boolean }
   ): Ball {
     const diameter = this.config.graphics.ball_sizes[size]?.diameter ?? 0.5;
     const rule = overrideRule ?? this.config.ball_rules[color]?.rule ?? "neutral";
@@ -487,7 +493,7 @@ export class GameEngine {
       maxHp = p?.max_hp ?? 5;
     }
 
-    const ball = new Ball(color, size, position, velocity, diameter, rule, bounceCondition, hp, maxHp);
+    const ball = new Ball(color, size, position, velocity, diameter, rule, bounceCondition, hp, maxHp, options?.isBoss === true);
 
     // Initial diameter scaling for hp_grow_bouncer
     if (rule === "hp_grow_bouncer") {
@@ -639,7 +645,7 @@ export class GameEngine {
     if (this.getEnemyBallCount() > 0) return;
 
     if (this.bossIntroRemaining <= 0) {
-      this.bossIntroRemaining = boss.intro_overlay_seconds ?? 1.4;
+      this.bossIntroRemaining = boss.intro_overlay_seconds ?? this.config.levels?.boss_intro_overlay_seconds ?? 1.4;
       return;
     }
 
@@ -653,13 +659,12 @@ export class GameEngine {
       launcher.diameter *= launcherMul;
     }
 
-    const spawnedBoss = this.spawnBall(boss.color, boss.size ?? BallSize.LARGE, { ...launcher.position }, { x: 0, y: -24 }, undefined, { hp: boss.hp, maxHp: boss.maxHp ?? boss.hp });
+    const spawnedBoss = this.spawnBall(boss.color, boss.size ?? BallSize.LARGE, { ...launcher.position }, { x: boss.horizontal_speed ?? 8, y: -24 }, undefined, { hp: boss.hp, maxHp: boss.maxHp ?? boss.hp }, { isBoss: true });
     const bossMul = boss.diameter_multiplier ?? 1;
     if (bossMul > 0) {
       spawnedBoss.baseDiameter *= bossMul;
       spawnedBoss.diameter *= bossMul;
     }
-    spawnedBoss.metadata = { ...spawnedBoss.metadata, isBoss: true };
     this.bossSpawned = true;
 
     launcher.isAlive = false;

@@ -89,6 +89,7 @@ export interface BallState {
   hp: number;
   maxHp: number;
   metadata: Record<string, unknown>;
+  isBoss?: boolean;
 }
 
 export type GameEvent =
@@ -131,6 +132,7 @@ export interface LevelBossConfig {
   launcher_size?: BallSize;
   launcher_diameter_multiplier?: number;
   intro_overlay_seconds?: number;
+  horizontal_speed?: number;
 }
 
 export interface LevelEntry {
@@ -153,6 +155,7 @@ export interface LevelEntry {
 
 export interface LevelsConfig {
   _description?: string;
+  boss_intro_overlay_seconds?: number;
   list: LevelEntry[];
 }
 

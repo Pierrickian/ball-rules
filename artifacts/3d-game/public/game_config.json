@@ -482,7 +482,7 @@
         "max_hold_seconds": 0.8,
         "damage": 3,
         "passes_through_balls": true,
-        "wall_bounces": 0,
+        "wall_bounces": 1,
         "diameter_multiplier": 1.3,
         "speed": 90,
         "color_tint": "#ffaa44",
@@ -539,7 +539,8 @@
           "diameter_multiplier": 2.4,
           "launcher_size": "large",
           "launcher_diameter_multiplier": 2.2,
-          "intro_overlay_seconds": 1.6
+          "intro_overlay_seconds": 1.6,
+          "horizontal_speed": 10
         }
       },
       {
@@ -629,7 +630,8 @@
           "dark_green": 0.5
         }
       }
-    ]
+    ],
+    "boss_intro_overlay_seconds": 1.5
   },
   "game_rules_concept": {
     "_description": "Texte de présentation des règles du jeu (affiché dans le menu).",
@@ -655,6 +657,7 @@
     ]
   },
   "release_notes": [
+    "Boss génériques, scaling PV et tir appuyé rebond",
     "Overlay BOSS avant spawn du boss blanc",
     "Boss de fin de vague avant passage niveau",
     "Boss noir niveau 1 paramétré par niveau",
@@ -673,8 +676,7 @@
     "Diamètre des explosions de disparition x10",
     "Explosions persistantes et previews par sprite",
     "Encart animé des explosions balle et grenade",
-    "Préviews d'explosions grenade et balle restaurées",
-    "Menu effets et explosions balle/grenade personnalisées"
+    "Préviews d'explosions grenade et balle restaurées"
   ],
   "debug": {
     "show_velocities": false,
