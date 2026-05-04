@@ -96,6 +96,7 @@ export class GameEngine {
   private singleColorMode = false;
   private bossSpawned = false;
   private bossDefeated = false;
+  private bossIntroRemaining = 0;
 
   constructor(config: GameConfig, initialLevelIndex = 0) {
     this.config = config;
@@ -153,6 +154,7 @@ export class GameEngine {
       currentLevelIndex: this.currentLevelIndex,
       currentLevelId: lvl?.id ?? 0,
       currentLevelName: lvl?.name ?? "",
+      bossIntroActive: this.bossIntroRemaining > 0,
     };
   }
 
@@ -377,7 +379,7 @@ export class GameEngine {
     // Fire orange launchers whose visibility delay has elapsed.
     this.updatePendingLaunches(delta, arena);
     // Spawn level boss when regular wave is fully cleared.
-    this.maybeSpawnLevelBoss(arena);
+    this.maybeSpawnLevelBoss(arena, delta);
 
     // Update freeze timers
     this.balls.forEach((ball) => {
@@ -627,7 +629,7 @@ export class GameEngine {
   }
 
 
-  private maybeSpawnLevelBoss(arena: Arena2D): void {
+  private maybeSpawnLevelBoss(arena: Arena2D, delta: number): void {
     if (this.bossSpawned) return;
     const lvl = this.getCurrentLevel();
     const boss = lvl?.boss;
@@ -635,6 +637,14 @@ export class GameEngine {
     const max = this.config.game_session?.max_balls_spawned ?? 20;
     if (this.launchedCount < max) return;
     if (this.getEnemyBallCount() > 0) return;
+
+    if (this.bossIntroRemaining <= 0) {
+      this.bossIntroRemaining = boss.intro_overlay_seconds ?? 1.4;
+      return;
+    }
+
+    this.bossIntroRemaining = Math.max(0, this.bossIntroRemaining - delta);
+    if (this.bossIntroRemaining > 0) return;
 
     const launcher = this.spawnBall("orange", boss.launcher_size ?? BallSize.LARGE, { x: 0, y: arena.halfH - 0.05 }, { x: 0, y: 0 });
     const launcherMul = boss.launcher_diameter_multiplier ?? 2;

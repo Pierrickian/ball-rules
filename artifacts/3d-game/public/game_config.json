@@ -527,18 +527,19 @@
       {
         "id": 1,
         "name": "Niveau 1 — Vague puis boss noir",
-        "description": "Vague de blanches, puis boss noir à 100 PV quand le terrain est vidé. Le niveau ne se termine qu’après sa défaite.",
+        "description": "Vague de blanches, puis boss BLANC à 100 PV quand le terrain est vidé. Le niveau ne se termine qu’après sa défaite.",
         "launch_color_weights": {
           "white": 1
         },
         "boss": {
-          "color": "black",
+          "color": "white",
           "size": "large",
           "hp": 100,
           "maxHp": 100,
           "diameter_multiplier": 2.4,
           "launcher_size": "large",
-          "launcher_diameter_multiplier": 2.2
+          "launcher_diameter_multiplier": 2.2,
+          "intro_overlay_seconds": 1.6
         }
       },
       {
@@ -654,6 +655,7 @@
     ]
   },
   "release_notes": [
+    "Overlay BOSS avant spawn du boss blanc",
     "Boss de fin de vague avant passage niveau",
     "Boss noir niveau 1 paramétré par niveau",
     "Fréquence de spawn terrain accélérée",
@@ -672,8 +674,7 @@
     "Explosions persistantes et previews par sprite",
     "Encart animé des explosions balle et grenade",
     "Préviews d'explosions grenade et balle restaurées",
-    "Menu effets et explosions balle/grenade personnalisées",
-    "Visée grenade dynamique et popups PV visibles"
+    "Menu effets et explosions balle/grenade personnalisées"
   ],
   "debug": {
     "show_velocities": false,

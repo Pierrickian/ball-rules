@@ -229,6 +229,13 @@ function App() {
       {/* Charge bar (always visible) */}
       <ChargeBar holdTime={holdTime} shotKind={currentShotKind} config={config} />
 
+
+      {gameState.bossIntroActive && (
+        <div style={{ position:"absolute", inset:0, display:"grid", placeItems:"center", pointerEvents:"none", zIndex:11 }}>
+          <div style={{ fontSize:64, fontWeight:900, letterSpacing:8, color:"#fff", textShadow:"0 0 24px #ff3b3b, 0 0 8px #000" }}>BOSS</div>
+        </div>
+      )}
+
       {/* HUD */}
       <button
         onClick={() => toggleGrenade(lastDirectionRef.current, grenadeEffect)}

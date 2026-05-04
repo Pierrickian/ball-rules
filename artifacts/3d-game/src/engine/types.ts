@@ -117,6 +117,7 @@ export interface GameState {
   currentLevelIndex: number;
   currentLevelId: number;
   currentLevelName: string;
+  bossIntroActive?: boolean;
 }
 
 // ---- Levels ----
@@ -129,6 +130,7 @@ export interface LevelBossConfig {
   diameter_multiplier?: number;
   launcher_size?: BallSize;
   launcher_diameter_multiplier?: number;
+  intro_overlay_seconds?: number;
 }
 
 export interface LevelEntry {
