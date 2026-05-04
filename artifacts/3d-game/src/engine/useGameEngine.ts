@@ -111,7 +111,7 @@ export function useGameEngine(): UseGameEngineResult {
         engineRef.current = new GameEngine(cfg, currentLevelIdxRef.current);
         grenadeZonesRef.current = createGrenadeZoneStore();
         setGrenadesLeft(engineRef.current.getGrenadesLeft());
-        const q: ShotKind[] = [];
+        const q = buildQueue(cfg.gameplay_controls.queue_size, cfg.gameplay_controls.player_projectile_distribution ?? { light: 0.6, heavy: 0.3, mega: 0.1 });
         queueRef.current = q;
         setPlayerQueue(q);
         const lvl = engineRef.current.getCurrentLevel();
@@ -206,7 +206,7 @@ export function useGameEngine(): UseGameEngineResult {
     if (sessionModeRef.current === "single_color") {
       engineRef.current.setSingleColorMode(true);
     }
-    const q: ShotKind[] = [];
+    const q = buildQueue(cfg.gameplay_controls.queue_size, cfg.gameplay_controls.player_projectile_distribution ?? { light: 0.6, heavy: 0.3, mega: 0.1 });
     queueRef.current = q;
     setPlayerQueue(q);
     const lvl = engineRef.current.getCurrentLevel();
@@ -235,8 +235,8 @@ export function useGameEngine(): UseGameEngineResult {
   }, []);
 
   /**
-   * Player shoot. Uses hold duration to resolve shot type directly:
-   * light/heavy/mega without queue gating.
+   * Player shoot resolved directly from hold duration.
+   * Queue stays visible but no longer gates or feeds shot execution.
    */
   const shoot = useCallback((targetX: number, targetY: number, holdSeconds: number, forcedKind?: ShotKind): ShotKind | null => {
     const cfg = configRef.current;

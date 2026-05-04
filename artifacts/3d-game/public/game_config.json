@@ -688,7 +688,7 @@
     ]
   },
   "release_notes": [
-    "Tirs libres au curseur sans file bloquante",
+    "Tirs curseur libres sans blocage de seuils",
     "Boss verts: bonus regen 900% et spawn paramétrable",
     "Boss multi-spawn écartés de 70 degrés",
     "Boss multi-spawn éventail de trajectoires",
