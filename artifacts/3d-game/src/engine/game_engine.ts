@@ -1218,6 +1218,14 @@ export class GameEngine {
         ctx.events.push({ type: "collision", ballAId: ball.id, ballBId: other.id });
         ctx.damageBall(other, meta.damage, "killed_by_player");
         this.trySplitRedAfterNonLethalHit(other, hpBeforeHit, ball.id, ctx);
+        const nonLethalHit = other.isAlive;
+
+        // Heavy/mega now stop on contact if the target survives.
+        // If the hit is lethal, the projectile keeps going.
+        if (meta.passesThroughBalls && nonLethalHit) {
+          ctx.despawnBall(ball, "projectile_hit_ball_non_lethal");
+          return;
+        }
 
         // Bouncy_surface targets (e.g. blue) act as bumpers for ALL three
         // shot kinds: the projectile ricochets off them and keeps flying
