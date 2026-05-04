@@ -35,6 +35,8 @@ function App() {
   const lastTargetRef = useRef<{ x: number; y: number }>({ x: 0, y: 1000 });
   const lastDirectionRef = useRef<Vec2>({ x: 0, y: 1 });
   const [aimDirection, setAimDirection] = useState<Vec2>({ x: 0, y: 1 });
+  const [lockOn, setLockOn] = useState(false);
+  const [lockedBallId, setLockedBallId] = useState<string | null>(null);
   const [ballEffect, setBallEffect] = useState(() => localStorage.getItem("bg_effect_ball") ?? "spark");
   const [grenadeEffect, setGrenadeEffect] = useState(() => localStorage.getItem("bg_effect_grenade") ?? "spark");
   const [debugExplosionTexture, setDebugExplosionTexture] = useState(() => localStorage.getItem("bg_debug_explosion_texture") === "1");
@@ -89,6 +91,7 @@ function App() {
   };
 
   const handlePointerMove = (gameX: number, gameY: number) => {
+    if (lockOn) return;
     lastTargetRef.current = { x: gameX, y: gameY };
     const dx = gameX;
     const dy = gameY + (config?.graphics.arena.height ?? 0) * 0.5;
@@ -104,7 +107,12 @@ function App() {
     if (!pointerActiveRef.current) return;
     pointerActiveRef.current = false;
     if (!menuOpenRef.current && isRunningRef.current) {
-      tryShootBall(gameX, gameY, holdTime);
+      let tx = gameX; let ty = gameY;
+      if (lockOn && lockedBallId && gameState) {
+        const b = gameState.balls.get(lockedBallId);
+        if (b?.isAlive) { tx = b.position.x; ty = b.position.y; }
+      }
+      tryShootBall(tx, ty, holdTime);
     }
     cycleStartRef.current = performance.now();
     setHoldTime(0);
@@ -146,6 +154,38 @@ function App() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!gameState) return;
+    const lastAliveHit = [...lastEvents].reverse().find((e) => e.type === "ball_damaged" && e.remainingHp > 0) as Extract<(typeof lastEvents)[number], { type: "ball_damaged" }> | undefined;
+    if (lastAliveHit) setLockedBallId(lastAliveHit.ballId);
+    if (!lockOn) return;
+    let id = lockedBallId;
+    const current = id ? gameState.balls.get(id) : null;
+    if (!current || !current.isAlive) {
+      let best: { id: string; d: number } | null = null;
+      for (const b of gameState.balls.values()) {
+        if (!b.isAlive || b.rule === "player_projectile" || b.color === "orange") continue;
+        const d = b.position.x * b.position.x + b.position.y * b.position.y;
+        if (!best || d < best.d) best = { id: b.id, d };
+      }
+      id = best?.id ?? null;
+      setLockedBallId(id);
+    }
+    if (id) {
+      const b = gameState.balls.get(id);
+      if (b) {
+        const dx = b.position.x;
+        const dy = b.position.y + (config?.graphics.arena.height ?? 0) * 0.5;
+        const len = Math.hypot(dx, dy);
+        if (len > 0.001) {
+          const next = { x: dx / len, y: dy / len };
+          lastDirectionRef.current = next;
+          setAimDirection(next);
+        }
+      }
+    }
+  }, [gameState, lastEvents, lockOn, lockedBallId, config]);
 
 
   if (!gameState || !config) {
@@ -221,6 +261,12 @@ function App() {
         style={{position:"absolute", right:16, bottom:140, width:56, height:56, borderRadius:"50%", border:"2px solid #ffcc66", background:"radial-gradient(circle at 30% 30%, #667, #223)", color:"#fff", zIndex:12, fontWeight:"bold"}}
       >
         💣 {grenadesLeft}
+      </button>
+      <button
+        onClick={() => setLockOn((v) => !v)}
+        style={{ position:"absolute", left:"50%", transform:"translateX(-50%)", bottom:104, border:"1px solid #1e90ff", background: lockOn ? "#1e90ff" : "rgba(0,0,0,.55)", color:"#fff", borderRadius:8, padding:"6px 12px", zIndex:12 }}
+      >
+        {lockOn ? "🔒 Lock" : "🔓 Lock"}
       </button>
 
       <HUD

@@ -704,6 +704,7 @@
     ]
   },
   "release_notes": [
+    "Lock cible, rouges capés 8 PV, jaunes +15% visibles",
     "Bonus PV medium/hard appliqué au reset",
     "Bouton Play ajouté au menu Difficulté",
     "Reset difficulté immédiat et heal hôpital fiable",
@@ -722,8 +723,7 @@
     "Boss multi-spawn écartés de 70 degrés",
     "Boss multi-spawn éventail de trajectoires",
     "Menu custom conserve niveaux + boss multi-spawn",
-    "Immunité impacts rouges/tirs unifiée à 200 ms",
-    "Cap boss rouge 12 PV + boss jaune/noir ajoutés"
+    "Immunité impacts rouges/tirs unifiée à 200 ms"
   ],
   "debug": {
     "show_velocities": false,

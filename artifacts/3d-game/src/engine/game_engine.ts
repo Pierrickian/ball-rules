@@ -519,6 +519,10 @@ export class GameEngine {
         ball.maxHp += this.hospital.healPerContact;
         ball.hp = Math.min(ball.maxHp, ball.hp + this.hospital.healPerContact);
       }
+      if (ball.color === "red" && !ball.isBoss) {
+        ball.maxHp = Math.min(ball.maxHp, 8);
+        ball.hp = Math.min(ball.hp, ball.maxHp);
+      }
       const applied = ball.hp - beforeHp;
       if (applied <= 0) continue;
       this.pendingEvents.push({ type: "ball_healed", ballId: ball.id, amount: applied, remainingHp: ball.hp, position: { ...ball.position } });
@@ -602,6 +606,10 @@ export class GameEngine {
 
     hp += 1 + this.difficultyBonusHp;
     maxHp += 1 + this.difficultyBonusHp;
+    if (color === "red" && options?.isBoss !== true) {
+      maxHp = Math.min(maxHp, 8);
+      hp = Math.min(hp, maxHp);
+    }
     const ball = new Ball(color, size, position, velocity, diameter, rule, bounceCondition, hp, maxHp, options?.isBoss === true);
 
     // Initial diameter scaling for hp_grow_bouncer
@@ -1189,8 +1197,10 @@ export class GameEngine {
     const age = Number(ball.metadata.ageSeconds ?? 0) + delta;
     ball.metadata.ageSeconds = age;
 
-    const cycle = Math.max(0.01, p.cycle_seconds ?? 1.0);
-    const invis = Math.max(0, Math.min(cycle, p.invisible_duration_seconds ?? 0.5));
+    const baseCycle = Math.max(0.01, p.cycle_seconds ?? 1.0);
+    const invis = Math.max(0, Math.min(baseCycle, p.invisible_duration_seconds ?? 0.5));
+    const visible = Math.max(0.01, baseCycle - invis);
+    const cycle = invis + visible * 1.15;
     const phase = age % cycle;
     const isInvisible = phase < invis;
     ball.metadata.visibilityAlpha = isInvisible ? 0.0 : 1.0;
