@@ -200,6 +200,7 @@ function Scene({ gameState, config, events, aimDirection, ballEffect, grenadeEff
   const arenaHalfH = h / 2;
   const grenadeTemplateOriginY = -arenaHalfH + 2;
   const aimLength = Math.max(8, Math.min(w, h) * 0.22);
+  const hospital = gameState.hospital;
 
   useEffect(() => {
     if (!events || events.length === 0) return;
@@ -287,6 +288,12 @@ function Scene({ gameState, config, events, aimDirection, ballEffect, grenadeEff
       />
       <pointLight position={[0, -10, 0]} intensity={0.15} color="#4488ff" />
       <Arena config={config} />
+      {hospital?.isActive && (
+        <mesh position={[hospital.x, 0.08, -hospital.y]} rotation={[-Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[hospital.diameter / 2, 48]} />
+          <meshStandardMaterial color="#ffffff" emissive="#ffffff" emissiveIntensity={0.25} roughness={0.6} metalness={0.05} />
+        </mesh>
+      )}
       {aimDirection && (
         <>
           <mesh position={[0, 0.08, -grenadeTemplateOriginY]} rotation={[-Math.PI / 2, 0, 0]}>

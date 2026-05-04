@@ -97,6 +97,7 @@ export class GameEngine {
   private bossSpawned = false;
   private bossDefeated = false;
   private bossIntroRemaining = 0;
+  private hospital: { x: number; y: number; diameter: number; hp: number; maxHp: number; healPerContact: number } | null = null;
 
   constructor(config: GameConfig, initialLevelIndex = 0) {
     this.config = config;
@@ -105,6 +106,7 @@ export class GameEngine {
     this.currentLevelIndex = levelCount > 0
       ? ((initialLevelIndex % levelCount) + levelCount) % levelCount
       : 0;
+    this.configureHospitalForCurrentLevel();
     this.registerAllHandlers();
   }
 
@@ -155,6 +157,14 @@ export class GameEngine {
       currentLevelId: lvl?.id ?? 0,
       currentLevelName: lvl?.name ?? "",
       bossIntroActive: this.bossIntroRemaining > 0,
+      hospital: this.hospital ? {
+        isActive: this.hospital.hp > 0,
+        x: this.hospital.x,
+        y: this.hospital.y,
+        diameter: this.hospital.diameter,
+        hp: this.hospital.hp,
+        maxHp: this.hospital.maxHp,
+      } : undefined,
     };
   }
 
@@ -185,6 +195,7 @@ export class GameEngine {
   updateConfig(config: GameConfig): void {
     this.config = config;
     this.logEnabled = config.debug?.log_rule_changes ?? false;
+    this.configureHospitalForCurrentLevel();
   }
 
   getLaunchedCount(): number {
@@ -383,6 +394,7 @@ export class GameEngine {
     this.updatePendingLaunches(delta, arena);
     // Spawn level boss when regular wave is fully cleared.
     this.maybeSpawnLevelBoss(arena, delta);
+    this.applyHospitalHealing();
 
     // Update freeze timers
     this.balls.forEach((ball) => {
@@ -437,6 +449,51 @@ export class GameEngine {
     const state = this.getState();
     this.isInsideUpdate = false;
     return state;
+  }
+
+  private configureHospitalForCurrentLevel(): void {
+    const hospital = this.getCurrentLevel()?.hospital;
+    if (!hospital) {
+      this.hospital = null;
+      return;
+    }
+    const maxHp = hospital.maxHp ?? hospital.hp;
+    const diameterFromBossHp = hospital.diameter_from_boss_hp ?? 100;
+    const baseBossDiameter = this.config.graphics.ball_sizes[BallSize.LARGE]?.diameter ?? 1;
+    const diameter = baseBossDiameter * Math.max(0.1, diameterFromBossHp / 100);
+    this.hospital = {
+      x: hospital.x,
+      y: hospital.y,
+      diameter,
+      hp: hospital.hp,
+      maxHp,
+      healPerContact: hospital.heal_per_contact ?? 1,
+    };
+  }
+
+  private applyHospitalHealing(): void {
+    if (!this.hospital || this.hospital.hp <= 0) return;
+    for (const ball of this.balls.values()) {
+      if (!ball.isAlive || ball.color === "orange" || ball.isProjectile()) continue;
+      const dx = ball.position.x - this.hospital.x;
+      const dy = ball.position.y - this.hospital.y;
+      const minDist = (ball.diameter + this.hospital.diameter) / 2;
+      if ((dx * dx + dy * dy) > (minDist * minDist)) continue;
+      const gained = ball.heal(this.hospital.healPerContact);
+      if (gained <= 0) continue;
+      this.pendingEvents.push({
+        type: "ball_healed",
+        ballId: ball.id,
+        amount: gained,
+        remainingHp: ball.hp,
+        position: { ...ball.position },
+      });
+      this.hospital.hp = Math.max(0, this.hospital.hp - 1);
+      if (this.hospital.hp <= 0) {
+        this.hospital = null;
+        return;
+      }
+    }
   }
 
   /** Apply damage and despawn at 0 HP. Returns true if killed. */
