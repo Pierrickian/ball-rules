@@ -75,6 +75,16 @@ function buildQueue(size: number, distribution: Record<ShotKind, number>): ShotK
 }
 
 export function useGameEngine(): UseGameEngineResult {
+  const getCurrentProjectileDistribution = useCallback((cfg: GameConfig, levelIndex: number): Record<ShotKind, number> => {
+    const fallback: Record<ShotKind, number> = cfg.gameplay_controls.player_projectile_distribution ?? { light: 0.6, heavy: 0.3, mega: 0.1 };
+    const levelDist = cfg.levels?.list?.[levelIndex]?.player_projectile_distribution;
+    if (!levelDist) return fallback;
+    return {
+      light: levelDist.light ?? fallback.light,
+      heavy: levelDist.heavy ?? fallback.heavy,
+      mega: levelDist.mega ?? fallback.mega,
+    };
+  }, []);
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [config, setConfig] = useState<GameConfig | null>(null);
   const [isRunning, setIsRunning] = useState(false);
@@ -111,7 +121,7 @@ export function useGameEngine(): UseGameEngineResult {
         engineRef.current = new GameEngine(cfg, currentLevelIdxRef.current);
         grenadeZonesRef.current = createGrenadeZoneStore();
         setGrenadesLeft(engineRef.current.getGrenadesLeft());
-        const q = buildQueue(cfg.gameplay_controls.queue_size, cfg.gameplay_controls.player_projectile_distribution ?? { light: 0.6, heavy: 0.3, mega: 0.1 });
+        const q = buildQueue(cfg.gameplay_controls.queue_size, getCurrentProjectileDistribution(cfg, currentLevelIdxRef.current));
         queueRef.current = q;
         setPlayerQueue(q);
         const lvl = engineRef.current.getCurrentLevel();
@@ -128,7 +138,7 @@ export function useGameEngine(): UseGameEngineResult {
       });
 
     return () => { cancelAnimationFrame(animFrameRef.current); };
-  }, []);
+  }, [getCurrentProjectileDistribution]);
 
   // Game loop
   useEffect(() => {
@@ -206,7 +216,7 @@ export function useGameEngine(): UseGameEngineResult {
     if (sessionModeRef.current === "single_color") {
       engineRef.current.setSingleColorMode(true);
     }
-    const q = buildQueue(cfg.gameplay_controls.queue_size, cfg.gameplay_controls.player_projectile_distribution ?? { light: 0.6, heavy: 0.3, mega: 0.1 });
+    const q = buildQueue(cfg.gameplay_controls.queue_size, getCurrentProjectileDistribution(cfg, currentLevelIdxRef.current));
     queueRef.current = q;
     setPlayerQueue(q);
     const lvl = engineRef.current.getCurrentLevel();
@@ -219,7 +229,7 @@ export function useGameEngine(): UseGameEngineResult {
     lastTimeRef.current = performance.now();
     pausedRef.current = false;
     setIsRunning(true);
-  }, []);
+  }, [getCurrentProjectileDistribution]);
 
   const pause  = useCallback(() => { pausedRef.current = true;  setIsRunning(false); }, []);
   const resume = useCallback(() => { pausedRef.current = false; lastTimeRef.current = performance.now(); setIsRunning(true); }, []);
@@ -261,7 +271,7 @@ export function useGameEngine(): UseGameEngineResult {
 
     // Shift queue and refill
     const next = queue.slice(1);
-    const distribution = cfg.gameplay_controls.player_projectile_distribution ?? { light: 0.6, heavy: 0.3, mega: 0.1 };
+    const distribution = getCurrentProjectileDistribution(cfg, currentLevelIdxRef.current);
     next.push(buildQueue(1, distribution)[0]);
     queueRef.current = next;
     setPlayerQueue(next);

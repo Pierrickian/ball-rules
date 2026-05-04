@@ -161,6 +161,8 @@ export interface LevelEntry {
   }>>;
   /** Optional boss spawned once all regular enemies are cleared for the level. */
   boss?: LevelBossConfig;
+  /** Optional override for player shot queue distribution on this level. */
+  player_projectile_distribution?: Partial<Record<ShotKind, number>>;
   dark_green_heal_bonus_percent?: number;
 }
 

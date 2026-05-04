@@ -633,6 +633,11 @@
         "launch_color_weights": {
           "red": 1
         },
+        "player_projectile_distribution": {
+          "light": 1,
+          "heavy": 0,
+          "mega": 0
+        },
         "boss": {
           "color": "red",
           "hp": 12,
@@ -677,6 +682,7 @@
     ]
   },
   "release_notes": [
+    "Niveau rouge limité aux tirs légers",
     "Boss verts: bonus regen 900% et spawn paramétrable",
     "Boss multi-spawn écartés de 70 degrés",
     "Boss multi-spawn éventail de trajectoires",
@@ -695,8 +701,7 @@
     "Grenade agrandie et déflagration visuelle ajoutée",
     "Diamètre visuel grenade aligné sur zone de dégâts",
     "File d’intentions UI pour actions grenade",
-    "Détonation grenade synchronisée à la frame update",
-    "File d’événements externe synchronisée par frame"
+    "Détonation grenade synchronisée à la frame update"
   ],
   "debug": {
     "show_velocities": false,
