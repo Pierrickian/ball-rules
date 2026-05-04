@@ -123,6 +123,11 @@ export interface GameState {
 
 // ---- Levels ----
 
+export interface BossSpawnPosition {
+  x: number;
+  y: number;
+}
+
 export interface LevelBossConfig {
   color: BallColor;
   size?: BallSize;
@@ -134,7 +139,11 @@ export interface LevelBossConfig {
   intro_overlay_seconds?: number;
   horizontal_speed?: number;
   spawn_count?: number;
+  spawn_spacing_x?: number;
+  spawn_position?: BossSpawnPosition;
+  dark_green_heal_bonus_percent?: number;
 }
+
 
 export interface LevelEntry {
   id: number;
@@ -152,6 +161,7 @@ export interface LevelEntry {
   }>>;
   /** Optional boss spawned once all regular enemies are cleared for the level. */
   boss?: LevelBossConfig;
+  dark_green_heal_bonus_percent?: number;
 }
 
 export interface LevelsConfig {
