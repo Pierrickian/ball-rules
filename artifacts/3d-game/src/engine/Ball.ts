@@ -40,6 +40,7 @@ export class Ball {
   hp: number;
   maxHp: number;
   metadata: Record<string, unknown>;
+  isBoss: boolean;
 
   constructor(
     color: BallColor,
@@ -50,7 +51,8 @@ export class Ball {
     rule: BallRule,
     bounceCondition: BounceCondition = BounceCondition.AGAINST_WALL,
     hp = 1,
-    maxHp = 1
+    maxHp = 1,
+    isBoss = false
   ) {
     this.id = uuidv4();
     this.color = color;
@@ -68,6 +70,7 @@ export class Ball {
     this.hp = hp;
     this.maxHp = maxHp;
     this.metadata = {};
+    this.isBoss = isBoss;
   }
 
   /** Transfer this ball's rule to another. The other adopts the rule; this becomes "neutral". */
@@ -124,6 +127,7 @@ export class Ball {
       hp: this.hp,
       maxHp: this.maxHp,
       metadata: { ...this.metadata },
+      isBoss: this.isBoss,
     };
   }
 

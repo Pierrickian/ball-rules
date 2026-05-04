@@ -15,7 +15,7 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { ExplosionSprite } from "../scenes/ExplosionSprite";
 import type { BallColor, GameConfig } from "../engine/types";
 
-type MenuView = "main" | "rules" | "balls" | "terrain" | "launcher_color" | "player_colors" | "how_to_ask" | "release_notes" | "levels" | "effects";
+type MenuView = "main" | "rules" | "balls" | "terrain" | "launcher_color" | "player_colors" | "how_to_ask" | "release_notes" | "levels" | "boss" | "effects";
 
 interface MenuProps {
   config: GameConfig;
@@ -26,6 +26,7 @@ interface MenuProps {
   /** Jump to a specific story-mode level (0-based index). Resets the game. */
   onLevelSelect: (index: number) => void;
   onLevelWeightsChange: (index: number, weights: Record<BallColor, number>) => void;
+  onPlayBossRush: (levelIds: number[]) => void;
   /** Index 0-based of the currently active level, or -1 if no levels are configured. */
   currentLevelIndex: number;
   ballEffect: string;
@@ -544,10 +545,11 @@ function PlayerColorsMenu({
 // Main Menu
 // ============================================================
 function MainMenu({
-  onRules, onLevels, onBalls, onTerrain, onLauncherColor, onPlayerColors, onHowToAsk, onReleaseNotes, onEffects, onClose,
+  onRules, onLevels, onBoss, onBalls, onTerrain, onLauncherColor, onPlayerColors, onHowToAsk, onReleaseNotes, onEffects, onClose,
 }: {
   onRules:          () => void;
   onLevels:         () => void;
+  onBoss:           () => void;
   onBalls:          () => void;
   onTerrain:        () => void;
   onLauncherColor:  () => void;
@@ -575,6 +577,13 @@ function MainMenu({
         <div>
           <div style={{ fontWeight: "bold" }}>Niveau</div>
           <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Progression et description par niveau</div>
+        </div>
+      </button>
+      <button style={MENU_BTN} onClick={onBoss}>
+        <span style={{ fontSize: 20 }}>👑</span>
+        <div>
+          <div style={{ fontWeight: "bold" }}>Boss</div>
+          <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Boss Rush multi-niveaux</div>
         </div>
       </button>
       <button style={MENU_BTN} onClick={onBalls}>
@@ -1532,6 +1541,24 @@ function EffectPreview3D({ kind, effect, debugTexture }: { kind: "ball" | "grena
   return <ExplosionSprite kind={kind} effect={effect} t={t} debugTexture={debugTexture} />;
 }
 
+
+function BossMenu({ config, onPlayBossRush, onBack, onClose }: { config: GameConfig; onPlayBossRush: (levelIds: number[]) => void; onBack: () => void; onClose: () => void; }) {
+  const bossLevels = (config.levels?.list ?? []).filter((lvl) => !!lvl.boss);
+  const [selected, setSelected] = useState<number[]>([]);
+  const toggle = (id: number) => setSelected((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  return <div style={PANEL}>
+    <h3 style={{ margin: 0 }}>Boss Rush</h3>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+      {bossLevels.map((lvl) => {
+        const on = selected.includes(lvl.id);
+        return <button key={lvl.id} onClick={() => toggle(lvl.id)} style={{ ...CLOSE_BTN, minWidth: 32, padding: '4px 8px', background: on ? 'rgba(30,144,255,.3)' : 'transparent' }}>{lvl.id}</button>;
+      })}
+    </div>
+    <button style={CLOSE_BTN} onClick={() => { onPlayBossRush(selected); onClose(); }} disabled={selected.length===0}>▶ Play</button>
+    <button style={CLOSE_BTN} onClick={onBack}>← Retour</button>
+  </div>;
+}
+
 // ============================================================
 // Root Menu Component
 // ============================================================
@@ -1543,6 +1570,7 @@ export function Menu({
   onPlayerDistributionChange,
   onLevelSelect,
   onLevelWeightsChange,
+  onPlayBossRush,
   currentLevelIndex,
   ballEffect,
   grenadeEffect,
@@ -1559,6 +1587,7 @@ export function Menu({
         <MainMenu
           onRules={() => setView("rules")}
           onLevels={() => setView("levels")}
+          onBoss={() => setView("boss")}
           onBalls={() => setView("balls")}
           onTerrain={() => setView("terrain")}
           onLauncherColor={() => setView("launcher_color")}
@@ -1571,6 +1600,7 @@ export function Menu({
       )}
       {view === "rules"          && <RulesView      config={config} onBack={() => setView("main")} />}
       {view === "levels"         && <LevelsCarousel config={config} currentLevelIndex={currentLevelIndex} onLevelSelect={onLevelSelect} onLevelWeightsChange={onLevelWeightsChange} onClose={onClose} onBack={() => setView("main")} />}
+      {view === "boss"           && <BossMenu config={config} onPlayBossRush={onPlayBossRush} onClose={onClose} onBack={() => setView("main")} />}
       {view === "balls"          && <BallsCarousel  config={config} onBack={() => setView("main")} />}
       {view === "terrain"        && <TerrainMenu    config={config} onArenaChange={onArenaChange} onBack={() => setView("main")} />}
       {view === "launcher_color" && <LauncherColorMenu config={config} onPlayerDistributionChange={onPlayerDistributionChange} onClose={onClose} onBack={() => setView("main")} />}

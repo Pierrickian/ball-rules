@@ -38,6 +38,7 @@ export interface UseGameEngineResult {
   setPlayerProjectileDistribution: (distribution: Record<ShotKind, number>) => void;
   setActiveLevel: (index: number) => void;
   setLevelWeights: (index: number, weights: Record<BallColor, number>) => void;
+  playBossRush: (levelIds: number[]) => void;
   classifyHold: (holdSeconds: number) => ShotKind;
   toggleGrenade: (dir: Vec2, effect?: string) => boolean;
   grenadesLeft: number;
@@ -92,7 +93,9 @@ export function useGameEngine(): UseGameEngineResult {
   const currentLevelIdxRef = useRef(0);
   // "levels"       — story mode: use level weights, advance on clear (loop)
   // "single_color" — one looping level, 100% of launch_config.color, no progression
-  const sessionModeRef     = useRef<"levels" | "single_color">("levels");
+  const sessionModeRef     = useRef<"levels" | "single_color" | "boss_rush">("levels");
+  const bossRushOrderRef   = useRef<number[]>([]);
+  const defaultMaxSpawnRef = useRef<number>(20);
 
   // Load config and initialize engine
   useEffect(() => {
@@ -102,6 +105,7 @@ export function useGameEngine(): UseGameEngineResult {
       .then((r) => r.json())
       .then((cfg: GameConfig) => {
         configRef.current = cfg;
+        defaultMaxSpawnRef.current = cfg.game_session?.max_balls_spawned ?? 20;
         setConfig(cfg);
         currentLevelIdxRef.current = 0;
         engineRef.current = new GameEngine(cfg, currentLevelIdxRef.current);
@@ -161,13 +165,19 @@ export function useGameEngine(): UseGameEngineResult {
           // Advance to the next level (with wrap-around) before reboot,
           // unless: (a) config disables progression, OR (b) we are in
           // single-color mode (a single looping level, no story).
-          const advance =
-            cfg.game_session.advance_level_on_clear !== false &&
-            sessionModeRef.current === "levels";
           const levelCount = cfg.levels?.list?.length ?? 0;
-          if (advance && levelCount > 0) {
-            currentLevelIdxRef.current =
-              (currentLevelIdxRef.current + 1) % levelCount;
+          if (sessionModeRef.current === "boss_rush" && bossRushOrderRef.current.length > 0) {
+            const order = bossRushOrderRef.current;
+            const pos = Math.max(0, order.indexOf(currentLevelIdxRef.current));
+            currentLevelIdxRef.current = order[(pos + 1) % order.length];
+          } else {
+            const advance =
+              cfg.game_session.advance_level_on_clear !== false &&
+              sessionModeRef.current === "levels";
+            if (advance && levelCount > 0) {
+              currentLevelIdxRef.current =
+                (currentLevelIdxRef.current + 1) % levelCount;
+            }
           }
           window.setTimeout(() => {
             doReset();
@@ -290,9 +300,11 @@ export function useGameEngine(): UseGameEngineResult {
         },
       },
     };
-    configRef.current = newConfig;
-    setConfig(newConfig);
+    const restored: GameConfig = { ...newConfig, game_session: { ...newConfig.game_session, max_balls_spawned: defaultMaxSpawnRef.current } };
+    configRef.current = restored;
+    setConfig(restored);
     sessionModeRef.current = "single_color";
+    bossRushOrderRef.current = [];
     rebootingRef.current = false;
     doReset();
   }, [doReset]);
@@ -307,7 +319,11 @@ export function useGameEngine(): UseGameEngineResult {
     const list = cfg.levels?.list ?? [];
     if (list.length === 0) return;
     const safe = ((index % list.length) + list.length) % list.length;
+    const restored: GameConfig = { ...cfg, game_session: { ...cfg.game_session, max_balls_spawned: defaultMaxSpawnRef.current } };
+    configRef.current = restored;
+    setConfig(restored);
     sessionModeRef.current = "levels";
+    bossRushOrderRef.current = [];
     currentLevelIdxRef.current = safe;
     rebootingRef.current = false;
     doReset();
@@ -338,7 +354,32 @@ export function useGameEngine(): UseGameEngineResult {
     configRef.current = newConfig;
     setConfig(newConfig);
     sessionModeRef.current = "levels";
+    bossRushOrderRef.current = [];
     currentLevelIdxRef.current = 0;
+    rebootingRef.current = false;
+    doReset();
+  }, [doReset]);
+
+
+  const playBossRush = useCallback((levelIds: number[]) => {
+    const cfg = configRef.current;
+    if (!cfg || !cfg.levels?.list?.length) return;
+    const wanted = new Set(levelIds);
+    const order = cfg.levels.list
+      .map((lvl, idx) => ({ lvl, idx }))
+      .filter(({ lvl }) => wanted.has(lvl.id) && lvl.boss)
+      .map(({ idx }) => idx);
+    if (order.length === 0) return;
+
+    const newConfig: GameConfig = {
+      ...cfg,
+      game_session: { ...cfg.game_session, max_balls_spawned: 0 },
+    };
+    configRef.current = newConfig;
+    setConfig(newConfig);
+    sessionModeRef.current = "boss_rush";
+    bossRushOrderRef.current = order;
+    currentLevelIdxRef.current = order[0];
     rebootingRef.current = false;
     doReset();
   }, [doReset]);
@@ -361,6 +402,6 @@ export function useGameEngine(): UseGameEngineResult {
   return {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
-    shoot, setLauncherColor, setCustomTerrainDistribution, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, classifyHold, toggleGrenade, grenadesLeft,
+    shoot, setLauncherColor, setCustomTerrainDistribution, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, playBossRush, classifyHold, toggleGrenade, grenadesLeft,
   };
 }

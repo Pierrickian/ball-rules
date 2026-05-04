@@ -94,6 +94,9 @@ export class GameEngine {
   // the "Couleur lancée" menu to play a single-color, single-level loop
   // without entering story mode.
   private singleColorMode = false;
+  private bossSpawned = false;
+  private bossDefeated = false;
+  private bossIntroRemaining = 0;
 
   constructor(config: GameConfig, initialLevelIndex = 0) {
     this.config = config;
@@ -151,6 +154,7 @@ export class GameEngine {
       currentLevelIndex: this.currentLevelIndex,
       currentLevelId: lvl?.id ?? 0,
       currentLevelName: lvl?.name ?? "",
+      bossIntroActive: this.bossIntroRemaining > 0,
     };
   }
 
@@ -202,7 +206,12 @@ export class GameEngine {
   /** Has the session reached its spawn cap AND is now cleared? */
   isSessionFinished(): boolean {
     const max = this.config.game_session?.max_balls_spawned ?? 20;
-    return this.launchedCount >= max && this.getEnemyBallCount() === 0;
+    if (this.launchedCount < max) return false;
+    const bossConfigured = !!this.getCurrentLevel()?.boss;
+    if (!bossConfigured) return this.getEnemyBallCount() === 0;
+    if (!this.bossSpawned) return false;
+    if (!this.bossDefeated) return false;
+    return this.getEnemyBallCount() === 0;
   }
 
   // --------------------------------------------------------
@@ -348,7 +357,8 @@ export class GameEngine {
     for (const other of this.balls.values()) {
       if (!other.isAlive || other.id===grenade.id || other.isProjectile() || other.color==='orange') continue;
       const dx = other.position.x - grenade.position.x; const dy = other.position.y - grenade.position.y;
-      if (Math.sqrt(dx*dx+dy*dy) <= radius) this.damageBall(other, 10, 'killed_by_grenade');
+      const reach = radius + other.diameter / 2;
+      if (Math.sqrt(dx*dx+dy*dy) <= reach) this.damageBall(other, 10, 'killed_by_grenade');
     }
     grenade.isAlive = false;
     this.emitEvent({ type: 'ball_despawned', ballId: grenade.id, reason: 'grenade_exploded', position: { ...grenade.position }, velocity: { ...grenade.velocity }, effect: String(grenade.metadata?.effect ?? 'ring') }, "update");
@@ -371,6 +381,8 @@ export class GameEngine {
     this.updateOrangeSpawn(delta, arena);
     // Fire orange launchers whose visibility delay has elapsed.
     this.updatePendingLaunches(delta, arena);
+    // Spawn level boss when regular wave is fully cleared.
+    this.maybeSpawnLevelBoss(arena, delta);
 
     // Update freeze timers
     this.balls.forEach((ball) => {
@@ -386,8 +398,8 @@ export class GameEngine {
       config: this.config,
       events: this.pendingEvents,
       arena,
-      spawnBall: (c, s, p, v, overrideRule, overrideHp) =>
-        this.spawnBall(c, s, p, v, overrideRule, overrideHp),
+      spawnBall: (c, s2, p, v, overrideRule, overrideHp) =>
+        this.spawnBall(c, s2, p, v, overrideRule, overrideHp),
       despawnBall: (ball, reason) => {
         ball.isAlive = false;
         this.pendingEvents.push({ type: "ball_despawned", ballId: ball.id, reason, position: { ...ball.position }, velocity: { ...ball.velocity }, effect: String(ball.metadata?.effect ?? "") });
@@ -412,6 +424,9 @@ export class GameEngine {
     });
 
     // Step 4: Session-clear flag
+    if (this.bossSpawned) {
+      this.bossDefeated = !Array.from(this.balls.values()).some((b) => b.isAlive && b.isBoss);
+    }
     this.sessionCleared = this.isSessionFinished();
 
     const state = this.getState();
@@ -433,6 +448,9 @@ export class GameEngine {
     if (died) {
       ball.isAlive = false;
       this.emitEvent({ type: "ball_despawned", ballId: ball.id, reason, position: { ...ball.position }, velocity: { ...ball.velocity }, effect: String(ball.metadata?.effect ?? "") }, this.isInsideUpdate ? "update" : "external");
+    } else if (ball.isBoss) {
+      const ratio = ball.maxHp > 0 ? ball.hp / ball.maxHp : 0;
+      ball.diameter = ball.baseDiameter * Math.max(0.35, ratio);
     } else if (ball.rule === "hp_grow_bouncer") {
       // Keep visual diameter in sync with current HP so damage is visible.
       ball.diameter = this.computeHpGrowDiameter(ball);
@@ -449,7 +467,8 @@ export class GameEngine {
     position: Vec2,
     velocity: Vec2,
     overrideRule?: BallRule,
-    overrideHp?: { hp: number; maxHp: number }
+    overrideHp?: { hp: number; maxHp: number },
+    options?: { isBoss?: boolean }
   ): Ball {
     const diameter = this.config.graphics.ball_sizes[size]?.diameter ?? 0.5;
     const rule = overrideRule ?? this.config.ball_rules[color]?.rule ?? "neutral";
@@ -475,10 +494,10 @@ export class GameEngine {
       maxHp = p?.max_hp ?? 5;
     }
 
-    const ball = new Ball(color, size, position, velocity, diameter, rule, bounceCondition, hp, maxHp);
+    const ball = new Ball(color, size, position, velocity, diameter, rule, bounceCondition, hp, maxHp, options?.isBoss === true);
 
     // Initial diameter scaling for hp_grow_bouncer
-    if (rule === "hp_grow_bouncer") {
+    if (rule === "hp_grow_bouncer" && !ball.isBoss) {
       ball.diameter = this.computeHpGrowDiameter(ball);
     }
 
@@ -616,6 +635,46 @@ export class GameEngine {
     }
   }
 
+
+  private maybeSpawnLevelBoss(arena: Arena2D, delta: number): void {
+    if (this.bossSpawned) return;
+    const lvl = this.getCurrentLevel();
+    const boss = lvl?.boss;
+    if (!boss) return;
+    const max = this.config.game_session?.max_balls_spawned ?? 20;
+    if (this.launchedCount < max) return;
+    if (this.getEnemyBallCount() > 0) return;
+
+    if (this.bossIntroRemaining <= 0) {
+      this.bossIntroRemaining = boss.intro_overlay_seconds ?? this.config.levels?.boss_intro_overlay_seconds ?? 1.4;
+      return;
+    }
+
+    this.bossIntroRemaining = Math.max(0, this.bossIntroRemaining - delta);
+    if (this.bossIntroRemaining > 0) return;
+
+    const launcher = this.spawnBall("orange", boss.launcher_size ?? BallSize.LARGE, { x: 0, y: arena.halfH - 0.05 }, { x: 0, y: 0 });
+    const launcherMul = boss.launcher_diameter_multiplier ?? 2;
+    if (launcherMul > 0) {
+      launcher.baseDiameter *= launcherMul;
+      launcher.diameter *= launcherMul;
+    }
+
+    const requestedHp = boss.color === "red" ? Math.min(12, boss.hp) : boss.hp;
+    const requestedMaxHp = boss.color === "red" ? Math.min(12, boss.maxHp ?? boss.hp) : (boss.maxHp ?? boss.hp);
+    const spawnedBoss = this.spawnBall(boss.color, boss.size ?? BallSize.LARGE, { ...launcher.position }, { x: boss.horizontal_speed ?? 8, y: -24 }, undefined, { hp: requestedHp, maxHp: requestedMaxHp }, { isBoss: true });
+    const bossMul = boss.diameter_multiplier ?? 1;
+    if (bossMul > 0) {
+      spawnedBoss.baseDiameter *= bossMul;
+      spawnedBoss.diameter *= bossMul;
+    }
+    this.bossSpawned = true;
+
+    launcher.isAlive = false;
+    this.pendingEvents.push({ type: "orange_launched", launcherId: launcher.id, launchedId: spawnedBoss.id });
+    this.pendingEvents.push({ type: "ball_despawned", ballId: launcher.id, reason: "after_launch" });
+  }
+
   /** Pick a color from a weights map. Ignores zero/negative weights and
    *  unknown colors. Returns null if no valid entry remains. */
   private weightedPickColor(
@@ -714,7 +773,8 @@ export class GameEngine {
       color = launchCfg.color as BallColor;
     }
 
-    const size = (launchCfg.size as BallSize) ?? BallSize.SMALL;
+    const levelOverride = lvl?.launch_overrides?.[color];
+    const size = (levelOverride?.size as BallSize) ?? (launchCfg.size as BallSize) ?? BallSize.SMALL;
     const speed = launchCfg.speed ?? 4.5;
     const toCenter = normalize({ x: -launcher.position.x, y: -launcher.position.y });
     const randomAngle = (Math.random() - 0.5) * Math.PI * 0.8;
@@ -725,7 +785,16 @@ export class GameEngine {
     const dir: Vec2 = { x: toCenter.x * cos + perpX * sin, y: toCenter.y * cos + perpY * sin };
 
     void arena;
-    const launched = this.spawnBall(color, size, { ...launcher.position }, { x: dir.x * speed, y: dir.y * speed });
+    const overrideHp =
+      typeof levelOverride?.hp === "number" || typeof levelOverride?.maxHp === "number"
+        ? { hp: levelOverride?.hp ?? levelOverride?.maxHp ?? 1, maxHp: levelOverride?.maxHp ?? levelOverride?.hp ?? 1 }
+        : undefined;
+
+    const launched = this.spawnBall(color, size, { ...launcher.position }, { x: dir.x * speed, y: dir.y * speed }, undefined, overrideHp);
+    if (levelOverride?.diameter_multiplier && levelOverride.diameter_multiplier > 0) {
+      launched.baseDiameter *= levelOverride.diameter_multiplier;
+      launched.diameter *= levelOverride.diameter_multiplier;
+    }
     this.launchedCount++;
     this.pendingEvents.push({ type: "orange_launched", launcherId: launcher.id, launchedId: launched.id });
 
@@ -1099,12 +1168,16 @@ export class GameEngine {
       if (this.isTemporarilyUntouchable(other)) continue;
       if (meta.damagedIds.has(other.id)) continue;
 
+      const ignoreProjectileId = typeof other.metadata?.ignoreProjectileId === "string" ? other.metadata.ignoreProjectileId : null;
+      const ignoreUntil = typeof other.metadata?.ignoreProjectileUntil === "number" ? other.metadata.ignoreProjectileUntil : 0;
+      if (ignoreProjectileId === ball.id && ignoreUntil > this.elapsedTime) continue;
+
       if (ball.isCollidingWith(other)) {
         const hpBeforeHit = other.hp;
         meta.damagedIds.add(other.id);
         ctx.events.push({ type: "collision", ballAId: ball.id, ballBId: other.id });
         ctx.damageBall(other, meta.damage, "killed_by_player");
-        this.trySplitRedAfterNonLethalHit(other, hpBeforeHit, ctx);
+        this.trySplitRedAfterNonLethalHit(other, hpBeforeHit, ball.id, ctx);
 
         // Bouncy_surface targets (e.g. blue) act as bumpers for ALL three
         // shot kinds: the projectile ricochets off them and keeps flying
@@ -1128,7 +1201,7 @@ export class GameEngine {
     if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "projectile_out_of_bounds");
   }
 
-  private trySplitRedAfterNonLethalHit(target: Ball, hpBeforeHit: number, ctx: RuleContext): void {
+  private trySplitRedAfterNonLethalHit(target: Ball, hpBeforeHit: number, sourceProjectileId: string, ctx: RuleContext): void {
     if (target.color !== "red" || !target.isAlive) return;
     if (target.hp >= hpBeforeHit) return;
     const childHp = Math.max(1, target.hp);
@@ -1144,6 +1217,11 @@ export class GameEngine {
       x: dir.x * childSpeed * 0.75 - perp.x * childSpeed * 0.55,
       y: dir.y * childSpeed * 0.75 - perp.y * childSpeed * 0.55,
     }, "red_split_bouncer", { hp: childHp, maxHp: childHp });
+    const ignoreUntil = this.elapsedTime + 0.06;
+    b1.metadata.ignoreProjectileId = sourceProjectileId;
+    b1.metadata.ignoreProjectileUntil = ignoreUntil;
+    b2.metadata.ignoreProjectileId = sourceProjectileId;
+    b2.metadata.ignoreProjectileUntil = ignoreUntil;
     ctx.events.push({ type: "ball_split", originalId: target.id, newIds: [b1.id, b2.id] });
     ctx.despawnBall(target, "red_split_after_hit");
   }

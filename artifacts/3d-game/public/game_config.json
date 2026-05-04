@@ -13,7 +13,7 @@
         "_label": "Balle moyenne"
       },
       "large": {
-        "diameter": 11,
+        "diameter": 16,
         "_label": "Grande balle"
       }
     },
@@ -482,7 +482,7 @@
         "max_hold_seconds": 0.8,
         "damage": 3,
         "passes_through_balls": true,
-        "wall_bounces": 0,
+        "wall_bounces": 1,
         "diameter_multiplier": 1.3,
         "speed": 90,
         "color_tint": "#ffaa44",
@@ -526,10 +526,21 @@
     "list": [
       {
         "id": 1,
-        "name": "Niveau 1 — Apprentissage",
-        "description": "Que des balles blanches. Elles rebondissent sur les murs sans rien faire d'autre. Idéal pour apprivoiser la file de tir et les trois types de tir.",
+        "name": "Niveau 1 — Vague puis boss noir",
+        "description": "Vague de blanches, puis boss BLANC à 100 PV quand le terrain est vidé. Le niveau ne se termine qu’après sa défaite.",
         "launch_color_weights": {
           "white": 1
+        },
+        "boss": {
+          "color": "white",
+          "size": "large",
+          "hp": 100,
+          "maxHp": 100,
+          "diameter_multiplier": 2.4,
+          "launcher_size": "large",
+          "launcher_diameter_multiplier": 2.2,
+          "intro_overlay_seconds": 1.6,
+          "horizontal_speed": 10
         }
       },
       {
@@ -547,6 +558,13 @@
         "description": "100% de balles vert foncé. Le terrain se remplit vite de gros boulets qui s'auto-renforcent. Privilégie les méga tirs pour traverser la mêlée et toucher plusieurs balles à la fois.",
         "launch_color_weights": {
           "dark_green": 1
+        },
+        "boss": {
+          "color": "dark_green",
+          "hp": 100,
+          "maxHp": 100,
+          "intro_overlay_seconds": 1.6,
+          "horizontal_speed": 10
         }
       },
       {
@@ -564,6 +582,13 @@
         "description": "100% de balles jaunes. Elles ont 4 PV et clignotent: invisibles 0,8 s toutes les 1 s, ce qui perturbe visée et timing.",
         "launch_color_weights": {
           "yellow": 1
+        },
+        "boss": {
+          "color": "yellow",
+          "hp": 100,
+          "maxHp": 100,
+          "intro_overlay_seconds": 1.6,
+          "horizontal_speed": 10
         }
       },
       {
@@ -578,11 +603,17 @@
       },
       {
         "id": 7,
-        "name": "Niveau 7 — Duo éclipse",
-        "description": "50% de balles jaunes et 50% de balles noires. Alterne cibles clignotantes intouchables et silhouettes invisibles qui grossissent en traversant.",
+        "name": "Niveau 7 — Ombre noire",
+        "description": "100% de balles noires. Boss noir en fin de vague.",
         "launch_color_weights": {
-          "yellow": 0.5,
-          "black": 0.5
+          "black": 1
+        },
+        "boss": {
+          "color": "black",
+          "hp": 100,
+          "maxHp": 100,
+          "intro_overlay_seconds": 1.6,
+          "horizontal_speed": 10
         }
       },
       {
@@ -591,6 +622,13 @@
         "description": "100% de balles rouges. Elles se divisent en deux à chaque impact non létal, ce qui multiplie rapidement les cibles.",
         "launch_color_weights": {
           "red": 1
+        },
+        "boss": {
+          "color": "red",
+          "hp": 12,
+          "maxHp": 12,
+          "intro_overlay_seconds": 1.6,
+          "horizontal_speed": 10
         }
       },
       {
@@ -601,25 +639,9 @@
           "red": 0.5,
           "dark_green": 0.5
         }
-      },
-      {
-        "id": 10,
-        "name": "Niveau 10 — Rouge intégral",
-        "description": "100% de balles rouges. Chaque impact non létal déclenche une division: la pression monte très vite, privilégie les trajectoires qui nettoient plusieurs cibles.",
-        "launch_color_weights": {
-          "red": 1
-        }
-      },
-      {
-        "id": 11,
-        "name": "Niveau 11 — Mix rouge/vert",
-        "description": "50% de rouges et 50% de vert foncé. Combine la division des rouges avec la croissance des vertes pour un terrain qui sature rapidement.",
-        "launch_color_weights": {
-          "red": 0.5,
-          "dark_green": 0.5
-        }
       }
-    ]
+    ],
+    "boss_intro_overlay_seconds": 1.5
   },
   "game_rules_concept": {
     "_description": "Texte de présentation des règles du jeu (affiché dans le menu).",
@@ -645,6 +667,14 @@
     ]
   },
   "release_notes": [
+    "Cap boss rouge 12 PV + boss jaune/noir ajoutés",
+    "Boss vert/red ajustés et dégâts grenade boss corrigés",
+    "Bouton Boss visible et spawn boss vert fiabilisé",
+    "Menu Boss Rush multi-niveaux et boss niveau 3",
+    "Boss génériques, scaling PV et tir appuyé rebond",
+    "Overlay BOSS avant spawn du boss blanc",
+    "Boss de fin de vague avant passage niveau",
+    "Boss noir niveau 1 paramétré par niveau",
     "Fréquence de spawn terrain accélérée",
     "Build Vite robuste sans variables obligatoires",
     "Grenade agrandie et déflagration visuelle ajoutée",
@@ -656,15 +686,7 @@
     "Pipeline sprite unifiée menu et jeu",
     "Effet grenade menu propagé au moteur",
     "Explosion sprite animé avec inertie dynamique",
-    "Clarification des consignes de configuration jeu",
-    "Diamètre des explosions de disparition x10",
-    "Explosions persistantes et previews par sprite",
-    "Encart animé des explosions balle et grenade",
-    "Préviews d'explosions grenade et balle restaurées",
-    "Menu effets et explosions balle/grenade personnalisées",
-    "Visée grenade dynamique et popups PV visibles",
-    "Grenade collante embarquée et explosion ajustée",
-    "Grenade dédiée avec compteur et explosion"
+    "Clarification des consignes de configuration jeu"
   ],
   "debug": {
     "show_velocities": false,

@@ -21,7 +21,7 @@ function App() {
   const {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
-    shoot, setCustomTerrainDistribution, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, classifyHold, toggleGrenade, grenadesLeft,
+    shoot, setCustomTerrainDistribution, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, playBossRush, classifyHold, toggleGrenade, grenadesLeft,
   } = useGameEngine();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -229,6 +229,13 @@ function App() {
       {/* Charge bar (always visible) */}
       <ChargeBar holdTime={holdTime} shotKind={currentShotKind} config={config} />
 
+
+      {gameState.bossIntroActive && (
+        <div style={{ position:"absolute", inset:0, display:"grid", placeItems:"center", pointerEvents:"none", zIndex:11 }}>
+          <div style={{ fontSize:64, fontWeight:900, letterSpacing:8, color:"#fff", textShadow:"0 0 24px #ff3b3b, 0 0 8px #000" }}>BOSS</div>
+        </div>
+      )}
+
       {/* HUD */}
       <button
         onClick={() => toggleGrenade(lastDirectionRef.current, grenadeEffect)}
@@ -262,6 +269,7 @@ function App() {
           onPlayerDistributionChange={setPlayerProjectileDistribution}
           onLevelSelect={setActiveLevel}
           onLevelWeightsChange={setLevelWeights}
+          onPlayBossRush={playBossRush}
           currentLevelIndex={gameState.currentLevelIndex}
           ballEffect={ballEffect}
           grenadeEffect={grenadeEffect}

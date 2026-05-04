@@ -89,6 +89,7 @@ export interface BallState {
   hp: number;
   maxHp: number;
   metadata: Record<string, unknown>;
+  isBoss?: boolean;
 }
 
 export type GameEvent =
@@ -117,9 +118,22 @@ export interface GameState {
   currentLevelIndex: number;
   currentLevelId: number;
   currentLevelName: string;
+  bossIntroActive?: boolean;
 }
 
 // ---- Levels ----
+
+export interface LevelBossConfig {
+  color: BallColor;
+  size?: BallSize;
+  hp: number;
+  maxHp?: number;
+  diameter_multiplier?: number;
+  launcher_size?: BallSize;
+  launcher_diameter_multiplier?: number;
+  intro_overlay_seconds?: number;
+  horizontal_speed?: number;
+}
 
 export interface LevelEntry {
   id: number;
@@ -128,10 +142,20 @@ export interface LevelEntry {
   /** Relative weights per ball color for the orange launcher's pick.
    *  Total is normalised to 1; values can be on any scale. */
   launch_color_weights: Partial<Record<BallColor, number>>;
+  /** Optional per-color overrides applied to balls launched by orange on this level. */
+  launch_overrides?: Partial<Record<BallColor, {
+    size?: BallSize;
+    hp?: number;
+    maxHp?: number;
+    diameter_multiplier?: number;
+  }>>;
+  /** Optional boss spawned once all regular enemies are cleared for the level. */
+  boss?: LevelBossConfig;
 }
 
 export interface LevelsConfig {
   _description?: string;
+  boss_intro_overlay_seconds?: number;
   list: LevelEntry[];
 }
 
