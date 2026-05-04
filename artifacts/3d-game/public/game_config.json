@@ -229,6 +229,17 @@
       "selectable_by_player": false,
       "for_terrain": true
     },
+    "pink": {
+      "hex": "#FF66FF",
+      "rgb": [
+        255,
+        102,
+        255
+      ],
+      "_label": "Rose",
+      "selectable_by_player": false,
+      "for_terrain": false
+    },
     "gray": {
       "hex": "#808080",
       "rgb": [
@@ -486,9 +497,9 @@
         "passes_through_balls": true,
         "wall_bounces": 1,
         "diameter_multiplier": 1.3,
-        "speed": 90,
+        "speed": 108,
         "color_tint": "#ffaa44",
-        "_description": "Maintien 0.3–0.8s. -2 PV. Traverse les balles. S'arrête au mur."
+        "_description": "Maintien 0.3–0.8s. -2 PV. Vitesse +20%. S'arrête sur une cible non létale, continue après un kill."
       },
       "mega": {
         "_label": "Méga tir",
@@ -498,9 +509,9 @@
         "passes_through_balls": true,
         "wall_bounces": 2,
         "diameter_multiplier": 1.6,
-        "speed": 100,
+        "speed": 150,
         "color_tint": "#ff66ff",
-        "_description": "Maintien > 0.8s. -2 PV. Traverse les balles. Rebondit 2× sur les murs avant de disparaître."
+        "_description": "Maintien > 0.8s. -2 PV. Vitesse +50%. S'arrête sur une cible non létale, continue après un kill. Rebondit 2× sur les murs avant de disparaître."
       }
     },
     "player_projectile_distribution": {
@@ -677,6 +688,14 @@
     ]
   },
   "release_notes": [
+    "Rollback arrêt non létal des tirs heavy/mega",
+    "Heavy +20%, mega +50%, arrêt sur hit non létal",
+    "Reset de charge au release et tir conditionné au pointer down",
+    "Charge continue: tirs heavy/mega réactivés",
+    "Charge continue conservée sans reset au pointer",
+    "Suppression menu pourcentages et tirs doublés corrigés",
+    "Suppression des previews et tir libre au release",
+    "Tirs curseur libres sans blocage de seuils",
     "Boss verts: bonus regen 900% et spawn paramétrable",
     "Boss multi-spawn écartés de 70 degrés",
     "Boss multi-spawn éventail de trajectoires",
@@ -688,15 +707,7 @@
     "Menu Boss Rush multi-niveaux et boss niveau 3",
     "Boss génériques, scaling PV et tir appuyé rebond",
     "Overlay BOSS avant spawn du boss blanc",
-    "Boss de fin de vague avant passage niveau",
-    "Boss noir niveau 1 paramétré par niveau",
-    "Fréquence de spawn terrain accélérée",
-    "Build Vite robuste sans variables obligatoires",
-    "Grenade agrandie et déflagration visuelle ajoutée",
-    "Diamètre visuel grenade aligné sur zone de dégâts",
-    "File d’intentions UI pour actions grenade",
-    "Détonation grenade synchronisée à la frame update",
-    "File d’événements externe synchronisée par frame"
+    "Boss de fin de vague avant passage niveau"
   ],
   "debug": {
     "show_velocities": false,

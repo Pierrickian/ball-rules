@@ -21,7 +21,7 @@ function App() {
   const {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
-    shoot, setCustomTerrainDistribution, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, playBossRush, classifyHold, toggleGrenade, grenadesLeft,
+    shoot, setCustomTerrainDistribution, setActiveLevel, setLevelWeights, playBossRush, classifyHold, toggleGrenade, grenadesLeft,
   } = useGameEngine();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -57,23 +57,9 @@ function App() {
     return Math.max((types.heavy?.max_hold_seconds ?? 0.8) * 1.2, 1.2);
   };
 
-  const manualThresholdFor = (kind: ShotKind): number =>
-    !config ? Infinity : (kind === "light" ? 0 : kind === "heavy" ? config.gameplay_controls.shot_types.heavy.min_hold_seconds : config.gameplay_controls.shot_types.mega.min_hold_seconds);
-  const holdDisplayCapFor = (kind: ShotKind): number => {
-    if (!config) return 1.2;
-    const types = config.gameplay_controls.shot_types;
-    if (kind === "light") return types.heavy.min_hold_seconds;
-    if (kind === "heavy") return types.mega.min_hold_seconds;
-    return getDisplayMax();
-  };
-
   const tryShootBall = (targetX: number, targetY: number, holdSeconds: number): boolean => {
-    const queuedKind = playerQueue[0];
-    if (!queuedKind || !config) return false;
-    const fired = shoot(targetX, targetY, holdSeconds, queuedKind);
+    const fired = shoot(targetX, targetY, holdSeconds);
     if (!fired) return false;
-    cycleStartRef.current = performance.now();
-    setHoldTime(0);
     return true;
   };
 
@@ -81,16 +67,15 @@ function App() {
   useEffect(() => {
     const tick = () => {
       const hold = (performance.now() - cycleStartRef.current) / 1000;
-      const queuedKind = playerQueue[0] ?? "mega";
-      setHoldTime(Math.min(hold, holdDisplayCapFor(queuedKind)));
+      setHoldTime(Math.min(hold, getDisplayMax()));
       animRef.current = requestAnimationFrame(tick);
     };
     animRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animRef.current);
-  }, [playerQueue, config]);
+  }, [config]);
 
   const handlePointerDown = (gameX: number, gameY: number) => {
-    if (menuOpenRef.current || !isRunningRef.current || !playerQueue.length) return;
+    if (menuOpenRef.current || !isRunningRef.current) return;
     pointerActiveRef.current = true;
     lastTargetRef.current = { x: gameX, y: gameY };
     const dx = gameX;
@@ -116,13 +101,13 @@ function App() {
   };
 
   const handlePointerUp = (gameX: number, gameY: number) => {
+    if (!pointerActiveRef.current) return;
     pointerActiveRef.current = false;
-    if (!menuOpenRef.current && isRunningRef.current && playerQueue.length) {
-      const queuedKind = playerQueue[0];
-      if (queuedKind && holdTime >= manualThresholdFor(queuedKind)) {
-        tryShootBall(gameX, gameY, holdTime);
-      }
+    if (!menuOpenRef.current && isRunningRef.current) {
+      tryShootBall(gameX, gameY, holdTime);
     }
+    cycleStartRef.current = performance.now();
+    setHoldTime(0);
   };
 
   const handlePointerCancel = () => {
@@ -220,12 +205,6 @@ function App() {
         />
       </div>
 
-      {/* Top incoming balls preview */}
-      <IncomingBallsOverlay queue={playerQueue} />
-
-      {/* Player queue (bottom strip) */}
-      <PlayerQueue queue={playerQueue} config={config} />
-
       {/* Charge bar (always visible) */}
       <ChargeBar holdTime={holdTime} shotKind={currentShotKind} config={config} />
 
@@ -266,7 +245,6 @@ function App() {
           onClose={handleMenuClose}
           onArenaChange={setArena}
           onTerrainDistributionPlay={setCustomTerrainDistribution}
-          onPlayerDistributionChange={setPlayerProjectileDistribution}
           onLevelSelect={setActiveLevel}
           onLevelWeightsChange={setLevelWeights}
           onPlayBossRush={playBossRush}
