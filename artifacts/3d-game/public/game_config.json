@@ -582,6 +582,13 @@
         "description": "100% de balles jaunes. Elles ont 4 PV et clignotent: invisibles 0,8 s toutes les 1 s, ce qui perturbe visée et timing.",
         "launch_color_weights": {
           "yellow": 1
+        },
+        "boss": {
+          "color": "yellow",
+          "hp": 100,
+          "maxHp": 100,
+          "intro_overlay_seconds": 1.6,
+          "horizontal_speed": 10
         }
       },
       {
@@ -596,11 +603,17 @@
       },
       {
         "id": 7,
-        "name": "Niveau 7 — Duo éclipse",
-        "description": "50% de balles jaunes et 50% de balles noires. Alterne cibles clignotantes intouchables et silhouettes invisibles qui grossissent en traversant.",
+        "name": "Niveau 7 — Ombre noire",
+        "description": "100% de balles noires. Boss noir en fin de vague.",
         "launch_color_weights": {
-          "yellow": 0.5,
-          "black": 0.5
+          "black": 1
+        },
+        "boss": {
+          "color": "black",
+          "hp": 100,
+          "maxHp": 100,
+          "intro_overlay_seconds": 1.6,
+          "horizontal_speed": 10
         }
       },
       {
@@ -612,8 +625,8 @@
         },
         "boss": {
           "color": "red",
-          "hp": 100,
-          "maxHp": 100,
+          "hp": 12,
+          "maxHp": 12,
           "intro_overlay_seconds": 1.6,
           "horizontal_speed": 10
         }
@@ -654,6 +667,7 @@
     ]
   },
   "release_notes": [
+    "Cap boss rouge 12 PV + boss jaune/noir ajoutés",
     "Boss vert/red ajustés et dégâts grenade boss corrigés",
     "Bouton Boss visible et spawn boss vert fiabilisé",
     "Menu Boss Rush multi-niveaux et boss niveau 3",
@@ -672,8 +686,7 @@
     "Pipeline sprite unifiée menu et jeu",
     "Effet grenade menu propagé au moteur",
     "Explosion sprite animé avec inertie dynamique",
-    "Clarification des consignes de configuration jeu",
-    "Diamètre des explosions de disparition x10"
+    "Clarification des consignes de configuration jeu"
   ],
   "debug": {
     "show_velocities": false,

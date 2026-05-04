@@ -660,7 +660,9 @@ export class GameEngine {
       launcher.diameter *= launcherMul;
     }
 
-    const spawnedBoss = this.spawnBall(boss.color, boss.size ?? BallSize.LARGE, { ...launcher.position }, { x: boss.horizontal_speed ?? 8, y: -24 }, undefined, { hp: boss.hp, maxHp: boss.maxHp ?? boss.hp }, { isBoss: true });
+    const requestedHp = boss.color === "red" ? Math.min(12, boss.hp) : boss.hp;
+    const requestedMaxHp = boss.color === "red" ? Math.min(12, boss.maxHp ?? boss.hp) : (boss.maxHp ?? boss.hp);
+    const spawnedBoss = this.spawnBall(boss.color, boss.size ?? BallSize.LARGE, { ...launcher.position }, { x: boss.horizontal_speed ?? 8, y: -24 }, undefined, { hp: requestedHp, maxHp: requestedMaxHp }, { isBoss: true });
     const bossMul = boss.diameter_multiplier ?? 1;
     if (bossMul > 0) {
       spawnedBoss.baseDiameter *= bossMul;
