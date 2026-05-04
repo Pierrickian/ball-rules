@@ -4,10 +4,9 @@
 //   2. Niveau               — carousel of level descriptions
 //   3. Détail des balles    — carousel of ball identity cards
 //   4. Terrain              — aspect ratio + resolution
-//   5. Couleur lancée       — color spawned by orange launcher (debug, overridden by levels)
-//   6. Couleur joueur       — pool of colors used in player queue
-//   7. Comment demander     — agent prompt tutorials
-//   8. Notes de version     — recent release notes
+//   5. Couleur joueur       — pool of colors used in player queue
+//   6. Comment demander     — agent prompt tutorials
+//   7. Notes de version     — recent release notes
 // ============================================================
 
 import { useState, useRef, useCallback } from "react";
@@ -15,14 +14,13 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { ExplosionSprite } from "../scenes/ExplosionSprite";
 import type { BallColor, GameConfig } from "../engine/types";
 
-type MenuView = "main" | "rules" | "balls" | "terrain" | "launcher_color" | "player_colors" | "how_to_ask" | "release_notes" | "levels" | "boss" | "effects";
+type MenuView = "main" | "rules" | "balls" | "terrain" | "player_colors" | "how_to_ask" | "release_notes" | "levels" | "boss" | "effects";
 
 interface MenuProps {
   config: GameConfig;
   onClose: () => void;
   onArenaChange: (width: number, height: number) => void;
   onTerrainDistributionPlay: (weights: Record<BallColor, number>) => void;
-  onPlayerDistributionChange: (distribution: Record<"light" | "heavy" | "mega", number>) => void;
   /** Jump to a specific story-mode level (0-based index). Resets the game. */
   onLevelSelect: (index: number) => void;
   onLevelWeightsChange: (index: number, weights: Record<BallColor, number>) => void;
@@ -410,79 +408,6 @@ function TerrainMenu({ config, onArenaChange, onBack }: TerrainMenuProps) {
 }
 
 // ============================================================
-// Launcher Color Sub-Menu (single-pick: orange spawns this color)
-// ============================================================
-function LauncherColorMenu({
-  config, onPlayerDistributionChange, onClose, onBack,
-}: {
-  config: GameConfig;
-  onPlayerDistributionChange: (distribution: Record<"light" | "heavy" | "mega", number>) => void;
-  /** Closes the entire menu after a pick so the new session is visible. */
-  onClose: () => void;
-  onBack: () => void;
-}) {
-  const [dist, setDist] = useState(() => config.gameplay_controls.player_projectile_distribution ?? { light: 0.6, heavy: 0.3, mega: 0.1 });
-  const normalize = (next: typeof dist) => {
-    const vals = { ...next };
-    const sum = vals.light + vals.heavy + vals.mega;
-    if (sum <= 0) return { light: 1, heavy: 0, mega: 0 };
-    return { light: vals.light / sum, heavy: vals.heavy / sum, mega: vals.mega / sum };
-  };
-  const setPct = (k: keyof typeof dist, v: number) => {
-    const clamped = Math.max(0, Math.min(1, v));
-    const others = (["light", "heavy", "mega"] as const).filter((x) => x !== k);
-    let next = { ...dist, [k]: clamped };
-    const rem = 1 - clamped;
-    const otherSum = others.reduce((a, c) => a + dist[c], 0);
-    if (otherSum <= 0) {
-      next[others[0]] = rem;
-      next[others[1]] = 0;
-    } else {
-      next[others[0]] = (dist[others[0]] / otherSum) * rem;
-      next[others[1]] = (dist[others[1]] / otherSum) * rem;
-    }
-    const normalized = normalize(next);
-    setDist(normalized);
-    onPlayerDistributionChange(normalized);
-  };
-
-  return (
-    <div style={PANEL}>
-      <div>
-        <div style={TITLE}>Projectiles joueur</div>
-        <div style={{ fontSize: 18, fontWeight: "bold", color: "#1e90ff" }}>Répartition en pourcentage</div>
-      </div>
-
-      <div style={{ fontSize: 12, color: "#7a9fcc", lineHeight: 1.5 }}>
-        Ajuste la répartition des projectiles du joueur (blanc / tir appuyé jaune / méga tir rose).
-        Le total reste toujours à 100% et les autres curseurs s'ajustent automatiquement.
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
-        {(["light", "heavy", "mega"] as const).map((k) => {
-          const color = k === "light" ? "#f5f5f5" : k === "heavy" ? "#ffe600" : "#ff66ff";
-          const label = k === "light" ? "Blanc" : k === "heavy" ? "Jaune (appuyé)" : "Rose (méga)";
-          const pct = Math.round((dist[k] ?? 0) * 100);
-          return (
-            <div key={k} style={{ background: "rgba(8,18,40,0.6)", border: "1px solid rgba(30,144,255,0.18)", borderRadius: 10, padding: 10 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 8, color: "#aac8f0" }}>
-                <span>{label}</span><span>{pct}%</span>
-              </div>
-              <input type="range" min={0} max={100} value={pct} onChange={(e) => setPct(k, Number(e.target.value) / 100)} style={{ width: "100%" }} />
-              <div style={{ width: 12, height: 12, borderRadius: "50%", background: color, marginTop: 8 }} />
-            </div>
-          );
-        })}
-      </div>
-
-      <button style={{ ...CLOSE_BTN, color: "#0a1628", background: "#1e90ff", borderColor: "#1e90ff", fontWeight: "bold" }} onClick={onClose}>▶ Jouer</button>
-
-      <button style={CLOSE_BTN} onClick={onBack}>← Retour</button>
-    </div>
-  );
-}
-
-// ============================================================
 // Player Colors Sub-Menu (multi-pick: pool for player queue)
 // ============================================================
 function PlayerColorsMenu({
@@ -545,14 +470,13 @@ function PlayerColorsMenu({
 // Main Menu
 // ============================================================
 function MainMenu({
-  onRules, onLevels, onBoss, onBalls, onTerrain, onLauncherColor, onPlayerColors, onHowToAsk, onReleaseNotes, onEffects, onClose,
+  onRules, onLevels, onBoss, onBalls, onTerrain, onPlayerColors, onHowToAsk, onReleaseNotes, onEffects, onClose,
 }: {
   onRules:          () => void;
   onLevels:         () => void;
   onBoss:           () => void;
   onBalls:          () => void;
   onTerrain:        () => void;
-  onLauncherColor:  () => void;
   onPlayerColors:   () => void;
   onHowToAsk:       () => void;
   onReleaseNotes:   () => void;
@@ -591,13 +515,6 @@ function MainMenu({
         <div>
           <div style={{ fontWeight: "bold" }}>Détail des balles</div>
           <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Carte d'identité de chaque couleur</div>
-        </div>
-      </button>
-      <button style={MENU_BTN} onClick={onLauncherColor}>
-        <span style={{ fontSize: 20 }}>🟠</span>
-        <div>
-          <div style={{ fontWeight: "bold" }}>Couleur lancée</div>
-          <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Spawn du lanceur orange</div>
         </div>
       </button>
       <button style={MENU_BTN} onClick={onPlayerColors}>
@@ -1032,12 +949,8 @@ const HOW_TO_ASK_GLOSSARY: GlossaryEntry[] = [
     definition: "La balle lancée par le joueur depuis le bas de l'écran. Il en existe trois types selon la durée d'appui : tir léger, tir appuyé, méga tir.",
   },
   {
-    term: "File d'attente",
-    definition: "Les 3 prochaines balles que le joueur va tirer, visibles en bas de l'écran. La gauche est la prochaine à partir.",
-  },
-  {
-    term: "Menu « Couleur lancée »",
-    definition: "Sous-menu qui choisit la couleur des balles que la balle orange fait entrer en jeu.",
+    term: "Tir à charge",
+    definition: "Le type de projectile dépend du temps d'appui avant le relâchement : léger (blanc), appuyé (jaune), méga (rose).",
   },
   {
     term: "Menu « Couleur joueur »",
@@ -1567,7 +1480,6 @@ export function Menu({
   onClose,
   onArenaChange,
   onTerrainDistributionPlay,
-  onPlayerDistributionChange,
   onLevelSelect,
   onLevelWeightsChange,
   onPlayBossRush,
@@ -1590,7 +1502,6 @@ export function Menu({
           onBoss={() => setView("boss")}
           onBalls={() => setView("balls")}
           onTerrain={() => setView("terrain")}
-          onLauncherColor={() => setView("launcher_color")}
           onPlayerColors={() => setView("player_colors")}
           onHowToAsk={() => setView("how_to_ask")}
           onReleaseNotes={() => setView("release_notes")}
@@ -1603,7 +1514,6 @@ export function Menu({
       {view === "boss"           && <BossMenu config={config} onPlayBossRush={onPlayBossRush} onClose={onClose} onBack={() => setView("main")} />}
       {view === "balls"          && <BallsCarousel  config={config} onBack={() => setView("main")} />}
       {view === "terrain"        && <TerrainMenu    config={config} onArenaChange={onArenaChange} onBack={() => setView("main")} />}
-      {view === "launcher_color" && <LauncherColorMenu config={config} onPlayerDistributionChange={onPlayerDistributionChange} onClose={onClose} onBack={() => setView("main")} />}
       {view === "player_colors"  && <PlayerColorsMenu  config={config} onTerrainDistributionPlay={onTerrainDistributionPlay} onClose={onClose} onBack={() => setView("main")} />}
       {view === "how_to_ask"     && <HowToAskCarousel onBack={() => setView("main")} />}
       {view === "release_notes"  && <ReleaseNotesView config={config} onBack={() => setView("main")} />}
