@@ -57,20 +57,8 @@ function App() {
     return Math.max((types.heavy?.max_hold_seconds ?? 0.8) * 1.2, 1.2);
   };
 
-  const manualThresholdFor = (kind: ShotKind): number =>
-    !config ? Infinity : (kind === "light" ? 0 : kind === "heavy" ? config.gameplay_controls.shot_types.heavy.min_hold_seconds : config.gameplay_controls.shot_types.mega.min_hold_seconds);
-  const holdDisplayCapFor = (kind: ShotKind): number => {
-    if (!config) return 1.2;
-    const types = config.gameplay_controls.shot_types;
-    if (kind === "light") return types.heavy.min_hold_seconds;
-    if (kind === "heavy") return types.mega.min_hold_seconds;
-    return getDisplayMax();
-  };
-
   const tryShootBall = (targetX: number, targetY: number, holdSeconds: number): boolean => {
-    const queuedKind = playerQueue[0];
-    if (!queuedKind || !config) return false;
-    const fired = shoot(targetX, targetY, holdSeconds, queuedKind);
+    const fired = shoot(targetX, targetY, holdSeconds);
     if (!fired) return false;
     cycleStartRef.current = performance.now();
     setHoldTime(0);
@@ -81,16 +69,15 @@ function App() {
   useEffect(() => {
     const tick = () => {
       const hold = (performance.now() - cycleStartRef.current) / 1000;
-      const queuedKind = playerQueue[0] ?? "mega";
-      setHoldTime(Math.min(hold, holdDisplayCapFor(queuedKind)));
+      setHoldTime(Math.min(hold, getDisplayMax()));
       animRef.current = requestAnimationFrame(tick);
     };
     animRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animRef.current);
-  }, [playerQueue, config]);
+  }, [config]);
 
   const handlePointerDown = (gameX: number, gameY: number) => {
-    if (menuOpenRef.current || !isRunningRef.current || !playerQueue.length) return;
+    if (menuOpenRef.current || !isRunningRef.current) return;
     pointerActiveRef.current = true;
     lastTargetRef.current = { x: gameX, y: gameY };
     const dx = gameX;
@@ -117,11 +104,8 @@ function App() {
 
   const handlePointerUp = (gameX: number, gameY: number) => {
     pointerActiveRef.current = false;
-    if (!menuOpenRef.current && isRunningRef.current && playerQueue.length) {
-      const queuedKind = playerQueue[0];
-      if (queuedKind && holdTime >= manualThresholdFor(queuedKind)) {
-        tryShootBall(gameX, gameY, holdTime);
-      }
+    if (!menuOpenRef.current && isRunningRef.current) {
+      tryShootBall(gameX, gameY, holdTime);
     }
   };
 
@@ -219,12 +203,6 @@ function App() {
           debugExplosionTexture={debugExplosionTexture}
         />
       </div>
-
-      {/* Top incoming balls preview */}
-      <IncomingBallsOverlay queue={playerQueue} />
-
-      {/* Player queue (bottom strip) */}
-      <PlayerQueue queue={playerQueue} config={config} />
 
       {/* Charge bar (always visible) */}
       <ChargeBar holdTime={holdTime} shotKind={currentShotKind} config={config} />
