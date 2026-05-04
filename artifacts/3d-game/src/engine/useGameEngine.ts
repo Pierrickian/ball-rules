@@ -199,11 +199,12 @@ export function useGameEngine(): UseGameEngineResult {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRunning]);
 
-  const doReset = useCallback(() => {
+  const doReset = useCallback((forcedDifficulty?: "easy" | "medium" | "hard") => {
     const cfg = configRef.current;
     if (!cfg) return;
     engineRef.current = new GameEngine(cfg, currentLevelIdxRef.current);
-    const bonus = difficulty === "easy" ? 0 : difficulty === "medium" ? 2 : 6;
+    const activeDifficulty = forcedDifficulty ?? difficulty;
+    const bonus = activeDifficulty === "easy" ? 0 : activeDifficulty === "medium" ? 2 : 6;
     engineRef.current.setDifficultyBonusHp(bonus);
     grenadeZonesRef.current = createGrenadeZoneStore();
     setGrenadesLeft(engineRef.current.getGrenadesLeft());
@@ -406,7 +407,7 @@ export function useGameEngine(): UseGameEngineResult {
     const bonus = next === "easy" ? 0 : next === "medium" ? 2 : 6;
     engineRef.current?.setDifficultyBonusHp(bonus);
     rebootingRef.current = false;
-    doReset();
+    doReset(next);
   }, [doReset]);
 
   return {
