@@ -418,6 +418,11 @@ export class GameEngine {
     // Step 2: Resolve ball-to-ball collisions (skip projectiles — they handle their own)
     this.resolveBallCollisions(allBalls, arena);
 
+
+    this.balls.forEach((ball) => {
+      if (ball.isAlive && ball.isBoss) this.syncBossDiameterWithHp(ball);
+    });
+
     // Step 3: Remove dead balls
     this.balls.forEach((ball, id) => {
       if (!ball.isAlive) this.balls.delete(id);
@@ -449,8 +454,7 @@ export class GameEngine {
       ball.isAlive = false;
       this.emitEvent({ type: "ball_despawned", ballId: ball.id, reason, position: { ...ball.position }, velocity: { ...ball.velocity }, effect: String(ball.metadata?.effect ?? "") }, this.isInsideUpdate ? "update" : "external");
     } else if (ball.isBoss) {
-      const ratio = ball.maxHp > 0 ? ball.hp / ball.maxHp : 0;
-      ball.diameter = ball.baseDiameter * Math.max(0.35, ratio);
+      this.syncBossDiameterWithHp(ball);
     } else if (ball.rule === "hp_grow_bouncer") {
       // Keep visual diameter in sync with current HP so damage is visible.
       ball.diameter = this.computeHpGrowDiameter(ball);
@@ -506,6 +510,11 @@ export class GameEngine {
     return ball;
   }
 
+
+  private syncBossDiameterWithHp(ball: Ball): void {
+    const ratio = ball.maxHp > 0 ? ball.hp / ball.maxHp : 0;
+    ball.diameter = ball.baseDiameter * Math.max(0.35, ratio);
+  }
   private computeHpGrowDiameter(ball: Ball): number {
     const p = this.config.rule_parameters.hp_grow_bouncer;
     if (!p) return ball.baseDiameter;
@@ -653,7 +662,11 @@ export class GameEngine {
     this.bossIntroRemaining = Math.max(0, this.bossIntroRemaining - delta);
     if (this.bossIntroRemaining > 0) return;
 
-    const launcher = this.spawnBall("orange", boss.launcher_size ?? BallSize.LARGE, { x: 0, y: arena.halfH - 0.05 }, { x: 0, y: 0 });
+    const spawnPos = {
+      x: boss.spawn_position?.x ?? 0,
+      y: boss.spawn_position?.y ?? (arena.halfH - 0.05),
+    };
+    const launcher = this.spawnBall("orange", boss.launcher_size ?? BallSize.LARGE, { ...spawnPos }, { x: 0, y: 0 });
     const launcherMul = boss.launcher_diameter_multiplier ?? 2;
     if (launcherMul > 0) {
       launcher.baseDiameter *= launcherMul;
@@ -662,16 +675,37 @@ export class GameEngine {
 
     const requestedHp = boss.color === "red" ? Math.min(12, boss.hp) : boss.hp;
     const requestedMaxHp = boss.color === "red" ? Math.min(12, boss.maxHp ?? boss.hp) : (boss.maxHp ?? boss.hp);
-    const spawnedBoss = this.spawnBall(boss.color, boss.size ?? BallSize.LARGE, { ...launcher.position }, { x: boss.horizontal_speed ?? 8, y: -24 }, undefined, { hp: requestedHp, maxHp: requestedMaxHp }, { isBoss: true });
-    const bossMul = boss.diameter_multiplier ?? 1;
-    if (bossMul > 0) {
-      spawnedBoss.baseDiameter *= bossMul;
-      spawnedBoss.diameter *= bossMul;
+    const spawnCount = Math.max(1, Math.floor(boss.spawn_count ?? 1));
+    const spawnSpacingX = boss.spawn_spacing_x ?? 1.6;
+    const spawnedIds: string[] = [];
+    const baseVelocity = { x: boss.horizontal_speed ?? 8, y: -24 };
+    const fanStepDeg = 70;
+    for (let i = 0; i < spawnCount; i += 1) {
+      const spreadIdx = i - (spawnCount - 1) / 2;
+      const spreadX = spawnCount === 1 ? 0 : (spreadIdx * spawnSpacingX);
+      const angle = (spreadIdx * fanStepDeg * Math.PI) / 180;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      const velocity = {
+        x: baseVelocity.x * cos - baseVelocity.y * sin,
+        y: baseVelocity.x * sin + baseVelocity.y * cos,
+      };
+      const spawnedBoss = this.spawnBall(boss.color, boss.size ?? BallSize.LARGE, { x: launcher.position.x + spreadX, y: launcher.position.y }, velocity, undefined, { hp: requestedHp, maxHp: requestedMaxHp }, { isBoss: true });
+      const bossHealBonus = boss.dark_green_heal_bonus_percent ?? lvl?.dark_green_heal_bonus_percent;
+      if (typeof bossHealBonus === "number" && spawnedBoss.color === "dark_green") {
+        spawnedBoss.metadata.hpGrowHealMultiplier = Math.max(0, 1 + bossHealBonus / 100);
+      }
+      const bossMul = boss.diameter_multiplier ?? 1;
+      if (bossMul > 0) {
+        spawnedBoss.baseDiameter *= bossMul;
+      }
+      this.syncBossDiameterWithHp(spawnedBoss);
+      spawnedIds.push(spawnedBoss.id);
     }
     this.bossSpawned = true;
 
     launcher.isAlive = false;
-    this.pendingEvents.push({ type: "orange_launched", launcherId: launcher.id, launchedId: spawnedBoss.id });
+    this.pendingEvents.push({ type: "orange_launched", launcherId: launcher.id, launchedId: spawnedIds[0] });
     this.pendingEvents.push({ type: "ball_despawned", ballId: launcher.id, reason: "after_launch" });
   }
 
@@ -1006,9 +1040,13 @@ export class GameEngine {
       if (overlapping && !touched.has(other.id)) {
         touched.add(other.id);
         if (ball.hp < ball.maxHp) {
-          const healAmount = ball.color === "blue"
+          const baseHealAmount = ball.color === "blue"
             ? (p.blue_hp_gained_per_contact ?? 2)
             : (p.hp_gained_per_traversal ?? 1);
+          const healMultiplier = typeof ball.metadata.hpGrowHealMultiplier === "number"
+            ? Number(ball.metadata.hpGrowHealMultiplier)
+            : 1;
+          const healAmount = baseHealAmount * Math.max(0, healMultiplier);
           const healed = ball.heal(healAmount);
           if (healed > 0) {
             ball.diameter = this.computeHpGrowDiameter(ball);

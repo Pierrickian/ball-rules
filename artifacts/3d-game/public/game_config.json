@@ -563,10 +563,18 @@
         },
         "boss": {
           "color": "dark_green",
-          "hp": 100,
-          "maxHp": 100,
+          "hp": 70,
+          "maxHp": 70,
+          "diameter_multiplier": 2.4,
+          "spawn_count": 3,
           "intro_overlay_seconds": 1.6,
-          "horizontal_speed": 10
+          "horizontal_speed": 10,
+          "spawn_spacing_x": 1.8,
+          "spawn_position": {
+            "x": 0,
+            "y": 6.35
+          },
+          "dark_green_heal_bonus_percent": 900
         }
       },
       {
@@ -669,6 +677,10 @@
     ]
   },
   "release_notes": [
+    "Boss verts: bonus regen 900% et spawn paramétrable",
+    "Boss multi-spawn écartés de 70 degrés",
+    "Boss multi-spawn éventail de trajectoires",
+    "Menu custom conserve niveaux + boss multi-spawn",
     "Immunité impacts rouges/tirs unifiée à 200 ms",
     "Cap boss rouge 12 PV + boss jaune/noir ajoutés",
     "Boss vert/red ajustés et dégâts grenade boss corrigés",
@@ -684,11 +696,7 @@
     "Diamètre visuel grenade aligné sur zone de dégâts",
     "File d’intentions UI pour actions grenade",
     "Détonation grenade synchronisée à la frame update",
-    "File d’événements externe synchronisée par frame",
-    "Explosions terrain et grenade rendues visibles",
-    "Pipeline sprite unifiée menu et jeu",
-    "Effet grenade menu propagé au moteur",
-    "Explosion sprite animé avec inertie dynamique"
+    "File d’événements externe synchronisée par frame"
   ],
   "debug": {
     "show_velocities": false,

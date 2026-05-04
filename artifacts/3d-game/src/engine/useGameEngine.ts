@@ -344,18 +344,31 @@ export function useGameEngine(): UseGameEngineResult {
   const setCustomTerrainDistribution = useCallback((weights: Record<BallColor, number>) => {
     const cfg = configRef.current;
     if (!cfg) return;
-    const customLevel = {
-      id: 1,
-      name: "Partie custom",
-      description: "Répartition personnalisée depuis le menu Couleur terrain.",
-      launch_color_weights: { ...weights },
-    };
-    const newConfig: GameConfig = { ...cfg, levels: { ...cfg.levels, list: [customLevel] } };
+    const levels = cfg.levels?.list ?? [];
+    let newConfig: GameConfig;
+
+    if (levels.length > 0) {
+      const safe = ((currentLevelIdxRef.current % levels.length) + levels.length) % levels.length;
+      const list = levels.map((lvl, i) =>
+        i === safe ? { ...lvl, launch_color_weights: { ...weights } } : lvl
+      );
+      newConfig = { ...cfg, levels: { ...cfg.levels, list } };
+      currentLevelIdxRef.current = safe;
+    } else {
+      const customLevel = {
+        id: 1,
+        name: "Partie custom",
+        description: "Répartition personnalisée depuis le menu Couleur terrain.",
+        launch_color_weights: { ...weights },
+      };
+      newConfig = { ...cfg, levels: { ...cfg.levels, list: [customLevel] } };
+      currentLevelIdxRef.current = 0;
+    }
+
     configRef.current = newConfig;
     setConfig(newConfig);
     sessionModeRef.current = "levels";
     bossRushOrderRef.current = [];
-    currentLevelIdxRef.current = 0;
     rebootingRef.current = false;
     doReset();
   }, [doReset]);
