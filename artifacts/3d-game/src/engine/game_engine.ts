@@ -1168,12 +1168,16 @@ export class GameEngine {
       if (this.isTemporarilyUntouchable(other)) continue;
       if (meta.damagedIds.has(other.id)) continue;
 
+      const ignoreProjectileId = typeof other.metadata?.ignoreProjectileId === "string" ? other.metadata.ignoreProjectileId : null;
+      const ignoreUntil = typeof other.metadata?.ignoreProjectileUntil === "number" ? other.metadata.ignoreProjectileUntil : 0;
+      if (ignoreProjectileId === ball.id && ignoreUntil > this.elapsedTime) continue;
+
       if (ball.isCollidingWith(other)) {
         const hpBeforeHit = other.hp;
         meta.damagedIds.add(other.id);
         ctx.events.push({ type: "collision", ballAId: ball.id, ballBId: other.id });
         ctx.damageBall(other, meta.damage, "killed_by_player");
-        this.trySplitRedAfterNonLethalHit(other, hpBeforeHit, ctx);
+        this.trySplitRedAfterNonLethalHit(other, hpBeforeHit, ball.id, ctx);
 
         // Bouncy_surface targets (e.g. blue) act as bumpers for ALL three
         // shot kinds: the projectile ricochets off them and keeps flying
@@ -1197,7 +1201,7 @@ export class GameEngine {
     if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "projectile_out_of_bounds");
   }
 
-  private trySplitRedAfterNonLethalHit(target: Ball, hpBeforeHit: number, ctx: RuleContext): void {
+  private trySplitRedAfterNonLethalHit(target: Ball, hpBeforeHit: number, sourceProjectileId: string, ctx: RuleContext): void {
     if (target.color !== "red" || !target.isAlive) return;
     if (target.hp >= hpBeforeHit) return;
     const childHp = Math.max(1, target.hp);
@@ -1213,6 +1217,11 @@ export class GameEngine {
       x: dir.x * childSpeed * 0.75 - perp.x * childSpeed * 0.55,
       y: dir.y * childSpeed * 0.75 - perp.y * childSpeed * 0.55,
     }, "red_split_bouncer", { hp: childHp, maxHp: childHp });
+    const ignoreUntil = this.elapsedTime + 0.06;
+    b1.metadata.ignoreProjectileId = sourceProjectileId;
+    b1.metadata.ignoreProjectileUntil = ignoreUntil;
+    b2.metadata.ignoreProjectileId = sourceProjectileId;
+    b2.metadata.ignoreProjectileUntil = ignoreUntil;
     ctx.events.push({ type: "ball_split", originalId: target.id, newIds: [b1.id, b2.id] });
     ctx.despawnBall(target, "red_split_after_hit");
   }
