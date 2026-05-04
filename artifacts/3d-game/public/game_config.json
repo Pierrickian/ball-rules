@@ -566,7 +566,9 @@
           "maxHp": 100,
           "diameter_multiplier": 2.4,
           "launcher_size": "large",
-          "launcher_diameter_multiplier": 2.2
+          "launcher_diameter_multiplier": 2.2,
+          "intro_overlay_seconds": 1.6,
+          "horizontal_speed": 10
         }
       },
       {
@@ -666,6 +668,7 @@
     ]
   },
   "release_notes": [
+    "Bouton Boss visible et spawn boss vert fiabilisé",
     "Menu Boss Rush multi-niveaux et boss niveau 3",
     "Boss génériques, scaling PV et tir appuyé rebond",
     "Overlay BOSS avant spawn du boss blanc",
@@ -684,8 +687,7 @@
     "Explosion sprite animé avec inertie dynamique",
     "Clarification des consignes de configuration jeu",
     "Diamètre des explosions de disparition x10",
-    "Explosions persistantes et previews par sprite",
-    "Encart animé des explosions balle et grenade"
+    "Explosions persistantes et previews par sprite"
   ],
   "debug": {
     "show_velocities": false,

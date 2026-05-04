@@ -496,7 +496,7 @@ export class GameEngine {
     const ball = new Ball(color, size, position, velocity, diameter, rule, bounceCondition, hp, maxHp, options?.isBoss === true);
 
     // Initial diameter scaling for hp_grow_bouncer
-    if (rule === "hp_grow_bouncer") {
+    if (rule === "hp_grow_bouncer" && !ball.isBoss) {
       ball.diameter = this.computeHpGrowDiameter(ball);
     }
 

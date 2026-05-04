@@ -579,6 +579,13 @@ function MainMenu({
           <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Progression et description par niveau</div>
         </div>
       </button>
+      <button style={MENU_BTN} onClick={onBoss}>
+        <span style={{ fontSize: 20 }}>👑</span>
+        <div>
+          <div style={{ fontWeight: "bold" }}>Boss</div>
+          <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Boss Rush multi-niveaux</div>
+        </div>
+      </button>
       <button style={MENU_BTN} onClick={onBalls}>
         <span style={{ fontSize: 20 }}>🔮</span>
         <div>
