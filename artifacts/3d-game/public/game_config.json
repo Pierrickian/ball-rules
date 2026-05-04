@@ -704,6 +704,7 @@
     ]
   },
   "release_notes": [
+    "Reset difficulté immédiat et heal hôpital fiable",
     "Menu difficulté et hôpital poussé par les tirs",
     "Boss rouge 25 PV appliqué et hôpital rebondissant",
     "Niveau 10 hôpital et équilibrage bleu/rouge",
@@ -722,8 +723,7 @@
     "Immunité impacts rouges/tirs unifiée à 200 ms",
     "Cap boss rouge 12 PV + boss jaune/noir ajoutés",
     "Boss vert/red ajustés et dégâts grenade boss corrigés",
-    "Bouton Boss visible et spawn boss vert fiabilisé",
-    "Menu Boss Rush multi-niveaux et boss niveau 3"
+    "Bouton Boss visible et spawn boss vert fiabilisé"
   ],
   "debug": {
     "show_velocities": false,

@@ -513,9 +513,15 @@ export class GameEngine {
         continue;
       }
       if (this.hospital.contactIds.has(ball.id)) continue;
+      const beforeHp = ball.hp;
       const gained = ball.heal(this.hospital.healPerContact);
-      if (gained <= 0) continue;
-      this.pendingEvents.push({ type: "ball_healed", ballId: ball.id, amount: gained, remainingHp: ball.hp, position: { ...ball.position } });
+      if (gained <= 0) {
+        ball.maxHp += this.hospital.healPerContact;
+        ball.hp = Math.min(ball.maxHp, ball.hp + this.hospital.healPerContact);
+      }
+      const applied = ball.hp - beforeHp;
+      if (applied <= 0) continue;
+      this.pendingEvents.push({ type: "ball_healed", ballId: ball.id, amount: applied, remainingHp: ball.hp, position: { ...ball.position } });
       this.hospital.hp = Math.max(0, this.hospital.hp - 1);
       if (this.hospital.hp <= 0) { this.hospital = null; return; }
     }

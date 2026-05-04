@@ -225,7 +225,7 @@ export function useGameEngine(): UseGameEngineResult {
     lastTimeRef.current = performance.now();
     pausedRef.current = false;
     setIsRunning(true);
-  }, []);
+  }, [difficulty]);
 
   const pause  = useCallback(() => { pausedRef.current = true;  setIsRunning(false); }, []);
   const resume = useCallback(() => { pausedRef.current = false; lastTimeRef.current = performance.now(); setIsRunning(true); }, []);
@@ -405,7 +405,9 @@ export function useGameEngine(): UseGameEngineResult {
     setDifficultyState(next);
     const bonus = next === "easy" ? 0 : next === "medium" ? 2 : 6;
     engineRef.current?.setDifficultyBonusHp(bonus);
-  }, []);
+    rebootingRef.current = false;
+    doReset();
+  }, [doReset]);
 
   return {
     gameState, config, lastEvents, isRunning, playerQueue,
