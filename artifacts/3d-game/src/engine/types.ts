@@ -17,6 +17,7 @@ export type BallColor =
   | "cyan"
   | "blue"
   | "dark_blue"
+  | "pink"
   | "gray"
   | "black";
 

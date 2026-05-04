@@ -111,7 +111,7 @@ export function useGameEngine(): UseGameEngineResult {
         engineRef.current = new GameEngine(cfg, currentLevelIdxRef.current);
         grenadeZonesRef.current = createGrenadeZoneStore();
         setGrenadesLeft(engineRef.current.getGrenadesLeft());
-        const q = buildQueue(cfg.gameplay_controls.queue_size, cfg.gameplay_controls.player_projectile_distribution ?? { light: 0.6, heavy: 0.3, mega: 0.1 });
+        const q: ShotKind[] = [];
         queueRef.current = q;
         setPlayerQueue(q);
         const lvl = engineRef.current.getCurrentLevel();
@@ -206,7 +206,7 @@ export function useGameEngine(): UseGameEngineResult {
     if (sessionModeRef.current === "single_color") {
       engineRef.current.setSingleColorMode(true);
     }
-    const q = buildQueue(cfg.gameplay_controls.queue_size, cfg.gameplay_controls.player_projectile_distribution ?? { light: 0.6, heavy: 0.3, mega: 0.1 });
+    const q: ShotKind[] = [];
     queueRef.current = q;
     setPlayerQueue(q);
     const lvl = engineRef.current.getCurrentLevel();
@@ -235,36 +235,19 @@ export function useGameEngine(): UseGameEngineResult {
   }, []);
 
   /**
-   * Player shoot. Pops the leftmost queue color, fires a projectile,
-   * shifts the queue and appends a new random from the pool.
+   * Player shoot. Uses hold duration to resolve shot type directly:
+   * light/heavy/mega without queue gating.
    */
   const shoot = useCallback((targetX: number, targetY: number, holdSeconds: number, forcedKind?: ShotKind): ShotKind | null => {
     const cfg = configRef.current;
     if (!cfg || !engineRef.current || pausedRef.current) return null;
-
-    // Pop the leftmost queue color
-    const queue = queueRef.current;
-    if (queue.length === 0) return null;
-    const requested = queue[0];
     const types = cfg.gameplay_controls.shot_types;
     const effective: ShotKind = holdSeconds >= (types.mega?.max_hold_seconds ?? 0.8) ? "mega" : holdSeconds >= (types.heavy?.max_hold_seconds ?? 0.3) ? "heavy" : "light";
-    const resolved: ShotKind = forcedKind ?? (
-      requested === "light" ? effective :
-      requested === "heavy" ? (effective === "mega" ? "mega" : effective) :
-      (effective === "mega" ? "mega" : null)
-    ) as ShotKind;
-    if (!resolved) return null;
-    const holdForResolved = resolved === "mega" ? 0.81 : resolved === "heavy" ? 0.31 : 0.01;
-    const projectileColor: BallColor = resolved === "light" ? "white" : resolved === "heavy" ? "yellow" : "gray";
+    const resolved: ShotKind = forcedKind ?? effective;
+    const holdForResolved = holdSeconds;
+    const projectileColor: BallColor = resolved === "light" ? "white" : resolved === "heavy" ? "yellow" : "pink";
     const proj = engineRef.current.playerShoot(targetX, targetY, holdForResolved, projectileColor);
     if (!proj) return null;
-
-    // Shift queue and refill
-    const next = queue.slice(1);
-    const distribution = cfg.gameplay_controls.player_projectile_distribution ?? { light: 0.6, heavy: 0.3, mega: 0.1 };
-    next.push(buildQueue(1, distribution)[0]);
-    queueRef.current = next;
-    setPlayerQueue(next);
 
     return resolved;
   }, []);

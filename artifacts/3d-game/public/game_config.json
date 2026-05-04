@@ -229,6 +229,17 @@
       "selectable_by_player": false,
       "for_terrain": true
     },
+    "pink": {
+      "hex": "#FF66FF",
+      "rgb": [
+        255,
+        102,
+        255
+      ],
+      "_label": "Rose",
+      "selectable_by_player": false,
+      "for_terrain": false
+    },
     "gray": {
       "hex": "#808080",
       "rgb": [
@@ -677,6 +688,7 @@
     ]
   },
   "release_notes": [
+    "Tirs libres au curseur sans file bloquante",
     "Boss verts: bonus regen 900% et spawn paramétrable",
     "Boss multi-spawn écartés de 70 degrés",
     "Boss multi-spawn éventail de trajectoires",
@@ -695,8 +707,7 @@
     "Grenade agrandie et déflagration visuelle ajoutée",
     "Diamètre visuel grenade aligné sur zone de dégâts",
     "File d’intentions UI pour actions grenade",
-    "Détonation grenade synchronisée à la frame update",
-    "File d’événements externe synchronisée par frame"
+    "Détonation grenade synchronisée à la frame update"
   ],
   "debug": {
     "show_velocities": false,
