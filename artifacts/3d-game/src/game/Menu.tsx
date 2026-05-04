@@ -1527,14 +1527,15 @@ export function Menu({
       {view === "how_to_ask"     && <HowToAskCarousel onBack={() => setView("main")} />}
       {view === "release_notes"  && <ReleaseNotesView config={config} onBack={() => setView("main")} />}
       {view === "effects"        && <EffectsMenu ballEffect={ballEffect} grenadeEffect={grenadeEffect} debugExplosionTexture={debugExplosionTexture} onDebugExplosionTextureChange={onDebugExplosionTextureChange} onBallEffectChange={onBallEffectChange} onGrenadeEffectChange={onGrenadeEffectChange} onBack={() => setView("main")} />}
-      {view === "difficulty"     && <DifficultyMenu difficulty={difficulty} onChange={onDifficultyChange} onBack={() => setView("main")} />}
+      {view === "difficulty"     && <DifficultyMenu difficulty={difficulty} onChange={onDifficultyChange} onBack={() => setView("main")} onClose={onClose} />}
     </div>
   );
 }
 
-function DifficultyMenu({ difficulty, onChange, onBack }: { difficulty: "easy" | "medium" | "hard"; onChange: (d: "easy" | "medium" | "hard") => void; onBack: () => void; }) {
+function DifficultyMenu({ difficulty, onChange, onBack, onClose }: { difficulty: "easy" | "medium" | "hard"; onChange: (d: "easy" | "medium" | "hard") => void; onBack: () => void; onClose: () => void; }) {
+  const [selected, setSelected] = useState<"easy" | "medium" | "hard">(difficulty);
   const button = (d: "easy" | "medium" | "hard", label: string) => (
-    <button style={{ ...CLOSE_BTN, background: difficulty === d ? "rgba(30,144,255,.3)" : "transparent" }} onClick={() => onChange(d)}>{label}</button>
+    <button style={{ ...CLOSE_BTN, background: selected === d ? "rgba(30,144,255,.3)" : "transparent" }} onClick={() => setSelected(d)}>{label}</button>
   );
   return <div style={PANEL}>
     <h3 style={{ margin: 0 }}>Difficulté</h3>
@@ -1543,6 +1544,7 @@ function DifficultyMenu({ difficulty, onChange, onBack }: { difficulty: "easy" |
       {button("medium", "Medium")}
       {button("hard", "Hard")}
     </div>
+    <button style={{ ...CLOSE_BTN, color: "#0a1628", background: "#1e90ff", borderColor: "#1e90ff", fontWeight: "bold" }} onClick={() => { onChange(selected); onClose(); }}>▶ Play</button>
     <button style={CLOSE_BTN} onClick={onBack}>← Retour</button>
   </div>;
 }
