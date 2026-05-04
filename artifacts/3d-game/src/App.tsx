@@ -106,6 +106,8 @@ function App() {
     if (!menuOpenRef.current && isRunningRef.current) {
       tryShootBall(gameX, gameY, holdTime);
     }
+    cycleStartRef.current = performance.now();
+    setHoldTime(0);
   };
 
   const handlePointerCancel = () => {

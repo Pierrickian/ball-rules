@@ -688,6 +688,7 @@
     ]
   },
   "release_notes": [
+    "Reset de charge au release et tir conditionné au pointer down",
     "Charge continue: tirs heavy/mega réactivés",
     "Charge continue conservée sans reset au pointer",
     "Suppression menu pourcentages et tirs doublés corrigés",
@@ -706,8 +707,7 @@
     "Overlay BOSS avant spawn du boss blanc",
     "Boss de fin de vague avant passage niveau",
     "Boss noir niveau 1 paramétré par niveau",
-    "Fréquence de spawn terrain accélérée",
-    "Build Vite robuste sans variables obligatoires"
+    "Fréquence de spawn terrain accélérée"
   ],
   "debug": {
     "show_velocities": false,
