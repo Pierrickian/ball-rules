@@ -21,7 +21,7 @@ function App() {
   const {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
-    shoot, setCustomTerrainDistribution, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, classifyHold, toggleGrenade, grenadesLeft,
+    shoot, setCustomTerrainDistribution, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, playBossRush, classifyHold, toggleGrenade, grenadesLeft,
   } = useGameEngine();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -269,6 +269,7 @@ function App() {
           onPlayerDistributionChange={setPlayerProjectileDistribution}
           onLevelSelect={setActiveLevel}
           onLevelWeightsChange={setLevelWeights}
+          onPlayBossRush={playBossRush}
           currentLevelIndex={gameState.currentLevelIndex}
           ballEffect={ballEffect}
           grenadeEffect={grenadeEffect}

@@ -38,6 +38,7 @@ export interface UseGameEngineResult {
   setPlayerProjectileDistribution: (distribution: Record<ShotKind, number>) => void;
   setActiveLevel: (index: number) => void;
   setLevelWeights: (index: number, weights: Record<BallColor, number>) => void;
+  playBossRush: (levelIds: number[]) => void;
   classifyHold: (holdSeconds: number) => ShotKind;
   toggleGrenade: (dir: Vec2, effect?: string) => boolean;
   grenadesLeft: number;
@@ -92,7 +93,7 @@ export function useGameEngine(): UseGameEngineResult {
   const currentLevelIdxRef = useRef(0);
   // "levels"       — story mode: use level weights, advance on clear (loop)
   // "single_color" — one looping level, 100% of launch_config.color, no progression
-  const sessionModeRef     = useRef<"levels" | "single_color">("levels");
+  const sessionModeRef     = useRef<"levels" | "single_color" | "boss_rush">("levels");
 
   // Load config and initialize engine
   useEffect(() => {
@@ -343,6 +344,32 @@ export function useGameEngine(): UseGameEngineResult {
     doReset();
   }, [doReset]);
 
+
+  const playBossRush = useCallback((levelIds: number[]) => {
+    const cfg = configRef.current;
+    if (!cfg || !cfg.levels?.list?.length) return;
+    const wanted = new Set(levelIds);
+    const picked = cfg.levels.list.filter((lvl) => wanted.has(lvl.id) && lvl.boss);
+    if (picked.length === 0) return;
+    const list = picked.map((lvl, i) => ({
+      ...lvl,
+      id: i + 1,
+      name: `Boss ${lvl.id}`,
+      launch_color_weights: { white: 1 },
+    }));
+    const newConfig: GameConfig = {
+      ...cfg,
+      game_session: { ...cfg.game_session, max_balls_spawned: 0 },
+      levels: { ...cfg.levels, list },
+    };
+    configRef.current = newConfig;
+    setConfig(newConfig);
+    sessionModeRef.current = "boss_rush";
+    currentLevelIdxRef.current = 0;
+    rebootingRef.current = false;
+    doReset();
+  }, [doReset]);
+
   const setPlayerProjectileDistribution = useCallback((distribution: Record<ShotKind, number>) => {
     const cfg = configRef.current;
     if (!cfg || !engineRef.current) return;
@@ -361,6 +388,6 @@ export function useGameEngine(): UseGameEngineResult {
   return {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
-    shoot, setLauncherColor, setCustomTerrainDistribution, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, classifyHold, toggleGrenade, grenadesLeft,
+    shoot, setLauncherColor, setCustomTerrainDistribution, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, playBossRush, classifyHold, toggleGrenade, grenadesLeft,
   };
 }
