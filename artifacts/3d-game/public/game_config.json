@@ -345,7 +345,9 @@
     "player_projectile": {
       "_description": "Paramètres globaux des projectiles du joueur. Voir gameplay_controls.shot_types pour les variantes par type de tir.",
       "max_lifetime_seconds": 4,
-      "_max_lifetime_comment": "Sécurité: tout projectile disparaît après ce délai même s'il n'a rien touché."
+      "_max_lifetime_comment": "Sécurité: tout projectile disparaît après ce délai même s'il n'a rien touché.",
+      "hit_immunity_ms": 200,
+      "_hit_immunity_ms_comment": "Immunité temporaire (ms) après impact: évite les doubles touches immédiates, mais autorise une retouche après rebond."
     },
     "yellow_blinker": {
       "default_hp": 4,
@@ -667,6 +669,7 @@
     ]
   },
   "release_notes": [
+    "Immunité impacts rouges/tirs unifiée à 200 ms",
     "Cap boss rouge 12 PV + boss jaune/noir ajoutés",
     "Boss vert/red ajustés et dégâts grenade boss corrigés",
     "Bouton Boss visible et spawn boss vert fiabilisé",
@@ -685,8 +688,7 @@
     "Explosions terrain et grenade rendues visibles",
     "Pipeline sprite unifiée menu et jeu",
     "Effet grenade menu propagé au moteur",
-    "Explosion sprite animé avec inertie dynamique",
-    "Clarification des consignes de configuration jeu"
+    "Explosion sprite animé avec inertie dynamique"
   ],
   "debug": {
     "show_velocities": false,

@@ -293,6 +293,7 @@ export interface GameConfig {
     };
     player_projectile?: {
       max_lifetime_seconds: number;
+      hit_immunity_ms?: number;
     };
   };
   gameplay: {

@@ -263,7 +263,7 @@ export class GameEngine {
       passesThroughBalls: shotCfg.passes_through_balls,
       remainingWallBounces: shotCfg.wall_bounces,
       lifetime: 0,
-      damagedIds: new Set<string>(),
+      damagedIds: new Map<string, number>(),
       colorTint: shotCfg.color_tint ?? null,
       effect: shotKind === 'mega' ? 'nova' : shotKind === 'heavy' ? 'shock' : 'pulse',
     };
@@ -329,7 +329,7 @@ export class GameEngine {
         const baseDiameter = this.getPlayerBaseDiameter();
         const baseSpeed = this.config.gameplay_controls?.shot_types?.light?.speed ?? 9;
         const grenade = new Ball('gray', BallSize.SMALL, origin, {x: dir.x * baseSpeed * 4, y: dir.y * baseSpeed * 4}, baseDiameter * 2, 'player_projectile', BounceCondition.AGAINST_OBSTACLE, 999, 999);
-        grenade.metadata = {isProjectile: true, isGrenade: true, lifetime: 0, damagedIds: new Set<string>(), colorTint: '#6b7a8f', effect: command.effect};
+        grenade.metadata = {isProjectile: true, isGrenade: true, lifetime: 0, damagedIds: new Map<string, number>(), colorTint: '#6b7a8f', effect: command.effect};
         this.balls.set(grenade.id, grenade);
         this.emitEvent({ type: 'ball_spawned', ball: grenade.getState() }, "update");
         this.activeGrenadeId = grenade.id;
@@ -1123,7 +1123,7 @@ export class GameEngine {
       passesThroughBalls: boolean;
       remainingWallBounces: number;
       lifetime: number;
-      damagedIds: Set<string>;
+      damagedIds: Map<string, number>;
     };
 
     // Lifetime safety
@@ -1166,7 +1166,8 @@ export class GameEngine {
       if (other.id === ball.id || !other.isAlive) continue;
       if (other.color === "orange" || other.isProjectile()) continue;
       if (this.isTemporarilyUntouchable(other)) continue;
-      if (meta.damagedIds.has(other.id)) continue;
+      const immunityUntil = meta.damagedIds.get(other.id) ?? 0;
+      if (immunityUntil > this.elapsedTime) continue;
 
       const ignoreProjectileId = typeof other.metadata?.ignoreProjectileId === "string" ? other.metadata.ignoreProjectileId : null;
       const ignoreUntil = typeof other.metadata?.ignoreProjectileUntil === "number" ? other.metadata.ignoreProjectileUntil : 0;
@@ -1174,7 +1175,8 @@ export class GameEngine {
 
       if (ball.isCollidingWith(other)) {
         const hpBeforeHit = other.hp;
-        meta.damagedIds.add(other.id);
+        const hitImmunitySeconds = this.getProjectileHitImmunitySeconds(ctx.config);
+        meta.damagedIds.set(other.id, this.elapsedTime + hitImmunitySeconds);
         ctx.events.push({ type: "collision", ballAId: ball.id, ballBId: other.id });
         ctx.damageBall(other, meta.damage, "killed_by_player");
         this.trySplitRedAfterNonLethalHit(other, hpBeforeHit, ball.id, ctx);
@@ -1217,7 +1219,7 @@ export class GameEngine {
       x: dir.x * childSpeed * 0.75 - perp.x * childSpeed * 0.55,
       y: dir.y * childSpeed * 0.75 - perp.y * childSpeed * 0.55,
     }, "red_split_bouncer", { hp: childHp, maxHp: childHp });
-    const ignoreUntil = this.elapsedTime + 0.06;
+    const ignoreUntil = this.elapsedTime + this.getProjectileHitImmunitySeconds(ctx.config);
     b1.metadata.ignoreProjectileId = sourceProjectileId;
     b1.metadata.ignoreProjectileUntil = ignoreUntil;
     b2.metadata.ignoreProjectileId = sourceProjectileId;
@@ -1226,6 +1228,11 @@ export class GameEngine {
     ctx.despawnBall(target, "red_split_after_hit");
   }
 
+
+  private getProjectileHitImmunitySeconds(config: GameConfig): number {
+    const ms = config.rule_parameters.player_projectile?.hit_immunity_ms ?? 200;
+    return Math.max(0, ms) / 1000;
+  }
   /** Reflect a projectile's velocity off a target ball treated as a bumper.
    *  Also pushes the projectile out of overlap so it doesn't immediately
    *  re-collide on the next frame. */
