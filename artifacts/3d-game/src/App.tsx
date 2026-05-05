@@ -45,6 +45,7 @@ function App() {
   const [shotsRemaining, setShotsRemaining] = useState(50);
   const [retryReason, setRetryReason] = useState<"timeout" | "ammo" | null>(null);
   const [retryResetInProgress, setRetryResetInProgress] = useState(false);
+  const [autoFire, setAutoFire] = useState(false);
   useEffect(() => { localStorage.setItem("bg_effect_ball", ballEffect); }, [ballEffect]);
   useEffect(() => { localStorage.setItem("bg_effect_grenade", grenadeEffect); }, [grenadeEffect]);
   useEffect(() => { localStorage.setItem("bg_debug_explosion_texture", debugExplosionTexture ? "1" : "0"); }, [debugExplosionTexture]);
@@ -85,7 +86,6 @@ function App() {
     setLevelTimerSeconds(lvl?.timer_seconds ?? 60);
     setShotsRemaining(lvl?.ammo_count ?? 50);
     setRetryReason(null);
-    setRetryResetInProgress(false);
   }, [config, gameState?.currentLevelIndex]);
 
   useEffect(() => {
@@ -111,6 +111,29 @@ function App() {
       pause();
     }
   }, [shotsRemaining, retryReason, retryResetInProgress, isBossPhase, pause]);
+
+  useEffect(() => {
+    if (!autoFire || !isRunning || retryReason || menuOpen) return;
+    const megaThreshold = config?.gameplay_controls.shot_types?.mega?.min_hold_seconds ?? 1;
+    const id = window.setInterval(() => {
+      const held = (performance.now() - cycleStartRef.current) / 1000;
+      if (held < megaThreshold) return;
+      let tx = lastTargetRef.current.x;
+      let ty = lastTargetRef.current.y;
+      if (lockOn && lockedBallId && gameState) {
+        const b = gameState.balls.get(lockedBallId);
+        if (b?.isAlive) {
+          const shotSpeed = config?.gameplay_controls.shot_types?.mega?.speed ?? 28;
+          const intercept = homingOn ? computeInterceptTarget(b.position, b.velocity, shotSpeed) : b.position;
+          tx = intercept.x;
+          ty = intercept.y;
+        }
+      }
+      const didShoot = tryShootBall(tx, ty, megaThreshold + 0.01);
+      if (didShoot) cycleStartRef.current = performance.now();
+    }, 120);
+    return () => window.clearInterval(id);
+  }, [autoFire, isRunning, retryReason, menuOpen, config, lockOn, lockedBallId, gameState, homingOn]);
 
   const computeInterceptTarget = (targetPos: Vec2, targetVel: Vec2, shotSpeed: number): Vec2 => {
     const shooter = { x: 0, y: -(config?.graphics.arena.height ?? 14) * 0.5 };
@@ -361,6 +384,12 @@ function App() {
       >
         {homingOn ? "Homing ON" : "Homing"}
       </button>
+      <button
+        onClick={() => setAutoFire((v) => !v)}
+        style={{ position:"absolute", left:"50%", transform:"translateX(-50%)", bottom:18, border:"1px solid #ff9f1c", background: autoFire ? "#ff9f1c" : "rgba(0,0,0,.55)", color: autoFire ? "#2d1400" : "#ffe8c2", borderRadius:8, padding:"6px 12px", zIndex:12, fontWeight:700 }}
+      >
+        {autoFire ? "Auto Fire ON" : "Auto Fire"}
+      </button>
 
       <button
         onClick={handleMenuOpen}
@@ -378,7 +407,6 @@ function App() {
         onPause={pause}
         onResume={resume}
         onReset={reset}
-        onMenu={handleMenuOpen}
       />
 
       {/* Game-over flash */}
@@ -396,6 +424,7 @@ function App() {
             setRetryReason(null);
             reset();
             resume();
+            window.setTimeout(() => setRetryResetInProgress(false), 80);
           }}
         />
       )}

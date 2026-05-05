@@ -14,7 +14,6 @@ interface HUDProps {
   onPause: () => void;
   onResume: () => void;
   onReset: () => void;
-  onMenu: () => void;
 }
 
 const BTN: React.CSSProperties = {
@@ -30,7 +29,7 @@ const BTN: React.CSSProperties = {
   letterSpacing: 1,
 };
 
-export function HUD({ gameState, config, isRunning, levelTimerSeconds, shotsRemaining, onPause, onResume, onReset, onMenu }: HUDProps) {
+export function HUD({ gameState, config, isRunning, levelTimerSeconds, shotsRemaining, onPause, onResume, onReset }: HUDProps) {
   const activeBalls = Array.from(gameState.balls.values()).filter(
     (b) => b.isAlive && b.color !== "orange" && b.metadata?.isProjectile !== true
   ).length;
@@ -107,14 +106,6 @@ export function HUD({ gameState, config, isRunning, levelTimerSeconds, shotsRema
         </div>
 
       </div>
-
-      <button
-        onClick={onMenu}
-        style={{ ...BTN, pointerEvents: "all", padding: "6px 14px", fontSize: 16, position: "absolute", top: 16, right: 16, zIndex: 80 }}
-        title="Menu"
-      >
-        ☰
-      </button>
 
       {/* Bottom controls */}
       <div

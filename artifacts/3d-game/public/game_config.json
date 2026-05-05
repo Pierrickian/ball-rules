@@ -709,6 +709,7 @@
     ]
   },
   "release_notes": [
+    "Auto-fire mega + retry corrigé et HUD recentré",
     "Retry recharge temps/munitions + menu au premier plan",
     "Retry fiabilisé et menu accessible pendant échec",
     "Timer + munitions par niveau avec écran Retry",
@@ -727,8 +728,7 @@
     "Rollback arrêt non létal des tirs heavy/mega",
     "Heavy +20%, mega +50%, arrêt sur hit non létal",
     "Reset de charge au release et tir conditionné au pointer down",
-    "Charge continue: tirs heavy/mega réactivés",
-    "Charge continue conservée sans reset au pointer"
+    "Charge continue: tirs heavy/mega réactivés"
   ],
   "debug": {
     "show_velocities": false,
