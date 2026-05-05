@@ -709,6 +709,7 @@
     ]
   },
   "release_notes": [
+    "Auto-fire continu synchronisé sur seuil heavy→mega",
     "UI fine: boutons bas remontés et compteurs décalés",
     "UI: boutons lock/homing/auto alignés + jauge visible",
     "Auto-fire mega + retry corrigé et HUD recentré",
@@ -727,8 +728,7 @@
     "Menu difficulté et hôpital poussé par les tirs",
     "Boss rouge 25 PV appliqué et hôpital rebondissant",
     "Niveau 10 hôpital et équilibrage bleu/rouge",
-    "Rollback arrêt non létal des tirs heavy/mega",
-    "Heavy +20%, mega +50%, arrêt sur hit non létal"
+    "Rollback arrêt non létal des tirs heavy/mega"
   ],
   "debug": {
     "show_velocities": false,

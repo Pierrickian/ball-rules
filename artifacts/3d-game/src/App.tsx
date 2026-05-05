@@ -114,7 +114,9 @@ function App() {
 
   useEffect(() => {
     if (!autoFire || !isRunning || retryReason || menuOpen) return;
-    const megaThreshold = config?.gameplay_controls.shot_types?.mega?.min_hold_seconds ?? 1;
+    const heavyMax = config?.gameplay_controls.shot_types?.heavy?.max_hold_seconds ?? 0.3;
+    const megaMin = config?.gameplay_controls.shot_types?.mega?.min_hold_seconds ?? heavyMax;
+    const megaThreshold = Math.max(heavyMax, megaMin);
     const id = window.setInterval(() => {
       const held = (performance.now() - cycleStartRef.current) / 1000;
       if (held < megaThreshold) return;
@@ -131,7 +133,7 @@ function App() {
       }
       const didShoot = tryShootBall(tx, ty, megaThreshold + 0.01);
       if (didShoot) cycleStartRef.current = performance.now();
-    }, 120);
+    }, 35);
     return () => window.clearInterval(id);
   }, [autoFire, isRunning, retryReason, menuOpen, config, lockOn, lockedBallId, gameState, homingOn]);
 
