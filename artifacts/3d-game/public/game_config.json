@@ -704,6 +704,7 @@
     ]
   },
   "release_notes": [
+    "Homing: avance boostée par distance et composante horizontale",
     "Exception boss rouge: cap 25 PV en phase boss",
     "Homing multi-tirs + clamp angle + split rouge hard corrigé",
     "Expert lock prédictif + split rouge -1 PV corrigé",
@@ -722,8 +723,7 @@
     "Suppression menu pourcentages et tirs doublés corrigés",
     "Suppression des previews et tir libre au release",
     "Tirs curseur libres sans blocage de seuils",
-    "Boss verts: bonus regen 900% et spawn paramétrable",
-    "Boss multi-spawn écartés de 70 degrés"
+    "Boss verts: bonus regen 900% et spawn paramétrable"
   ],
   "debug": {
     "show_velocities": false,

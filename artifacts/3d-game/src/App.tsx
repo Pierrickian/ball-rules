@@ -114,10 +114,15 @@ function App() {
         if (b?.isAlive) {
           const shotKind = classifyHold(holdTime);
           const baseLead = shotKind === "light" ? 0.6 : shotKind === "heavy" ? 0.5 : 0.4;
-          const arenaDiag = Math.hypot(config?.graphics.arena.width ?? 1, config?.graphics.arena.height ?? 1);
-          const cursorDist = Math.hypot(b.position.x - gameX, b.position.y - gameY);
-          const cursorFactor = Math.max(0.6, Math.min(1.2, cursorDist / Math.max(1, arenaDiag)));
-          const lead = homingOn ? baseLead * cursorFactor : 0;
+          const arenaW = config?.graphics.arena.width ?? 10;
+          const arenaH = config?.graphics.arena.height ?? 14;
+          const shooterY = -arenaH * 0.5;
+          const targetDist = Math.hypot(b.position.x, b.position.y - shooterY);
+          const distNorm = Math.max(0, Math.min(1.5, targetDist / Math.max(1, Math.hypot(arenaW, arenaH))));
+          const speed = Math.hypot(b.velocity.x, b.velocity.y);
+          const horizontalCos = speed > 0.001 ? Math.abs(b.velocity.x) / speed : 0;
+          const leadBoost = 1 + distNorm * 0.65 + horizontalCos * 0.45;
+          const lead = homingOn ? baseLead * leadBoost : 0;
           tx = b.position.x + b.velocity.x * lead;
           ty = b.position.y + b.velocity.y * lead;
           const halfH = (config?.graphics.arena.height ?? 14) * 0.5;
@@ -189,7 +194,15 @@ function App() {
       if (b) {
         const shotKind = classifyHold(holdTime);
         const baseLead = shotKind === "light" ? 0.6 : shotKind === "heavy" ? 0.5 : 0.4;
-        const lead = homingOn ? baseLead : 0;
+        const arenaW = config?.graphics.arena.width ?? 10;
+        const arenaH = config?.graphics.arena.height ?? 14;
+        const shooterY = -arenaH * 0.5;
+        const targetDist = Math.hypot(b.position.x, b.position.y - shooterY);
+        const distNorm = Math.max(0, Math.min(1.5, targetDist / Math.max(1, Math.hypot(arenaW, arenaH))));
+        const speed = Math.hypot(b.velocity.x, b.velocity.y);
+        const horizontalCos = speed > 0.001 ? Math.abs(b.velocity.x) / speed : 0;
+        const leadBoost = 1 + distNorm * 0.65 + horizontalCos * 0.45;
+        const lead = homingOn ? baseLead * leadBoost : 0;
         const dx = b.position.x + b.velocity.x * lead;
         const halfH = (config?.graphics.arena.height ?? 14) * 0.5;
         const ty = Math.max(-halfH + 0.2, Math.min(halfH - 0.2, b.position.y + b.velocity.y * lead));
