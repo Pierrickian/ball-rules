@@ -371,25 +371,27 @@ function App() {
       >
         💣 {grenadesLeft}
       </button>
-      <button
-        onClick={() => setLockOn((v) => !v)}
-        style={{ position:"absolute", left:"50%", transform:"translateX(-50%)", bottom:86, border:"1px solid #1e90ff", background: lockOn ? "#1e90ff" : "rgba(0,0,0,.55)", color:"#fff", borderRadius:8, padding:"6px 12px", zIndex:12 }}
-      >
-        {lockOn ? "🔒 Lock" : "🔓 Lock"}
-      </button>
-      <button
-        onClick={() => { if (lockOn) setHomingOn((v) => !v); }}
-        disabled={!lockOn}
-        style={{ position:"absolute", left:"50%", transform:"translateX(-50%)", bottom:52, border:"1px solid #00d4aa", background: !lockOn ? "rgba(180,180,180,.55)" : homingOn ? "#00d4aa" : "rgba(0,0,0,.55)", color: !lockOn ? "#1a1a1a" : "#001e1a", borderRadius:8, padding:"5px 12px", zIndex:12, fontWeight:700, opacity: 1 }}
-      >
-        {homingOn ? "Homing ON" : "Homing"}
-      </button>
-      <button
-        onClick={() => setAutoFire((v) => !v)}
-        style={{ position:"absolute", left:"50%", transform:"translateX(-50%)", bottom:18, border:"1px solid #ff9f1c", background: autoFire ? "#ff9f1c" : "rgba(0,0,0,.55)", color: autoFire ? "#2d1400" : "#ffe8c2", borderRadius:8, padding:"6px 12px", zIndex:12, fontWeight:700 }}
-      >
-        {autoFire ? "Auto Fire ON" : "Auto Fire"}
-      </button>
+      <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", bottom: 32, display: "flex", gap: 8, zIndex: 12 }}>
+        <button
+          onClick={() => setLockOn((v) => !v)}
+          style={{ border:"1px solid #1e90ff", background: lockOn ? "#1e90ff" : "rgba(0,0,0,.55)", color:"#fff", borderRadius:8, padding:"6px 12px" }}
+        >
+          {lockOn ? "🔒 Lock" : "🔓 Lock"}
+        </button>
+        <button
+          onClick={() => { if (lockOn) setHomingOn((v) => !v); }}
+          disabled={!lockOn}
+          style={{ border:"1px solid #00d4aa", background: !lockOn ? "rgba(180,180,180,.55)" : homingOn ? "#00d4aa" : "rgba(0,0,0,.55)", color: !lockOn ? "#1a1a1a" : "#001e1a", borderRadius:8, padding:"6px 12px", fontWeight:700 }}
+        >
+          {homingOn ? "Homing ON" : "Homing"}
+        </button>
+        <button
+          onClick={() => setAutoFire((v) => !v)}
+          style={{ border:"1px solid #ff9f1c", background: autoFire ? "#ff9f1c" : "rgba(0,0,0,.55)", color: autoFire ? "#2d1400" : "#ffe8c2", borderRadius:8, padding:"6px 12px", fontWeight:700 }}
+        >
+          {autoFire ? "Auto Fire ON" : "Auto Fire"}
+        </button>
+      </div>
 
       <button
         onClick={handleMenuOpen}

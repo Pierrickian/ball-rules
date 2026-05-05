@@ -57,16 +57,17 @@ export function HUD({ gameState, config, isRunning, levelTimerSeconds, shotsRema
       <div
         style={{
           display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
+          flexDirection: "column",
+          alignItems: "stretch",
           background: "rgba(0,8,24,0.72)",
           borderRadius: 10,
           padding: "8px 14px",
           backdropFilter: "blur(6px)",
           border: "1px solid rgba(30,144,255,0.25)",
-          gap: 14,
+          gap: 8,
         }}
       >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14 }}>
         <div style={{ minWidth: 72 }}>
           <div style={{ fontSize: 9, color: "#445", textTransform: "uppercase", letterSpacing: 3 }}>Restantes</div>
           <div style={{ fontSize: 20, fontWeight: "bold", color: "#1e90ff", lineHeight: 1 }}>{activeBalls}</div>
@@ -87,8 +88,10 @@ export function HUD({ gameState, config, isRunning, levelTimerSeconds, shotsRema
           </div>
         </div>
 
+        </div>
+
         {/* Session progress */}
-        <div style={{ flex: 1, minWidth: 80 }}>
+        <div style={{ width: "56%", minWidth: 150 }}>
           <div style={{ fontSize: 9, color: "#445", textTransform: "uppercase", letterSpacing: 3, marginBottom: 3 }}>
             Vague {launched}/{max}
           </div>
@@ -104,7 +107,6 @@ export function HUD({ gameState, config, isRunning, levelTimerSeconds, shotsRema
             }} />
           </div>
         </div>
-
       </div>
 
       {/* Bottom controls */}
