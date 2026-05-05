@@ -380,6 +380,7 @@ function App() {
         <RetryOverlay
           reason={retryReason}
           onRetry={() => {
+            setRetryReason(null);
             reset();
             resume();
           }}
