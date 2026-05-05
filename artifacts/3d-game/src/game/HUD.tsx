@@ -9,6 +9,8 @@ interface HUDProps {
   gameState: GameState;
   config: GameConfig;
   isRunning: boolean;
+  levelTimerSeconds: number | null;
+  shotsRemaining: number | null;
   onPause: () => void;
   onResume: () => void;
   onReset: () => void;
@@ -28,7 +30,7 @@ const BTN: React.CSSProperties = {
   letterSpacing: 1,
 };
 
-export function HUD({ gameState, config, isRunning, onPause, onResume, onReset, onMenu }: HUDProps) {
+export function HUD({ gameState, config, isRunning, levelTimerSeconds, shotsRemaining, onPause, onResume, onReset, onMenu }: HUDProps) {
   const activeBalls = Array.from(gameState.balls.values()).filter(
     (b) => b.isAlive && b.color !== "orange" && b.metadata?.isProjectile !== true
   ).length;
@@ -66,9 +68,24 @@ export function HUD({ gameState, config, isRunning, onPause, onResume, onReset, 
           gap: 14,
         }}
       >
-        <div>
+        <div style={{ minWidth: 72 }}>
           <div style={{ fontSize: 9, color: "#445", textTransform: "uppercase", letterSpacing: 3 }}>Restantes</div>
           <div style={{ fontSize: 20, fontWeight: "bold", color: "#1e90ff", lineHeight: 1 }}>{activeBalls}</div>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 18, minWidth: 210 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 16 }}>⏳</span>
+            <span style={{ fontSize: 20, fontWeight: "bold", color: "#ffd166", minWidth: 48, textAlign: "center" }}>
+              {levelTimerSeconds === null ? "∞" : `${Math.max(0, Math.ceil(levelTimerSeconds))}s`}
+            </span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 16 }}>🎯</span>
+            <span style={{ fontSize: 20, fontWeight: "bold", color: "#7afcff", minWidth: 32, textAlign: "center" }}>
+              {shotsRemaining === null ? "∞" : shotsRemaining}
+            </span>
+          </div>
         </div>
 
         {/* Session progress */}

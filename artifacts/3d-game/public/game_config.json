@@ -536,11 +536,14 @@
     "_description": "Progression par niveaux. Chaque entrée définit la pondération des couleurs lancées par l'orange (launch_color_weights). Le joueur passe au niveau suivant quand il a nettoyé le terrain (toutes les balles de game_session.max_balls_spawned détruites). Quand le dernier niveau est nettoyé, on revient au niveau 1. Le menu 'Niveau' affiche un carrousel descriptif.",
     "_launch_color_weights_format": "Objet { couleur: poids }. Les poids sont relatifs (peuvent être 0.2, 0.8, 1.0, 5, 10... peu importe l'échelle). Le total est normalisé à 1 pour le tirage. Toute couleur listée DOIT exister dans ball_colors et avoir une règle dans ball_rules.",
     "_override_note": "Quand 'levels.list' n'est pas vide, ces pondérations remplacent gameplay.orange.launch_config.color / allow_colors pour le tirage. Le menu 'Couleur lancée' est conservé pour debug mais son réglage est ignoré tant que le mode niveaux est actif.",
+    "_defaults_note": "Compteurs de niveau: timer par défaut = 60s, munitions par défaut = 50 tirs. Chaque niveau peut surcharger via timer_seconds et ammo_count. Pendant une phase boss, ces compteurs sont désactivés.",
     "list": [
       {
         "id": 1,
         "name": "Niveau 1 — Vague puis boss noir",
         "description": "Vague de blanches, puis boss BLANC à 100 PV quand le terrain est vidé. Le niveau ne se termine qu’après sa défaite.",
+        "timer_seconds": 70,
+        "ammo_count": 60,
         "launch_color_weights": {
           "white": 1
         },
@@ -569,6 +572,8 @@
         "id": 3,
         "name": "Niveau 3 — Forêt verte",
         "description": "100% de balles vert foncé. Le terrain se remplit vite de gros boulets qui s'auto-renforcent. Privilégie les méga tirs pour traverser la mêlée et toucher plusieurs balles à la fois.",
+        "timer_seconds": 75,
+        "ammo_count": 55,
         "launch_color_weights": {
           "dark_green": 1
         },
@@ -704,6 +709,7 @@
     ]
   },
   "release_notes": [
+    "Timer + munitions par niveau avec écran Retry",
     "Impulsion hôpital inversée: le tir le pousse correctement",
     "Homing: avance boostée par distance et composante horizontale",
     "Exception boss rouge: cap 25 PV en phase boss",

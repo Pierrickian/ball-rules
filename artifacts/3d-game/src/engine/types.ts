@@ -179,6 +179,8 @@ export interface LevelEntry {
     diameter_from_boss_hp?: number;
   };
   dark_green_heal_bonus_percent?: number;
+  timer_seconds?: number;
+  ammo_count?: number;
 }
 
 export interface LevelsConfig {

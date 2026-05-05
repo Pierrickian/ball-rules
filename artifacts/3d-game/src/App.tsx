@@ -41,6 +41,9 @@ function App() {
   const [ballEffect, setBallEffect] = useState(() => localStorage.getItem("bg_effect_ball") ?? "spark");
   const [grenadeEffect, setGrenadeEffect] = useState(() => localStorage.getItem("bg_effect_grenade") ?? "spark");
   const [debugExplosionTexture, setDebugExplosionTexture] = useState(() => localStorage.getItem("bg_debug_explosion_texture") === "1");
+  const [levelTimerSeconds, setLevelTimerSeconds] = useState(60);
+  const [shotsRemaining, setShotsRemaining] = useState(50);
+  const [retryReason, setRetryReason] = useState<"timeout" | "ammo" | null>(null);
   useEffect(() => { localStorage.setItem("bg_effect_ball", ballEffect); }, [ballEffect]);
   useEffect(() => { localStorage.setItem("bg_effect_grenade", grenadeEffect); }, [grenadeEffect]);
   useEffect(() => { localStorage.setItem("bg_debug_explosion_texture", debugExplosionTexture ? "1" : "0"); }, [debugExplosionTexture]);
@@ -61,10 +64,51 @@ function App() {
   };
 
   const tryShootBall = (targetX: number, targetY: number, holdSeconds: number): boolean => {
+    if (retryReason) return false;
+    if (shotsRemaining <= 0) return false;
     const fired = shoot(targetX, targetY, holdSeconds);
     if (!fired) return false;
+    setShotsRemaining((prev) => Math.max(0, prev - 1));
     return true;
   };
+
+  const isBossPhase = (() => {
+    if (!gameState) return false;
+    if (gameState.bossIntroActive) return true;
+    return Array.from(gameState.balls.values()).some((b) => b.isAlive && b.isBoss);
+  })();
+
+  useEffect(() => {
+    if (!config || !gameState) return;
+    const lvl = config.levels?.list?.[gameState.currentLevelIndex];
+    setLevelTimerSeconds(lvl?.timer_seconds ?? 60);
+    setShotsRemaining(lvl?.ammo_count ?? 50);
+    setRetryReason(null);
+  }, [config, gameState?.currentLevelIndex]);
+
+  useEffect(() => {
+    if (!isRunning || retryReason || isBossPhase || gameState?.sessionCleared) return;
+    const id = window.setInterval(() => {
+      setLevelTimerSeconds((prev) => {
+        const next = Math.max(0, prev - 0.1);
+        if (next <= 0) {
+          setRetryReason("timeout");
+          pause();
+        }
+        return next;
+      });
+    }, 100);
+    return () => window.clearInterval(id);
+  }, [isRunning, retryReason, isBossPhase, gameState?.sessionCleared, pause]);
+
+  useEffect(() => {
+    if (retryReason) return;
+    if (isBossPhase) return;
+    if (shotsRemaining <= 0) {
+      setRetryReason("ammo");
+      pause();
+    }
+  }, [shotsRemaining, retryReason, isBossPhase, pause]);
 
   const computeInterceptTarget = (targetPos: Vec2, targetVel: Vec2, shotSpeed: number): Vec2 => {
     const shooter = { x: 0, y: -(config?.graphics.arena.height ?? 14) * 0.5 };
@@ -320,6 +364,8 @@ function App() {
         gameState={gameState}
         config={config}
         isRunning={isRunning}
+        levelTimerSeconds={isBossPhase ? null : levelTimerSeconds}
+        shotsRemaining={isBossPhase ? null : shotsRemaining}
         onPause={pause}
         onResume={resume}
         onReset={reset}
@@ -329,6 +375,15 @@ function App() {
       {/* Game-over flash */}
       {gameState.sessionCleared && (
         <SessionClearOverlay config={config} gameState={gameState} />
+      )}
+      {retryReason && (
+        <RetryOverlay
+          reason={retryReason}
+          onRetry={() => {
+            reset();
+            resume();
+          }}
+        />
       )}
 
       {/* Menu overlay */}
@@ -590,6 +645,31 @@ function SessionClearOverlay({
         {nextLabel ? `Démarrage dans ${delay.toFixed(1)}s…` : `Nouvelle partie dans ${delay.toFixed(1)}s…`}
       </div>
     </div>
+  );
+}
+
+function RetryOverlay({ reason, onRetry }: { reason: "timeout" | "ammo"; onRetry: () => void }) {
+  const subtitle = reason === "timeout" ? "Temps écoulé" : "Munitions épuisées";
+  return (
+    <button
+      onClick={onRetry}
+      style={{
+        position: "absolute",
+        inset: 0,
+        border: "none",
+        background: "rgba(10,0,18,0.72)",
+        zIndex: 60,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexDirection: "column",
+        gap: 10,
+        cursor: "pointer",
+      }}
+    >
+      <div style={{ fontSize: 72, fontWeight: 900, color: "#ff4d7a", letterSpacing: 8, textShadow: "0 0 16px #ff4d7a" }}>RETRY</div>
+      <div style={{ fontSize: 18, color: "#ffe6f0", fontFamily: "'Courier New', monospace" }}>{subtitle} — cliquez pour rejouer ce niveau</div>
+    </button>
   );
 }
 
