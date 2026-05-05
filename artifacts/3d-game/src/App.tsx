@@ -371,23 +371,23 @@ function App() {
       >
         💣 {grenadesLeft}
       </button>
-      <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", bottom: 32, display: "flex", gap: 8, zIndex: 12 }}>
+      <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", bottom: 42, display: "flex", gap: 8, zIndex: 12 }}>
         <button
           onClick={() => setLockOn((v) => !v)}
-          style={{ border:"1px solid #1e90ff", background: lockOn ? "#1e90ff" : "rgba(0,0,0,.55)", color:"#fff", borderRadius:8, padding:"6px 12px" }}
+          style={{ border:"1px solid #1e90ff", background: lockOn ? "#1e90ff" : "rgba(0,0,0,.55)", color:"#fff", borderRadius:8, padding:"6px 12px", minWidth: 106, whiteSpace: "nowrap" }}
         >
           {lockOn ? "🔒 Lock" : "🔓 Lock"}
         </button>
         <button
           onClick={() => { if (lockOn) setHomingOn((v) => !v); }}
           disabled={!lockOn}
-          style={{ border:"1px solid #00d4aa", background: !lockOn ? "rgba(180,180,180,.55)" : homingOn ? "#00d4aa" : "rgba(0,0,0,.55)", color: !lockOn ? "#1a1a1a" : "#001e1a", borderRadius:8, padding:"6px 12px", fontWeight:700 }}
+          style={{ border:"1px solid #00d4aa", background: !lockOn ? "rgba(180,180,180,.55)" : homingOn ? "#00d4aa" : "rgba(0,0,0,.55)", color: !lockOn ? "#1a1a1a" : "#001e1a", borderRadius:8, padding:"6px 12px", fontWeight:700, minWidth: 106, whiteSpace: "nowrap" }}
         >
           {homingOn ? "Homing ON" : "Homing"}
         </button>
         <button
           onClick={() => setAutoFire((v) => !v)}
-          style={{ border:"1px solid #ff9f1c", background: autoFire ? "#ff9f1c" : "rgba(0,0,0,.55)", color: autoFire ? "#2d1400" : "#ffe8c2", borderRadius:8, padding:"6px 12px", fontWeight:700 }}
+          style={{ border:"1px solid #ff9f1c", background: autoFire ? "#ff9f1c" : "rgba(0,0,0,.55)", color: autoFire ? "#2d1400" : "#ffe8c2", borderRadius:8, padding:"6px 12px", fontWeight:700, minWidth: 106, whiteSpace: "nowrap" }}
         >
           {autoFire ? "Auto Fire ON" : "Auto Fire"}
         </button>

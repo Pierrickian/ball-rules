@@ -73,7 +73,7 @@ export function HUD({ gameState, config, isRunning, levelTimerSeconds, shotsRema
           <div style={{ fontSize: 20, fontWeight: "bold", color: "#1e90ff", lineHeight: 1 }}>{activeBalls}</div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 18, minWidth: 210 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 18, minWidth: 210, transform: "translateX(-30px)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <span style={{ fontSize: 16 }}>⏳</span>
             <span style={{ fontSize: 20, fontWeight: "bold", color: "#ffd166", minWidth: 48, textAlign: "center" }}>

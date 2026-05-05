@@ -709,6 +709,7 @@
     ]
   },
   "release_notes": [
+    "UI fine: boutons bas remontés et compteurs décalés",
     "UI: boutons lock/homing/auto alignés + jauge visible",
     "Auto-fire mega + retry corrigé et HUD recentré",
     "Retry recharge temps/munitions + menu au premier plan",
@@ -727,8 +728,7 @@
     "Boss rouge 25 PV appliqué et hôpital rebondissant",
     "Niveau 10 hôpital et équilibrage bleu/rouge",
     "Rollback arrêt non létal des tirs heavy/mega",
-    "Heavy +20%, mega +50%, arrêt sur hit non létal",
-    "Reset de charge au release et tir conditionné au pointer down"
+    "Heavy +20%, mega +50%, arrêt sur hit non létal"
   ],
   "debug": {
     "show_velocities": false,
