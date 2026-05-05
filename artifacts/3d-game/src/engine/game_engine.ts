@@ -1357,8 +1357,10 @@ export class GameEngine {
 
   private trySplitRedAfterNonLethalHit(target: Ball, hpBeforeHit: number, sourceProjectileId: string, ctx: RuleContext): void {
     if (target.color !== "red" || !target.isAlive) return;
+    target.maxHp = Math.min(8, target.maxHp);
+    target.hp = Math.min(target.hp, target.maxHp);
     if (target.hp >= hpBeforeHit) return;
-    const childHp = Math.max(1, target.hp);
+    const childHp = Math.max(1, Math.min(8, target.hp - 1));
     const speed = Math.sqrt(target.velocity.x ** 2 + target.velocity.y ** 2);
     const dir = speed > 0.01 ? normalize(target.velocity) : { x: 1, y: 0 };
     const perp = normalize({ x: -dir.y, y: dir.x });

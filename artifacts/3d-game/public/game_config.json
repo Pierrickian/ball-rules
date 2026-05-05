@@ -704,6 +704,7 @@
     ]
   },
   "release_notes": [
+    "Expert lock prédictif + split rouge -1 PV corrigé",
     "Lock cible, rouges capés 8 PV, jaunes +15% visibles",
     "Bonus PV medium/hard appliqué au reset",
     "Bouton Play ajouté au menu Difficulté",
@@ -722,8 +723,7 @@
     "Boss verts: bonus regen 900% et spawn paramétrable",
     "Boss multi-spawn écartés de 70 degrés",
     "Boss multi-spawn éventail de trajectoires",
-    "Menu custom conserve niveaux + boss multi-spawn",
-    "Immunité impacts rouges/tirs unifiée à 200 ms"
+    "Menu custom conserve niveaux + boss multi-spawn"
   ],
   "debug": {
     "show_velocities": false,
