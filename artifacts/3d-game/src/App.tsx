@@ -65,10 +65,10 @@ function App() {
 
   const tryShootBall = (targetX: number, targetY: number, holdSeconds: number): boolean => {
     if (retryReason) return false;
-    if (shotsRemaining <= 0) return false;
+    if (!isBossPhase && shotsRemaining <= 0) return false;
     const fired = shoot(targetX, targetY, holdSeconds);
     if (!fired) return false;
-    setShotsRemaining((prev) => Math.max(0, prev - 1));
+    if (!isBossPhase) setShotsRemaining((prev) => Math.max(0, prev - 1));
     return true;
   };
 

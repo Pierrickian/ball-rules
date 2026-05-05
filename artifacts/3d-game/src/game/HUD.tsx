@@ -106,14 +106,15 @@ export function HUD({ gameState, config, isRunning, levelTimerSeconds, shotsRema
           </div>
         </div>
 
-        <button
-          onClick={onMenu}
-          style={{ ...BTN, pointerEvents: "all", padding: "6px 14px", fontSize: 16 }}
-          title="Menu"
-        >
-          ☰
-        </button>
       </div>
+
+      <button
+        onClick={onMenu}
+        style={{ ...BTN, pointerEvents: "all", padding: "6px 14px", fontSize: 16, position: "absolute", top: 16, right: 16, zIndex: 20 }}
+        title="Menu"
+      >
+        ☰
+      </button>
 
       {/* Bottom controls */}
       <div
