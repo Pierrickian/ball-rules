@@ -704,6 +704,7 @@
     ]
   },
   "release_notes": [
+    "Exception boss rouge: cap 25 PV en phase boss",
     "Homing multi-tirs + clamp angle + split rouge hard corrigé",
     "Expert lock prédictif + split rouge -1 PV corrigé",
     "Lock cible, rouges capés 8 PV, jaunes +15% visibles",
@@ -722,8 +723,7 @@
     "Suppression des previews et tir libre au release",
     "Tirs curseur libres sans blocage de seuils",
     "Boss verts: bonus regen 900% et spawn paramétrable",
-    "Boss multi-spawn écartés de 70 degrés",
-    "Boss multi-spawn éventail de trajectoires"
+    "Boss multi-spawn écartés de 70 degrés"
   ],
   "debug": {
     "show_velocities": false,

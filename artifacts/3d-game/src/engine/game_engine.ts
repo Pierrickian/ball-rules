@@ -1359,10 +1359,11 @@ export class GameEngine {
 
   private trySplitRedAfterNonLethalHit(target: Ball, hpBeforeHit: number, sourceProjectileId: string, ctx: RuleContext): void {
     if (target.color !== "red" || !target.isAlive) return;
-    target.maxHp = Math.min(8, target.maxHp);
+    const redCap = target.isBoss ? 25 : 8;
+    target.maxHp = Math.min(redCap, target.maxHp);
     target.hp = Math.min(target.hp, target.maxHp);
     if (target.hp >= hpBeforeHit) return;
-    const childHp = Math.max(1, Math.min(8, target.hp - 1));
+    const childHp = Math.max(1, Math.min(redCap, target.hp - 1));
     const speed = Math.sqrt(target.velocity.x ** 2 + target.velocity.y ** 2);
     const dir = speed > 0.01 ? normalize(target.velocity) : { x: 1, y: 0 };
     const perp = normalize({ x: -dir.y, y: dir.x });
@@ -1375,8 +1376,8 @@ export class GameEngine {
       x: dir.x * childSpeed * 0.75 - perp.x * childSpeed * 0.55,
       y: dir.y * childSpeed * 0.75 - perp.y * childSpeed * 0.55,
     }, "red_split_bouncer", { hp: childHp, maxHp: childHp });
-    b1.maxHp = childHp; b1.hp = childHp;
-    b2.maxHp = childHp; b2.hp = childHp;
+    b1.maxHp = childHp; b1.hp = childHp; b1.isBoss = target.isBoss;
+    b2.maxHp = childHp; b2.hp = childHp; b2.isBoss = target.isBoss;
     const ignoreUntil = this.elapsedTime + this.getProjectileHitImmunitySeconds(ctx.config);
     b1.metadata.ignoreProjectileId = sourceProjectileId;
     b1.metadata.ignoreProjectileUntil = ignoreUntil;
