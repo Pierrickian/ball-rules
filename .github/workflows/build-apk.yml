@@ -29,7 +29,7 @@ jobs:
         run: pnpm install --no-frozen-lockfile
 
       - name: Install Capacitor
-        run: pnpm add -Dw @capacitor/cli && pnpm add @capacitor/core @capacitor/android
+        run: pnpm add -Dw @capacitor/cli && pnpm add -w @capacitor/core @capacitor/android
 
       - name: Build web app
         run: pnpm --filter 3d-game run build
