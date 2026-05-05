@@ -29,6 +29,8 @@ function App() {
   const animRef = useRef<number>(0);
   const cycleStartRef = useRef<number>(performance.now());
   const pointerActiveRef = useRef(false);
+  const latestPointerUpRef = useRef<(gameX: number, gameY: number) => void>(() => {});
+  const latestPointerCancelRef = useRef<() => void>(() => {});
   // Latest game-space pointer position, updated on every move; used as a
   // fallback target if a pointerup arrives at the window level (e.g. the
   // user released outside the canvas DOM).
@@ -235,22 +237,27 @@ function App() {
     handlePointerUp(x, y);
   };
 
+  latestPointerUpRef.current = handlePointerUp;
+  latestPointerCancelRef.current = handlePointerCancel;
+
   // ---- Window-level pointerup safety net (installed once at mount) ----
   // If the user releases outside the canvas R3F won't emit onPointerUp,
   // so we always listen at the window. The handlers are gated by
-  // holdStartRef so they no-op when no charge is in progress, and they
+  // pointerActiveRef so they no-op when no charge is in progress, and they
   // share the same idempotent path as the in-canvas handlers (no double
-  // shot when both fire for the same release). Installed at mount to
+  // shot when both fire for the same release). The listeners dereference the
+  // latest handlers so releases outside the canvas keep the current charge,
+  // lock-on target, retry state and ammo counters. Installed at mount to
   // close the small race window that would otherwise exist between
   // pointerdown and a `[isHolding]` effect remounting.
   useEffect(() => {
     const onWindowUp = () => {
       const { x, y } = lastTargetRef.current;
-      handlePointerUp(x, y);
+      latestPointerUpRef.current(x, y);
     };
     const onWindowCancel = () => {
       if (!pointerActiveRef.current) return;
-      handlePointerCancel();
+      latestPointerCancelRef.current();
     };
     window.addEventListener("pointerup", onWindowUp);
     window.addEventListener("pointercancel", onWindowCancel);
