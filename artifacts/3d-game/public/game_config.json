@@ -554,7 +554,9 @@
           "launcher_diameter_multiplier": 2.2,
           "intro_overlay_seconds": 1.6,
           "horizontal_speed": 10
-        }
+        },
+        "timer_seconds": 60,
+        "ammo_count": 50
       },
       {
         "id": 2,
@@ -563,7 +565,9 @@
         "launch_color_weights": {
           "white": 0.8,
           "dark_green": 0.2
-        }
+        },
+        "timer_seconds": 55,
+        "ammo_count": 45
       },
       {
         "id": 3,
@@ -586,7 +590,9 @@
             "y": 6.35
           },
           "dark_green_heal_bonus_percent": 900
-        }
+        },
+        "timer_seconds": 65,
+        "ammo_count": 52
       },
       {
         "id": 4,
@@ -594,7 +600,9 @@
         "description": "100% de balles bleues. Elles gagnent des PV au contact et grossissent vite: concentre tes tirs pour éviter l'effet boule de neige.",
         "launch_color_weights": {
           "blue": 1
-        }
+        },
+        "timer_seconds": 50,
+        "ammo_count": 42
       },
       {
         "id": 5,
@@ -609,7 +617,9 @@
           "maxHp": 100,
           "intro_overlay_seconds": 1.6,
           "horizontal_speed": 10
-        }
+        },
+        "timer_seconds": 70,
+        "ammo_count": 55
       },
       {
         "id": 6,
@@ -619,7 +629,9 @@
           "yellow": 0.33,
           "dark_green": 0.33,
           "blue": 0.33
-        }
+        },
+        "timer_seconds": 55,
+        "ammo_count": 48
       },
       {
         "id": 7,
@@ -634,7 +646,9 @@
           "maxHp": 100,
           "intro_overlay_seconds": 1.6,
           "horizontal_speed": 10
-        }
+        },
+        "timer_seconds": 75,
+        "ammo_count": 58
       },
       {
         "id": 8,
@@ -649,7 +663,9 @@
           "maxHp": 25,
           "intro_overlay_seconds": 1.6,
           "horizontal_speed": 10
-        }
+        },
+        "timer_seconds": 60,
+        "ammo_count": 46
       },
       {
         "id": 9,
@@ -658,7 +674,9 @@
         "launch_color_weights": {
           "red": 0.5,
           "dark_green": 0.5
-        }
+        },
+        "timer_seconds": 65,
+        "ammo_count": 50
       },
       {
         "id": 10,
@@ -675,10 +693,13 @@
           "maxHp": 100,
           "heal_per_contact": 1,
           "diameter_from_boss_hp": 100
-        }
+        },
+        "timer_seconds": 60,
+        "ammo_count": 50
       }
     ],
-    "boss_intro_overlay_seconds": 1.5
+    "boss_intro_overlay_seconds": 1.5,
+    "_limit_note": "Chaque niveau peut définir timer_seconds et ammo_count. Sans override, le runtime applique 60 secondes et 50 munitions; Retry recharge ces mêmes valeurs pour le niveau courant."
   },
   "game_rules_concept": {
     "_description": "Texte de présentation des règles du jeu (affiché dans le menu).",
@@ -704,6 +725,8 @@
     ]
   },
   "release_notes": [
+    "Auto-fire déclenche sans doigt appuyé",
+    "Chrono, munitions et auto-fire tactique",
     "Impulsion hôpital inversée: le tir le pousse correctement",
     "Homing: avance boostée par distance et composante horizontale",
     "Exception boss rouge: cap 25 PV en phase boss",
@@ -721,9 +744,7 @@
     "Reset de charge au release et tir conditionné au pointer down",
     "Charge continue: tirs heavy/mega réactivés",
     "Charge continue conservée sans reset au pointer",
-    "Suppression menu pourcentages et tirs doublés corrigés",
-    "Suppression des previews et tir libre au release",
-    "Tirs curseur libres sans blocage de seuils"
+    "Suppression menu pourcentages et tirs doublés corrigés"
   ],
   "debug": {
     "show_velocities": false,

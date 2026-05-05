@@ -120,6 +120,10 @@ export interface GameState {
   currentLevelId: number;
   currentLevelName: string;
   bossIntroActive?: boolean;
+  isBossPhase?: boolean;
+  timerSecondsRemaining?: number;
+  ammoRemaining?: number;
+  retryReason?: "timeout" | "ammo" | null;
   hospital?: {
     isActive: boolean;
     x: number;
@@ -179,6 +183,10 @@ export interface LevelEntry {
     diameter_from_boss_hp?: number;
   };
   dark_green_heal_bonus_percent?: number;
+  /** Optional seconds available for this level before retry; runtime fallback is 60. */
+  timer_seconds?: number;
+  /** Optional player-shot ammo for this level before retry; runtime fallback is 50. */
+  ammo_count?: number;
 }
 
 export interface LevelsConfig {

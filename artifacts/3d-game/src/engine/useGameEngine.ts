@@ -44,6 +44,7 @@ export interface UseGameEngineResult {
   grenadesLeft: number;
   setDifficulty: (difficulty: "easy" | "medium" | "hard") => void;
   difficulty: "easy" | "medium" | "hard";
+  retryReason: "timeout" | "ammo" | null;
 }
 
 const DEFAULT_STATE: GameState = {
@@ -58,11 +59,18 @@ const DEFAULT_STATE: GameState = {
   currentLevelIndex: 0,
   currentLevelId: 0,
   currentLevelName: "",
+  timerSecondsRemaining: 60,
+  ammoRemaining: 50,
+  retryReason: null,
+  isBossPhase: false,
 };
 
 function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
+
+const DEFAULT_LEVEL_TIMER_SECONDS = 60;
+const DEFAULT_LEVEL_AMMO_COUNT = 50;
 
 function buildQueue(size: number, distribution: Record<ShotKind, number>): ShotKind[] {
   const weighted: ShotKind[] = [];
@@ -84,6 +92,7 @@ export function useGameEngine(): UseGameEngineResult {
   const [playerQueue, setPlayerQueue] = useState<ShotKind[]>([]);
   const [grenadesLeft, setGrenadesLeft] = useState(5);
   const [difficulty, setDifficultyState] = useState<"easy" | "medium" | "hard">("easy");
+  const [retryReason, setRetryReason] = useState<"timeout" | "ammo" | null>(null);
 
   const engineRef          = useRef<GameEngine | null>(null);
   const grenadeZonesRef    = useRef(createGrenadeZoneStore());
@@ -99,6 +108,31 @@ export function useGameEngine(): UseGameEngineResult {
   const sessionModeRef     = useRef<"levels" | "single_color" | "boss_rush">("levels");
   const bossRushOrderRef   = useRef<number[]>([]);
   const defaultMaxSpawnRef = useRef<number>(20);
+  const timerRemainingRef = useRef(DEFAULT_LEVEL_TIMER_SECONDS);
+  const ammoRemainingRef = useRef(DEFAULT_LEVEL_AMMO_COUNT);
+  const timerTickAccumulatorRef = useRef(0);
+  const retryReasonRef = useRef<"timeout" | "ammo" | null>(null);
+  const retryResetInProgressRef = useRef(false);
+
+  const getLevelLimits = useCallback(() => {
+    const lvl = engineRef.current?.getCurrentLevel();
+    return {
+      timer: lvl?.timer_seconds ?? DEFAULT_LEVEL_TIMER_SECONDS,
+      ammo: lvl?.ammo_count ?? DEFAULT_LEVEL_AMMO_COUNT,
+    };
+  }, []);
+
+  const applyLevelLimits = useCallback(() => {
+    const limits = getLevelLimits();
+    timerRemainingRef.current = limits.timer;
+    ammoRemainingRef.current = limits.ammo;
+    timerTickAccumulatorRef.current = 0;
+  }, [getLevelLimits]);
+
+  const publishRetryReason = useCallback((reason: "timeout" | "ammo" | null) => {
+    retryReasonRef.current = reason;
+    setRetryReason(reason);
+  }, []);
 
   // Load config and initialize engine
   useEffect(() => {
@@ -112,6 +146,9 @@ export function useGameEngine(): UseGameEngineResult {
         setConfig(cfg);
         currentLevelIdxRef.current = 0;
         engineRef.current = new GameEngine(cfg, currentLevelIdxRef.current);
+        applyLevelLimits();
+        publishRetryReason(null);
+        retryResetInProgressRef.current = false;
         engineRef.current.setDifficultyBonusHp(0);
         grenadeZonesRef.current = createGrenadeZoneStore();
         setGrenadesLeft(engineRef.current.getGrenadesLeft());
@@ -124,6 +161,10 @@ export function useGameEngine(): UseGameEngineResult {
           currentLevelIndex: currentLevelIdxRef.current,
           currentLevelId: lvl?.id ?? 0,
           currentLevelName: lvl?.name ?? "",
+          timerSecondsRemaining: timerRemainingRef.current,
+          ammoRemaining: ammoRemainingRef.current,
+          retryReason: null,
+          isBossPhase: engineRef.current.isBossPhase(),
         });
         setIsRunning(true);
       })
@@ -132,7 +173,7 @@ export function useGameEngine(): UseGameEngineResult {
       });
 
     return () => { cancelAnimationFrame(animFrameRef.current); };
-  }, [difficulty]);
+  }, [difficulty, applyLevelLimits, publishRetryReason]);
 
   // Game loop
   useEffect(() => {
@@ -154,8 +195,33 @@ export function useGameEngine(): UseGameEngineResult {
           updateGrenadeZones(engineRef.current, grenadeZonesRef.current, delta);
         }
         const visibleState = engineRef.current.getState();
+        const bossPhase = engineRef.current.isBossPhase();
+        if (cfg && !bossPhase && !retryReasonRef.current && !retryResetInProgressRef.current && !visibleState.sessionCleared) {
+          timerTickAccumulatorRef.current += delta;
+          while (timerTickAccumulatorRef.current >= 0.1 && !retryReasonRef.current) {
+            timerTickAccumulatorRef.current -= 0.1;
+            timerRemainingRef.current = Math.max(0, Math.round((timerRemainingRef.current - 0.1) * 10) / 10);
+            if (timerRemainingRef.current <= 0) {
+              publishRetryReason("timeout");
+              pausedRef.current = true;
+              setIsRunning(false);
+            }
+          }
+          if (ammoRemainingRef.current <= 0) {
+            publishRetryReason("ammo");
+            pausedRef.current = true;
+            setIsRunning(false);
+          }
+        }
         if (state.events.length > 0) setLastEvents(state.events);
-        setGameState({ ...visibleState, time: timestamp / 1000 });
+        setGameState({
+          ...visibleState,
+          time: timestamp / 1000,
+          timerSecondsRemaining: bossPhase ? Infinity : timerRemainingRef.current,
+          ammoRemaining: bossPhase ? Infinity : ammoRemainingRef.current,
+          retryReason: retryReasonRef.current,
+          isBossPhase: bossPhase,
+        });
 
         // ---- Auto-reboot detection ----
         if (
@@ -202,6 +268,8 @@ export function useGameEngine(): UseGameEngineResult {
   const doReset = useCallback((forcedDifficulty?: "easy" | "medium" | "hard") => {
     const cfg = configRef.current;
     if (!cfg) return;
+    retryResetInProgressRef.current = true;
+    publishRetryReason(null);
     engineRef.current = new GameEngine(cfg, currentLevelIdxRef.current);
     const activeDifficulty = forcedDifficulty ?? difficulty;
     const bonus = activeDifficulty === "easy" ? 0 : activeDifficulty === "medium" ? 2 : 6;
@@ -213,6 +281,7 @@ export function useGameEngine(): UseGameEngineResult {
     if (sessionModeRef.current === "single_color") {
       engineRef.current.setSingleColorMode(true);
     }
+    applyLevelLimits();
     const q = buildQueue(cfg.gameplay_controls.queue_size, cfg.gameplay_controls.player_projectile_distribution ?? { light: 0.6, heavy: 0.3, mega: 0.1 });
     queueRef.current = q;
     setPlayerQueue(q);
@@ -222,11 +291,16 @@ export function useGameEngine(): UseGameEngineResult {
       currentLevelIndex: currentLevelIdxRef.current,
       currentLevelId: lvl?.id ?? 0,
       currentLevelName: lvl?.name ?? "",
+      timerSecondsRemaining: timerRemainingRef.current,
+      ammoRemaining: ammoRemainingRef.current,
+      retryReason: null,
+      isBossPhase: engineRef.current.isBossPhase(),
     });
     lastTimeRef.current = performance.now();
     pausedRef.current = false;
     setIsRunning(true);
-  }, [difficulty]);
+    window.setTimeout(() => { retryResetInProgressRef.current = false; }, 0);
+  }, [difficulty, applyLevelLimits, publishRetryReason]);
 
   const pause  = useCallback(() => { pausedRef.current = true;  setIsRunning(false); }, []);
   const resume = useCallback(() => { pausedRef.current = false; lastTimeRef.current = performance.now(); setIsRunning(true); }, []);
@@ -247,7 +321,14 @@ export function useGameEngine(): UseGameEngineResult {
    */
   const shoot = useCallback((targetX: number, targetY: number, holdSeconds: number, forcedKind?: ShotKind): ShotKind | null => {
     const cfg = configRef.current;
-    if (!cfg || !engineRef.current || pausedRef.current) return null;
+    if (!cfg || !engineRef.current || pausedRef.current || retryReasonRef.current) return null;
+    const bossPhase = engineRef.current.isBossPhase();
+    if (!bossPhase && ammoRemainingRef.current <= 0) {
+      publishRetryReason("ammo");
+      pausedRef.current = true;
+      setIsRunning(false);
+      return null;
+    }
     const types = cfg.gameplay_controls.shot_types;
     const effective: ShotKind = holdSeconds >= (types.mega?.max_hold_seconds ?? 0.8) ? "mega" : holdSeconds >= (types.heavy?.max_hold_seconds ?? 0.3) ? "heavy" : "light";
     const resolved: ShotKind = forcedKind ?? effective;
@@ -256,8 +337,23 @@ export function useGameEngine(): UseGameEngineResult {
     const proj = engineRef.current.playerShoot(targetX, targetY, holdForResolved, projectileColor);
     if (!proj) return null;
 
+    if (!bossPhase) {
+      ammoRemainingRef.current = Math.max(0, ammoRemainingRef.current - 1);
+      const nextReason = ammoRemainingRef.current <= 0 ? "ammo" : retryReasonRef.current;
+      setGameState((prev) => prev ? {
+        ...prev,
+        ammoRemaining: ammoRemainingRef.current,
+        retryReason: nextReason,
+      } : prev);
+      if (ammoRemainingRef.current <= 0) {
+        publishRetryReason("ammo");
+        pausedRef.current = true;
+        setIsRunning(false);
+      }
+    }
+
     return resolved;
-  }, []);
+  }, [publishRetryReason]);
 
   const toggleGrenade = useCallback((dir: Vec2, effect: string = "ring"): boolean => {
     if (!engineRef.current || pausedRef.current) return false;
@@ -414,6 +510,6 @@ export function useGameEngine(): UseGameEngineResult {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
     shoot, setLauncherColor, setCustomTerrainDistribution, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, playBossRush, classifyHold, toggleGrenade, grenadesLeft,
-    setDifficulty, difficulty,
+    setDifficulty, difficulty, retryReason,
   };
 }
