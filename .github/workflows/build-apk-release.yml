@@ -1,0 +1,79 @@
+name: Build APK Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apk-release
+  cancel-in-progress: false
+
+env:
+  APK_BUILD_DIR: artifacts/3d-game/android
+  APK_SOURCE_PATH: artifacts/3d-game/android/app/build/outputs/apk/release/app-release.apk
+  APK_RELEASE_ASSET: ball-rules.apk
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build 3D game web assets
+        env:
+          NODE_ENV: production
+        run: pnpm --filter @workspace/3d-game run build
+
+      - name: Build release APK
+        working-directory: ${{ env.APK_BUILD_DIR }}
+        run: ./gradlew assembleRelease
+
+      - name: Prepare stable APK asset
+        run: |
+          test -s "$APK_SOURCE_PATH"
+          cp "$APK_SOURCE_PATH" "$APK_RELEASE_ASSET"
+          test -s "$APK_RELEASE_ASSET"
+
+      - name: Upload APK workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APK_RELEASE_ASSET }}
+          path: ${{ env.APK_RELEASE_ASSET }}
+          if-no-files-found: error
+
+      - name: Publish latest APK release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest-apk
+          name: Latest APK
+          body: Latest Android APK built automatically from main.
+          files: ${{ env.APK_RELEASE_ASSET }}
+          make_latest: true
