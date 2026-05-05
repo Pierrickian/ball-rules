@@ -578,7 +578,7 @@ export class GameEngine {
     velocity: Vec2,
     overrideRule?: BallRule,
     overrideHp?: { hp: number; maxHp: number },
-    options?: { isBoss?: boolean }
+    options?: { isBoss?: boolean; bypassHpBonuses?: boolean }
   ): Ball {
     const diameter = this.config.graphics.ball_sizes[size]?.diameter ?? 0.5;
     const rule = overrideRule ?? this.config.ball_rules[color]?.rule ?? "neutral";
@@ -604,8 +604,10 @@ export class GameEngine {
       maxHp = p?.max_hp ?? 5;
     }
 
-    hp += 1 + this.difficultyBonusHp;
-    maxHp += 1 + this.difficultyBonusHp;
+    if (options?.bypassHpBonuses !== true) {
+      hp += 1 + this.difficultyBonusHp;
+      maxHp += 1 + this.difficultyBonusHp;
+    }
     if (color === "red" && options?.isBoss !== true) {
       maxHp = Math.min(maxHp, 8);
       hp = Math.min(hp, maxHp);
@@ -1373,6 +1375,8 @@ export class GameEngine {
       x: dir.x * childSpeed * 0.75 - perp.x * childSpeed * 0.55,
       y: dir.y * childSpeed * 0.75 - perp.y * childSpeed * 0.55,
     }, "red_split_bouncer", { hp: childHp, maxHp: childHp });
+    b1.maxHp = childHp; b1.hp = childHp;
+    b2.maxHp = childHp; b2.hp = childHp;
     const ignoreUntil = this.elapsedTime + this.getProjectileHitImmunitySeconds(ctx.config);
     b1.metadata.ignoreProjectileId = sourceProjectileId;
     b1.metadata.ignoreProjectileUntil = ignoreUntil;

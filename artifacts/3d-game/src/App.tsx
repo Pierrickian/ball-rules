@@ -37,7 +37,7 @@ function App() {
   const [aimDirection, setAimDirection] = useState<Vec2>({ x: 0, y: 1 });
   const [lockOn, setLockOn] = useState(false);
   const [lockedBallId, setLockedBallId] = useState<string | null>(null);
-  const [expertLock, setExpertLock] = useState(false);
+  const [homingOn, setHomingOn] = useState(false);
   const [ballEffect, setBallEffect] = useState(() => localStorage.getItem("bg_effect_ball") ?? "spark");
   const [grenadeEffect, setGrenadeEffect] = useState(() => localStorage.getItem("bg_effect_grenade") ?? "spark");
   const [debugExplosionTexture, setDebugExplosionTexture] = useState(() => localStorage.getItem("bg_debug_explosion_texture") === "1");
@@ -112,9 +112,16 @@ function App() {
       if (lockOn && lockedBallId && gameState) {
         const b = gameState.balls.get(lockedBallId);
         if (b?.isAlive) {
-          const lead = expertLock ? 0.5 : 0;
+          const shotKind = classifyHold(holdTime);
+          const baseLead = shotKind === "light" ? 0.6 : shotKind === "heavy" ? 0.5 : 0.4;
+          const arenaDiag = Math.hypot(config?.graphics.arena.width ?? 1, config?.graphics.arena.height ?? 1);
+          const cursorDist = Math.hypot(b.position.x - gameX, b.position.y - gameY);
+          const cursorFactor = Math.max(0.6, Math.min(1.2, cursorDist / Math.max(1, arenaDiag)));
+          const lead = homingOn ? baseLead * cursorFactor : 0;
           tx = b.position.x + b.velocity.x * lead;
           ty = b.position.y + b.velocity.y * lead;
+          const halfH = (config?.graphics.arena.height ?? 14) * 0.5;
+          ty = Math.max(-halfH + 0.2, Math.min(halfH - 0.2, ty));
         }
       }
       tryShootBall(tx, ty, holdTime);
@@ -180,9 +187,13 @@ function App() {
     if (id) {
       const b = gameState.balls.get(id);
       if (b) {
-        const lead = expertLock ? 0.5 : 0;
+        const shotKind = classifyHold(holdTime);
+        const baseLead = shotKind === "light" ? 0.6 : shotKind === "heavy" ? 0.5 : 0.4;
+        const lead = homingOn ? baseLead : 0;
         const dx = b.position.x + b.velocity.x * lead;
-        const dy = b.position.y + b.velocity.y * lead + (config?.graphics.arena.height ?? 0) * 0.5;
+        const halfH = (config?.graphics.arena.height ?? 14) * 0.5;
+        const ty = Math.max(-halfH + 0.2, Math.min(halfH - 0.2, b.position.y + b.velocity.y * lead));
+        const dy = ty + (config?.graphics.arena.height ?? 0) * 0.5;
         const len = Math.hypot(dx, dy);
         if (len > 0.001) {
           const next = { x: dx / len, y: dy / len };
@@ -191,7 +202,7 @@ function App() {
         }
       }
     }
-  }, [gameState, lastEvents, lockOn, lockedBallId, config, expertLock]);
+  }, [gameState, lastEvents, lockOn, lockedBallId, config, homingOn, classifyHold, holdTime]);
 
 
   if (!gameState || !config) {
@@ -274,14 +285,13 @@ function App() {
       >
         {lockOn ? "🔒 Lock" : "🔓 Lock"}
       </button>
-      {lockOn && (
-        <button
-          onClick={() => setExpertLock((v) => !v)}
-          style={{ position:"absolute", left:"50%", transform:"translateX(-50%)", bottom:52, border:"1px solid #00d4aa", background: expertLock ? "#00d4aa" : "rgba(0,0,0,.55)", color:"#001e1a", borderRadius:8, padding:"5px 12px", zIndex:12, fontWeight:700 }}
-        >
-          {expertLock ? "Expert ON" : "Expert"}
-        </button>
-      )}
+      <button
+        onClick={() => { if (lockOn) setHomingOn((v) => !v); }}
+        disabled={!lockOn}
+        style={{ position:"absolute", left:"50%", transform:"translateX(-50%)", bottom:52, border:"1px solid #00d4aa", background: !lockOn ? "rgba(180,180,180,.55)" : homingOn ? "#00d4aa" : "rgba(0,0,0,.55)", color: !lockOn ? "#1a1a1a" : "#001e1a", borderRadius:8, padding:"5px 12px", zIndex:12, fontWeight:700, opacity: 1 }}
+      >
+        {homingOn ? "Homing ON" : "Homing"}
+      </button>
 
       <HUD
         gameState={gameState}

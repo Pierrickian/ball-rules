@@ -704,6 +704,7 @@
     ]
   },
   "release_notes": [
+    "Homing multi-tirs + clamp angle + split rouge hard corrigé",
     "Expert lock prédictif + split rouge -1 PV corrigé",
     "Lock cible, rouges capés 8 PV, jaunes +15% visibles",
     "Bonus PV medium/hard appliqué au reset",
@@ -722,8 +723,7 @@
     "Tirs curseur libres sans blocage de seuils",
     "Boss verts: bonus regen 900% et spawn paramétrable",
     "Boss multi-spawn écartés de 70 degrés",
-    "Boss multi-spawn éventail de trajectoires",
-    "Menu custom conserve niveaux + boss multi-spawn"
+    "Boss multi-spawn éventail de trajectoires"
   ],
   "debug": {
     "show_velocities": false,
