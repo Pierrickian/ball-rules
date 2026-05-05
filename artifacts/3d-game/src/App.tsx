@@ -116,7 +116,8 @@ function App() {
     if (!autoFire || !isRunning || retryReason || menuOpen) return;
     const heavyMax = config?.gameplay_controls.shot_types?.heavy?.max_hold_seconds ?? 0.3;
     const megaMin = config?.gameplay_controls.shot_types?.mega?.min_hold_seconds ?? heavyMax;
-    const megaThreshold = Math.max(heavyMax, megaMin);
+    const megaThreshold = heavyMax;
+    const holdForAutoMega = Math.max(megaMin, megaThreshold + 0.01);
     const id = window.setInterval(() => {
       const held = (performance.now() - cycleStartRef.current) / 1000;
       if (held < megaThreshold) return;
@@ -131,7 +132,7 @@ function App() {
           ty = intercept.y;
         }
       }
-      const didShoot = tryShootBall(tx, ty, megaThreshold + 0.01);
+      const didShoot = tryShootBall(tx, ty, holdForAutoMega);
       if (didShoot) cycleStartRef.current = performance.now();
     }, 35);
     return () => window.clearInterval(id);
@@ -373,7 +374,7 @@ function App() {
       >
         💣 {grenadesLeft}
       </button>
-      <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", bottom: 42, display: "flex", gap: 8, zIndex: 12 }}>
+      <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", bottom: 52, display: "flex", gap: 8, zIndex: 12 }}>
         <button
           onClick={() => setLockOn((v) => !v)}
           style={{ border:"1px solid #1e90ff", background: lockOn ? "#1e90ff" : "rgba(0,0,0,.55)", color:"#fff", borderRadius:8, padding:"6px 12px", minWidth: 106, whiteSpace: "nowrap" }}
