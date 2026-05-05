@@ -741,7 +741,6 @@ function RetryOverlay({
   const [voiceActive, setVoiceActive] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<EvolutionSubmitStatus>({ phase: "idle" });
   const requestConfig = { ...DEFAULT_EVOLUTION_REQUEST, ...evolutionRequest };
-  const requestedKindLabel = requestConfig.mode === "pr" ? "PR" : "issue";
 
   const requestTitle = () => {
     const firstLine = requestText.trim().split("\n").find((line) => line.trim().length > 0)?.replace(/^\/param\s*/i, "").trim();
@@ -800,7 +799,7 @@ function RetryOverlay({
     const title = requestTitle();
     const body = buildEvolutionPrompt();
     const endpoint = requestConfig.endpoint?.trim();
-    setSubmitStatus({ phase: "submitting", message: `Création ${requestedKindLabel} en cours…` });
+    setSubmitStatus({ phase: "submitting", message: "Envoi en cours…" });
 
     try {
       if (endpoint) {
@@ -817,10 +816,9 @@ function RetryOverlay({
         });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const created = await response.json() as { type?: "issue" | "pr"; number?: number; title?: string; url?: string };
-        const createdType = created.type === "pr" ? "PR" : "Issue";
         const createdTitle = created.title ?? title;
         const numberPart = typeof created.number === "number" ? ` #${created.number}` : "";
-        setSubmitStatus({ phase: "success", message: `${createdType}${numberPart} créée : ${createdTitle}`, url: created.url });
+        setSubmitStatus({ phase: "success", message: `Demande${numberPart} créée : ${createdTitle}`, url: created.url });
         window.setTimeout(() => setSubmitStatus({ phase: "idle" }), 4500);
         return;
       }
@@ -829,7 +827,7 @@ function RetryOverlay({
       window.open(issueUrl, "_blank", "noopener,noreferrer");
       setSubmitStatus({
         phase: "success",
-        message: `Issue ouverte dans GitHub : ${title}. Valide l'issue dans l'onglet ouvert pour obtenir son numéro.`,
+        message: `Formulaire ouvert : ${title}. Valide l'envoi pour obtenir son numéro.`,
         url: issueUrl,
       });
       window.setTimeout(() => setSubmitStatus({ phase: "idle" }), 6500);
@@ -882,7 +880,7 @@ function RetryOverlay({
         color: "#ffe6f0",
       }}
     >
-      <div onClick={(event) => event.stopPropagation()} style={{ width: "min(92vw, 430px)", display: "flex", flexDirection: "column", alignItems: "stretch", gap: 12, cursor: "default" }}>
+      <div onClick={(event) => event.stopPropagation()} style={{ width: "min(92vw, 430px)", maxHeight: "calc(100vh - 24px)", overflowY: "auto", display: "flex", flexDirection: "column", alignItems: "stretch", gap: 12, cursor: "default", paddingRight: 4 }}>
         <div style={{ textAlign: "center", fontSize: 72, fontWeight: 900, color: "#ff4d7a", letterSpacing: 8, textShadow: "0 0 16px #ff4d7a" }}>RETRY</div>
         <div style={{ textAlign: "center", fontSize: 18 }}>{subtitle} — cliquez le fond pour rejouer</div>
 
@@ -915,16 +913,16 @@ function RetryOverlay({
           <button onClick={(event) => { event.stopPropagation(); setEvolutionOpen((open) => !open); }} style={{ border: "1px solid rgba(30,144,255,0.55)", background: evolutionOpen ? "rgba(30,144,255,0.28)" : "rgba(12,28,72,0.8)", color: "#d9ecff", borderRadius: 10, padding: "10px 14px", fontWeight: 900, cursor: "pointer" }}>Evolution</button>
 
           {evolutionOpen && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, background: "rgba(4,12,35,0.92)", border: "1px solid rgba(30,144,255,0.28)", borderRadius: 12, padding: 12 }}>
-              <div style={{ fontSize: 12, color: "#aac8f0", lineHeight: 1.45 }}>
-                Le jeu crée une <strong>{requestedKindLabel}</strong> via l'endpoint configuré. Sans endpoint, il ouvre une issue GitHub pré-remplie à valider.
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, background: "rgba(4,12,35,0.92)", border: "1px solid rgba(30,144,255,0.28)", borderRadius: 12, padding: 12, maxHeight: "min(46vh, 360px)", overflowY: "auto", overscrollBehavior: "contain" }}>
+              <div style={{ fontSize: 12, color: "#aac8f0", lineHeight: 1.3 }}>
+                Décris ta demande, puis envoie-la.
               </div>
               <textarea
                 value={requestText}
                 onChange={(event) => setRequestText(event.currentTarget.value)}
                 onClick={(event) => event.stopPropagation()}
-                placeholder="Décris l'évolution voulue. Commence par /param pour inclure niveau, difficulté et ajustement PV dans la demande PR."
-                rows={5}
+                placeholder="Décris l'évolution voulue. /param ajoute niveau, difficulté et PV."
+                rows={4}
                 style={{ width: "100%", boxSizing: "border-box", borderRadius: 8, border: "1px solid rgba(30,144,255,0.35)", background: "rgba(0,0,0,0.45)", color: "#eaf4ff", padding: 10, fontFamily: "inherit", resize: "vertical" }}
               />
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -934,7 +932,7 @@ function RetryOverlay({
               {submitStatus.phase !== "idle" && (
                 <div style={{ border: `1px solid ${submitStatus.phase === "error" ? "rgba(255,77,122,0.65)" : "rgba(102,255,187,0.45)"}`, background: submitStatus.phase === "error" ? "rgba(80,0,20,0.38)" : "rgba(0,60,42,0.34)", color: submitStatus.phase === "error" ? "#ffd0dc" : "#c8ffe7", borderRadius: 8, padding: "8px 10px", fontSize: 12, lineHeight: 1.4 }}>
                   {submitStatus.message}
-                  {submitStatus.phase === "success" && submitStatus.url && <div><a href={submitStatus.url} target="_blank" rel="noreferrer" style={{ color: "#8fd3ff" }}>Ouvrir dans GitHub</a></div>}
+                  {submitStatus.phase === "success" && submitStatus.url && <div><a href={submitStatus.url} target="_blank" rel="noreferrer" style={{ color: "#8fd3ff" }}>Voir le suivi</a></div>}
                 </div>
               )}
             </div>

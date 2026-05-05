@@ -709,6 +709,7 @@
     ]
   },
   "release_notes": [
+    "Menu Evolution scrollable et simplifié",
     "Evolution ouvre une issue suivie",
     "Retry paramétrable avec Evolution",
     "Auto-fire corrigé + rangée de boutons basse remontée",
@@ -727,8 +728,7 @@
     "Lock cible, rouges capés 8 PV, jaunes +15% visibles",
     "Bonus PV medium/hard appliqué au reset",
     "Bouton Play ajouté au menu Difficulté",
-    "Reset difficulté immédiat et heal hôpital fiable",
-    "Menu difficulté et hôpital poussé par les tirs"
+    "Reset difficulté immédiat et heal hôpital fiable"
   ],
   "debug": {
     "show_velocities": false,
