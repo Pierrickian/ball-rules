@@ -110,7 +110,7 @@ export function HUD({ gameState, config, isRunning, levelTimerSeconds, shotsRema
 
       <button
         onClick={onMenu}
-        style={{ ...BTN, pointerEvents: "all", padding: "6px 14px", fontSize: 16, position: "absolute", top: 16, right: 16, zIndex: 20 }}
+        style={{ ...BTN, pointerEvents: "all", padding: "6px 14px", fontSize: 16, position: "absolute", top: 16, right: 16, zIndex: 80 }}
         title="Menu"
       >
         ☰

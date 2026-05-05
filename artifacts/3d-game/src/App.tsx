@@ -380,6 +380,8 @@ function App() {
         <RetryOverlay
           reason={retryReason}
           onRetry={() => {
+            setShotsRemaining((prev) => Math.max(prev, 1));
+            setLevelTimerSeconds((prev) => Math.max(prev, 0.1));
             setRetryReason(null);
             reset();
             resume();
