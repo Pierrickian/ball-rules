@@ -26,7 +26,7 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
 
       - name: Install Capacitor
         run: pnpm add -Dw @capacitor/cli && pnpm add @capacitor/core @capacitor/android
