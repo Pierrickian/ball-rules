@@ -709,6 +709,7 @@
     ]
   },
   "release_notes": [
+    "Retry recharge temps/munitions + menu au premier plan",
     "Retry fiabilisé et menu accessible pendant échec",
     "Timer + munitions par niveau avec écran Retry",
     "Impulsion hôpital inversée: le tir le pousse correctement",
@@ -727,8 +728,7 @@
     "Heavy +20%, mega +50%, arrêt sur hit non létal",
     "Reset de charge au release et tir conditionné au pointer down",
     "Charge continue: tirs heavy/mega réactivés",
-    "Charge continue conservée sans reset au pointer",
-    "Suppression menu pourcentages et tirs doublés corrigés"
+    "Charge continue conservée sans reset au pointer"
   ],
   "debug": {
     "show_velocities": false,

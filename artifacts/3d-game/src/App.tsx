@@ -44,6 +44,7 @@ function App() {
   const [levelTimerSeconds, setLevelTimerSeconds] = useState(60);
   const [shotsRemaining, setShotsRemaining] = useState(50);
   const [retryReason, setRetryReason] = useState<"timeout" | "ammo" | null>(null);
+  const [retryResetInProgress, setRetryResetInProgress] = useState(false);
   useEffect(() => { localStorage.setItem("bg_effect_ball", ballEffect); }, [ballEffect]);
   useEffect(() => { localStorage.setItem("bg_effect_grenade", grenadeEffect); }, [grenadeEffect]);
   useEffect(() => { localStorage.setItem("bg_debug_explosion_texture", debugExplosionTexture ? "1" : "0"); }, [debugExplosionTexture]);
@@ -84,10 +85,11 @@ function App() {
     setLevelTimerSeconds(lvl?.timer_seconds ?? 60);
     setShotsRemaining(lvl?.ammo_count ?? 50);
     setRetryReason(null);
+    setRetryResetInProgress(false);
   }, [config, gameState?.currentLevelIndex]);
 
   useEffect(() => {
-    if (!isRunning || retryReason || isBossPhase || gameState?.sessionCleared) return;
+    if (!isRunning || retryReason || retryResetInProgress || isBossPhase || gameState?.sessionCleared) return;
     const id = window.setInterval(() => {
       setLevelTimerSeconds((prev) => {
         const next = Math.max(0, prev - 0.1);
@@ -99,16 +101,16 @@ function App() {
       });
     }, 100);
     return () => window.clearInterval(id);
-  }, [isRunning, retryReason, isBossPhase, gameState?.sessionCleared, pause]);
+  }, [isRunning, retryReason, retryResetInProgress, isBossPhase, gameState?.sessionCleared, pause]);
 
   useEffect(() => {
-    if (retryReason) return;
+    if (retryReason || retryResetInProgress) return;
     if (isBossPhase) return;
     if (shotsRemaining <= 0) {
       setRetryReason("ammo");
       pause();
     }
-  }, [shotsRemaining, retryReason, isBossPhase, pause]);
+  }, [shotsRemaining, retryReason, retryResetInProgress, isBossPhase, pause]);
 
   const computeInterceptTarget = (targetPos: Vec2, targetVel: Vec2, shotSpeed: number): Vec2 => {
     const shooter = { x: 0, y: -(config?.graphics.arena.height ?? 14) * 0.5 };
@@ -360,6 +362,13 @@ function App() {
         {homingOn ? "Homing ON" : "Homing"}
       </button>
 
+      <button
+        onClick={handleMenuOpen}
+        style={{ position: "absolute", top: 12, right: 12, zIndex: 95, pointerEvents: "all", background: "rgba(10,20,50,0.92)", color: "#c0d8ff", border: "1px solid rgba(30,144,255,0.5)", borderRadius: 8, padding: "6px 14px", fontSize: 16, cursor: "pointer" }}
+        title="Menu"
+      >
+        ☰
+      </button>
       <HUD
         gameState={gameState}
         config={config}
@@ -380,8 +389,10 @@ function App() {
         <RetryOverlay
           reason={retryReason}
           onRetry={() => {
-            setShotsRemaining((prev) => Math.max(prev, 1));
-            setLevelTimerSeconds((prev) => Math.max(prev, 0.1));
+            const lvl = config.levels?.list?.[gameState.currentLevelIndex];
+            setRetryResetInProgress(true);
+            setShotsRemaining(lvl?.ammo_count ?? 50);
+            setLevelTimerSeconds(lvl?.timer_seconds ?? 60);
             setRetryReason(null);
             reset();
             resume();
