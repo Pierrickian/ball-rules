@@ -725,6 +725,7 @@
     ]
   },
   "release_notes": [
+    "Auto-fire déclenche sans doigt appuyé",
     "Chrono, munitions et auto-fire tactique",
     "Impulsion hôpital inversée: le tir le pousse correctement",
     "Homing: avance boostée par distance et composante horizontale",
@@ -743,8 +744,7 @@
     "Reset de charge au release et tir conditionné au pointer down",
     "Charge continue: tirs heavy/mega réactivés",
     "Charge continue conservée sans reset au pointer",
-    "Suppression menu pourcentages et tirs doublés corrigés",
-    "Suppression des previews et tir libre au release"
+    "Suppression menu pourcentages et tirs doublés corrigés"
   ],
   "debug": {
     "show_velocities": false,

@@ -49,8 +49,18 @@ function App() {
   // mount) always read the latest values without re-subscribing.
   const menuOpenRef = useRef(menuOpen);
   const isRunningRef = useRef(isRunning);
+  const gameStateRef = useRef<GameState | null>(gameState);
+  const configRef = useRef<GameConfig | null>(config);
+  const lockOnRef = useRef(lockOn);
+  const lockedBallIdRef = useRef<string | null>(lockedBallId);
+  const homingOnRef = useRef(homingOn);
   useEffect(() => { menuOpenRef.current = menuOpen; }, [menuOpen]);
   useEffect(() => { isRunningRef.current = isRunning; }, [isRunning]);
+  useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
+  useEffect(() => { configRef.current = config; }, [config]);
+  useEffect(() => { lockOnRef.current = lockOn; }, [lockOn]);
+  useEffect(() => { lockedBallIdRef.current = lockedBallId; }, [lockedBallId]);
+  useEffect(() => { homingOnRef.current = homingOn; }, [homingOn]);
 
   const handleMenuOpen = () => { pause(); setMenuOpen(true); };
   const handleMenuClose = () => { setMenuOpen(false); resume(); };
@@ -132,20 +142,22 @@ function App() {
   };
 
   const resolveShotTarget = (gameX: number, gameY: number, chargeSeconds: number): Vec2 => {
+    const currentConfig = configRef.current;
+    const currentState = gameStateRef.current;
     let tx = gameX;
     let ty = gameY;
-    if (lockOn && lockedBallId && gameState) {
-      const b = gameState.balls.get(lockedBallId);
+    if (lockOnRef.current && lockedBallIdRef.current && currentState) {
+      const b = currentState.balls.get(lockedBallIdRef.current);
       if (b?.isAlive) {
         const shotKind = classifyHold(chargeSeconds);
-        const shotSpeed = config?.gameplay_controls.shot_types?.[shotKind]?.speed ?? 28;
-        const intercept = homingOn ? computeInterceptTarget(b.position, b.velocity, shotSpeed) : b.position;
+        const shotSpeed = currentConfig?.gameplay_controls.shot_types?.[shotKind]?.speed ?? 28;
+        const intercept = homingOnRef.current ? computeInterceptTarget(b.position, b.velocity, shotSpeed) : b.position;
         tx = intercept.x;
         ty = intercept.y;
       }
     }
-    const halfW = (config?.graphics.arena.width ?? 8) * 0.5;
-    const halfH = (config?.graphics.arena.height ?? 14) * 0.5;
+    const halfW = (currentConfig?.graphics.arena.width ?? 8) * 0.5;
+    const halfH = (currentConfig?.graphics.arena.height ?? 14) * 0.5;
     return {
       x: Math.max(-halfW + 0.2, Math.min(halfW - 0.2, tx)),
       y: Math.max(-halfH + 0.2, Math.min(halfH - 0.2, ty)),
@@ -156,6 +168,9 @@ function App() {
   useEffect(() => {
     if (!autoFireOn || !config) return;
     const interval = window.setInterval(() => {
+      // Auto-fire owns only the idle state: pressing does nothing special,
+      // releasing still fires manually, and no pointer held lets the virtual
+      // charge shoot as soon as the mega tier is available.
       if (menuOpenRef.current || !isRunningRef.current || pointerActiveRef.current) return;
       const types = config.gameplay_controls.shot_types;
       const threshold = types.heavy?.max_hold_seconds ?? 0.8;
@@ -169,7 +184,7 @@ function App() {
       }
     }, 100);
     return () => window.clearInterval(interval);
-  }, [autoFireOn, config, gameState, lockOn, lockedBallId, homingOn]);
+  }, [autoFireOn, config]);
 
   const handlePointerUp = (gameX: number, gameY: number) => {
     if (!pointerActiveRef.current) return;
