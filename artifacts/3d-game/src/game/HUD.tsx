@@ -36,6 +36,16 @@ export function HUD({ gameState, config, isRunning, onPause, onResume, onReset, 
   const launched = gameState.launchedCount;
   const max = gameState.maxBallsSpawned;
   const sessionPct = max > 0 ? Math.min(1, launched / max) : 0;
+  const timer = gameState.timerSecondsRemaining ?? 60;
+  const ammo = gameState.ammoRemaining ?? 50;
+  const bossPhase = gameState.isBossPhase === true;
+
+  const Counter = ({ icon, label, value, color }: { icon: string; label: string; value: string; color: string }) => (
+    <div style={{ minWidth: 64 }}>
+      <div style={{ fontSize: 9, color: "#667899", textTransform: "uppercase", letterSpacing: 2 }}>{label}</div>
+      <div style={{ fontSize: 18, fontWeight: "bold", color, lineHeight: 1, textShadow: `0 0 8px ${color}77` }}>{icon} {value}</div>
+    </div>
+  );
 
   return (
     <div
@@ -52,32 +62,44 @@ export function HUD({ gameState, config, isRunning, onPause, onResume, onReset, 
         zIndex: 10,
       }}
     >
-      {/* Top bar */}
+      {/* Top HUD: line 1 = counters/menu, line 2 = dedicated wave gauge */}
       <div
         style={{
           display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
+          flexDirection: "column",
           background: "rgba(0,8,24,0.72)",
           borderRadius: 10,
-          padding: "8px 14px",
+          padding: "8px 12px",
           backdropFilter: "blur(6px)",
           border: "1px solid rgba(30,144,255,0.25)",
-          gap: 14,
+          gap: 7,
         }}
       >
-        <div>
-          <div style={{ fontSize: 9, color: "#445", textTransform: "uppercase", letterSpacing: 3 }}>Restantes</div>
-          <div style={{ fontSize: 20, fontWeight: "bold", color: "#1e90ff", lineHeight: 1 }}>{activeBalls}</div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+          <div>
+            <div style={{ fontSize: 9, color: "#667899", textTransform: "uppercase", letterSpacing: 3 }}>Restantes</div>
+            <div style={{ fontSize: 20, fontWeight: "bold", color: "#1e90ff", lineHeight: 1 }}>{activeBalls}</div>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginLeft: "auto" }}>
+            <Counter icon="⏱" label="Temps" value={bossPhase ? "∞" : `${timer.toFixed(1)}s`} color="#ffcc66" />
+            <Counter icon="✦" label="Ammo" value={bossPhase ? "∞" : `${ammo}`} color="#ff66ff" />
+            <button
+              onClick={onMenu}
+              style={{ ...BTN, pointerEvents: "all", padding: "6px 14px", fontSize: 16 }}
+              title="Menu"
+            >
+              ☰
+            </button>
+          </div>
         </div>
 
-        {/* Session progress */}
-        <div style={{ flex: 1, minWidth: 80 }}>
-          <div style={{ fontSize: 9, color: "#445", textTransform: "uppercase", letterSpacing: 3, marginBottom: 3 }}>
+        <div style={{ width: "100%" }}>
+          <div style={{ fontSize: 9, color: "#667899", textTransform: "uppercase", letterSpacing: 3, marginBottom: 3 }}>
             Vague {launched}/{max}
           </div>
           <div style={{
-            height: 5, background: "rgba(30,144,255,0.15)",
+            height: 6, background: "rgba(30,144,255,0.15)",
             borderRadius: 3, overflow: "hidden",
           }}>
             <div style={{
@@ -88,14 +110,6 @@ export function HUD({ gameState, config, isRunning, onPause, onResume, onReset, 
             }} />
           </div>
         </div>
-
-        <button
-          onClick={onMenu}
-          style={{ ...BTN, pointerEvents: "all", padding: "6px 14px", fontSize: 16 }}
-          title="Menu"
-        >
-          ☰
-        </button>
       </div>
 
       {/* Bottom controls */}

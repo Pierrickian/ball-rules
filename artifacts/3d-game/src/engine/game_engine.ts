@@ -158,6 +158,7 @@ export class GameEngine {
       currentLevelId: lvl?.id ?? 0,
       currentLevelName: lvl?.name ?? "",
       bossIntroActive: this.bossIntroRemaining > 0,
+      isBossPhase: this.isBossPhase(),
       hospital: this.hospital ? {
         isActive: this.hospital.hp > 0,
         x: this.hospital.x,
@@ -205,6 +206,14 @@ export class GameEngine {
   }
 
   /** Number of "enemy" balls currently alive (excludes orange launchers and player projectiles). */
+  isBossPhase(): boolean {
+    if (this.bossIntroRemaining > 0) return true;
+    for (const b of this.balls.values()) {
+      if (b.isAlive && b.isBoss) return true;
+    }
+    return false;
+  }
+
   getEnemyBallCount(): number {
     let n = 0;
     this.balls.forEach((b) => {
