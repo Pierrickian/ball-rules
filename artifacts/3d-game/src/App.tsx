@@ -21,7 +21,7 @@ function App() {
   const {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
-    shoot, setCustomTerrainDistribution, setActiveLevel, setLevelWeights, playBossRush, classifyHold, toggleGrenade, grenadesLeft,
+    shoot, setCustomTerrainDistribution, setActiveLevel, setLevelWeights, playBossRush, classifyHold, toggleGrenade, grenadesLeft, setDifficulty, difficulty,
   } = useGameEngine();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -35,6 +35,9 @@ function App() {
   const lastTargetRef = useRef<{ x: number; y: number }>({ x: 0, y: 1000 });
   const lastDirectionRef = useRef<Vec2>({ x: 0, y: 1 });
   const [aimDirection, setAimDirection] = useState<Vec2>({ x: 0, y: 1 });
+  const [lockOn, setLockOn] = useState(false);
+  const [lockedBallId, setLockedBallId] = useState<string | null>(null);
+  const [homingOn, setHomingOn] = useState(false);
   const [ballEffect, setBallEffect] = useState(() => localStorage.getItem("bg_effect_ball") ?? "spark");
   const [grenadeEffect, setGrenadeEffect] = useState(() => localStorage.getItem("bg_effect_grenade") ?? "spark");
   const [debugExplosionTexture, setDebugExplosionTexture] = useState(() => localStorage.getItem("bg_debug_explosion_texture") === "1");
@@ -63,6 +66,31 @@ function App() {
     return true;
   };
 
+  const computeInterceptTarget = (targetPos: Vec2, targetVel: Vec2, shotSpeed: number): Vec2 => {
+    const shooter = { x: 0, y: -(config?.graphics.arena.height ?? 14) * 0.5 };
+    const rx = targetPos.x - shooter.x;
+    const ry = targetPos.y - shooter.y;
+    const vx = targetVel.x;
+    const vy = targetVel.y;
+    const s2 = shotSpeed * shotSpeed;
+    const a = vx * vx + vy * vy - s2;
+    const b = 2 * (rx * vx + ry * vy);
+    const c = rx * rx + ry * ry;
+    let t = 0;
+    if (Math.abs(a) < 1e-6) t = Math.abs(b) < 1e-6 ? 0 : Math.max(0, -c / b);
+    else {
+      const d = b * b - 4 * a * c;
+      if (d >= 0) {
+        const sd = Math.sqrt(d);
+        const t1 = (-b - sd) / (2 * a);
+        const t2 = (-b + sd) / (2 * a);
+        const cs = [t1, t2].filter((x) => x > 0);
+        t = cs.length ? Math.min(...cs) : 0;
+      }
+    }
+    return { x: targetPos.x + targetVel.x * t, y: targetPos.y + targetVel.y * t };
+  };
+
   // ---- Charge tracking (always visible cursor) ----
   useEffect(() => {
     const tick = () => {
@@ -89,6 +117,7 @@ function App() {
   };
 
   const handlePointerMove = (gameX: number, gameY: number) => {
+    if (lockOn) return;
     lastTargetRef.current = { x: gameX, y: gameY };
     const dx = gameX;
     const dy = gameY + (config?.graphics.arena.height ?? 0) * 0.5;
@@ -104,7 +133,20 @@ function App() {
     if (!pointerActiveRef.current) return;
     pointerActiveRef.current = false;
     if (!menuOpenRef.current && isRunningRef.current) {
-      tryShootBall(gameX, gameY, holdTime);
+      let tx = gameX; let ty = gameY;
+      if (lockOn && lockedBallId && gameState) {
+        const b = gameState.balls.get(lockedBallId);
+        if (b?.isAlive) {
+          const shotKind = classifyHold(holdTime);
+          const shotSpeed = config?.gameplay_controls.shot_types?.[shotKind]?.speed ?? 28;
+          const intercept = homingOn ? computeInterceptTarget(b.position, b.velocity, shotSpeed) : b.position;
+          tx = intercept.x;
+          ty = intercept.y;
+          const halfH = (config?.graphics.arena.height ?? 14) * 0.5;
+          ty = Math.max(-halfH + 0.2, Math.min(halfH - 0.2, ty));
+        }
+      }
+      tryShootBall(tx, ty, holdTime);
     }
     cycleStartRef.current = performance.now();
     setHoldTime(0);
@@ -146,6 +188,44 @@ function App() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!gameState) return;
+    const lastAliveHit = [...lastEvents].reverse().find((e) => e.type === "ball_damaged" && e.remainingHp > 0) as Extract<(typeof lastEvents)[number], { type: "ball_damaged" }> | undefined;
+    const currentLocked = lockedBallId ? gameState.balls.get(lockedBallId) : null;
+    if ((!currentLocked || !currentLocked.isAlive || currentLocked.hp <= 0) && lastAliveHit) setLockedBallId(lastAliveHit.ballId);
+    if (!lockOn) return;
+    let id = lockedBallId;
+    const current = id ? gameState.balls.get(id) : null;
+    if (!current || !current.isAlive) {
+      let best: { id: string; d: number } | null = null;
+      for (const b of gameState.balls.values()) {
+        if (!b.isAlive || b.rule === "player_projectile" || b.color === "orange") continue;
+        const d = b.position.x * b.position.x + b.position.y * b.position.y;
+        if (!best || d < best.d) best = { id: b.id, d };
+      }
+      id = best?.id ?? null;
+      setLockedBallId(id);
+    }
+    if (id) {
+      const b = gameState.balls.get(id);
+      if (b) {
+        const shotKind = classifyHold(holdTime);
+        const shotSpeed = config?.gameplay_controls.shot_types?.[shotKind]?.speed ?? 28;
+        const intercept = homingOn ? computeInterceptTarget(b.position, b.velocity, shotSpeed) : b.position;
+        const dx = intercept.x;
+        const halfH = (config?.graphics.arena.height ?? 14) * 0.5;
+        const ty = Math.max(-halfH + 0.2, Math.min(halfH - 0.2, intercept.y));
+        const dy = ty + (config?.graphics.arena.height ?? 0) * 0.5;
+        const len = Math.hypot(dx, dy);
+        if (len > 0.001) {
+          const next = { x: dx / len, y: dy / len };
+          lastDirectionRef.current = next;
+          setAimDirection(next);
+        }
+      }
+    }
+  }, [gameState, lastEvents, lockOn, lockedBallId, config, homingOn, classifyHold, holdTime]);
 
 
   if (!gameState || !config) {
@@ -222,6 +302,19 @@ function App() {
       >
         💣 {grenadesLeft}
       </button>
+      <button
+        onClick={() => setLockOn((v) => !v)}
+        style={{ position:"absolute", left:"50%", transform:"translateX(-50%)", bottom:86, border:"1px solid #1e90ff", background: lockOn ? "#1e90ff" : "rgba(0,0,0,.55)", color:"#fff", borderRadius:8, padding:"6px 12px", zIndex:12 }}
+      >
+        {lockOn ? "🔒 Lock" : "🔓 Lock"}
+      </button>
+      <button
+        onClick={() => { if (lockOn) setHomingOn((v) => !v); }}
+        disabled={!lockOn}
+        style={{ position:"absolute", left:"50%", transform:"translateX(-50%)", bottom:52, border:"1px solid #00d4aa", background: !lockOn ? "rgba(180,180,180,.55)" : homingOn ? "#00d4aa" : "rgba(0,0,0,.55)", color: !lockOn ? "#1a1a1a" : "#001e1a", borderRadius:8, padding:"5px 12px", zIndex:12, fontWeight:700, opacity: 1 }}
+      >
+        {homingOn ? "Homing ON" : "Homing"}
+      </button>
 
       <HUD
         gameState={gameState}
@@ -248,6 +341,8 @@ function App() {
           onLevelSelect={setActiveLevel}
           onLevelWeightsChange={setLevelWeights}
           onPlayBossRush={playBossRush}
+          onDifficultyChange={setDifficulty}
+          difficulty={difficulty}
           currentLevelIndex={gameState.currentLevelIndex}
           ballEffect={ballEffect}
           grenadeEffect={grenadeEffect}
