@@ -709,6 +709,7 @@
     ]
   },
   "release_notes": [
+    "Téléchargement APK depuis le menu",
     "Menu Evolution scrollable et simplifié",
     "Evolution ouvre une issue suivie",
     "Retry paramétrable avec Evolution",
@@ -727,8 +728,7 @@
     "Expert lock prédictif + split rouge -1 PV corrigé",
     "Lock cible, rouges capés 8 PV, jaunes +15% visibles",
     "Bonus PV medium/hard appliqué au reset",
-    "Bouton Play ajouté au menu Difficulté",
-    "Reset difficulté immédiat et heal hôpital fiable"
+    "Bouton Play ajouté au menu Difficulté"
   ],
   "debug": {
     "show_velocities": false,
