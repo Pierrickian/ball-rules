@@ -709,6 +709,7 @@
     ]
   },
   "release_notes": [
+    "Evolution ouvre une issue suivie",
     "Retry paramétrable avec Evolution",
     "Auto-fire corrigé + rangée de boutons basse remontée",
     "Auto-fire continu synchronisé sur seuil heavy→mega",
@@ -727,12 +728,18 @@
     "Bonus PV medium/hard appliqué au reset",
     "Bouton Play ajouté au menu Difficulté",
     "Reset difficulté immédiat et heal hôpital fiable",
-    "Menu difficulté et hôpital poussé par les tirs",
-    "Boss rouge 25 PV appliqué et hôpital rebondissant"
+    "Menu difficulté et hôpital poussé par les tirs"
   ],
   "debug": {
     "show_velocities": false,
     "show_ball_ids": false,
     "log_rule_changes": true
+  },
+  "evolution_request": {
+    "_description": "Paramètres du bouton Evolution du retry. Sans endpoint, le jeu ouvre une issue GitHub pré-remplie; avec endpoint, il attend une réponse JSON { type, number, title, url } pour confirmer la création.",
+    "repo": "Pierrickian/ball-rules",
+    "mode": "issue",
+    "endpoint": "",
+    "default_title": "Demande d'évolution depuis le jeu"
   }
 }

@@ -15,7 +15,7 @@ import { useGameEngine } from "./engine/useGameEngine";
 import { GameScene } from "./scenes/GameScene";
 import { HUD } from "./game/HUD";
 import { Menu } from "./game/Menu";
-import type { GameConfig, GameState, ShotKind, Vec2 } from "./engine/types";
+import type { EvolutionRequestConfig, GameConfig, GameState, ShotKind, Vec2 } from "./engine/types";
 
 function App() {
   const {
@@ -422,6 +422,7 @@ function App() {
         <RetryOverlay
           reason={retryReason}
           levelNumber={gameState.currentLevelId || gameState.currentLevelIndex + 1}
+          evolutionRequest={config.evolution_request}
           difficulty={difficulty}
           hpAdjustment={hpAdjustment}
           onDifficultyChange={setDifficulty}
@@ -702,10 +703,23 @@ function SessionClearOverlay({
 }
 
 type Difficulty = "easy" | "medium" | "hard";
+type EvolutionSubmitStatus =
+  | { phase: "idle" }
+  | { phase: "submitting"; message: string }
+  | { phase: "success"; message: string; url?: string }
+  | { phase: "error"; message: string };
+
+const DEFAULT_EVOLUTION_REQUEST: EvolutionRequestConfig = {
+  repo: "Pierrickian/ball-rules",
+  mode: "issue",
+  endpoint: "",
+  default_title: "Demande d'évolution depuis le jeu",
+};
 
 function RetryOverlay({
   reason,
   levelNumber,
+  evolutionRequest,
   difficulty,
   hpAdjustment,
   onDifficultyChange,
@@ -714,6 +728,7 @@ function RetryOverlay({
 }: {
   reason: "timeout" | "ammo";
   levelNumber: number;
+  evolutionRequest?: EvolutionRequestConfig;
   difficulty: Difficulty;
   hpAdjustment: number;
   onDifficultyChange: (difficulty: Difficulty) => void;
@@ -724,7 +739,15 @@ function RetryOverlay({
   const [evolutionOpen, setEvolutionOpen] = useState(false);
   const [requestText, setRequestText] = useState("");
   const [voiceActive, setVoiceActive] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<EvolutionSubmitStatus>({ phase: "idle" });
+  const requestConfig = { ...DEFAULT_EVOLUTION_REQUEST, ...evolutionRequest };
+  const requestedKindLabel = requestConfig.mode === "pr" ? "PR" : "issue";
+
+  const requestTitle = () => {
+    const firstLine = requestText.trim().split("\n").find((line) => line.trim().length > 0)?.replace(/^\/param\s*/i, "").trim();
+    if (!firstLine) return requestConfig.default_title;
+    return firstLine.length > 72 ? `${firstLine.slice(0, 69)}…` : firstLine;
+  };
 
   const buildEvolutionPrompt = () => {
     const trimmed = requestText.trim() || "<texte dicté par le joueur>";
@@ -773,11 +796,47 @@ function RetryOverlay({
     recognition.start();
   };
 
-  const copyEvolutionPrompt = () => {
-    const prompt = buildEvolutionPrompt();
-    void navigator.clipboard?.writeText(prompt);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1500);
+  const submitEvolutionRequest = async () => {
+    const title = requestTitle();
+    const body = buildEvolutionPrompt();
+    const endpoint = requestConfig.endpoint?.trim();
+    setSubmitStatus({ phase: "submitting", message: `Création ${requestedKindLabel} en cours…` });
+
+    try {
+      if (endpoint) {
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            repo: requestConfig.repo,
+            type: requestConfig.mode,
+            title,
+            body,
+            params: { level: levelNumber, difficulty, hpAdjustment },
+          }),
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const created = await response.json() as { type?: "issue" | "pr"; number?: number; title?: string; url?: string };
+        const createdType = created.type === "pr" ? "PR" : "Issue";
+        const createdTitle = created.title ?? title;
+        const numberPart = typeof created.number === "number" ? ` #${created.number}` : "";
+        setSubmitStatus({ phase: "success", message: `${createdType}${numberPart} créée : ${createdTitle}`, url: created.url });
+        window.setTimeout(() => setSubmitStatus({ phase: "idle" }), 4500);
+        return;
+      }
+
+      const issueUrl = `https://github.com/${requestConfig.repo}/issues/new?${new URLSearchParams({ title, body }).toString()}`;
+      window.open(issueUrl, "_blank", "noopener,noreferrer");
+      setSubmitStatus({
+        phase: "success",
+        message: `Issue ouverte dans GitHub : ${title}. Valide l'issue dans l'onglet ouvert pour obtenir son numéro.`,
+        url: issueUrl,
+      });
+      window.setTimeout(() => setSubmitStatus({ phase: "idle" }), 6500);
+    } catch (error) {
+      setSubmitStatus({ phase: "error", message: `Création impossible : ${error instanceof Error ? error.message : "erreur inconnue"}` });
+      window.setTimeout(() => setSubmitStatus({ phase: "idle" }), 6500);
+    }
   };
 
   const difficultyButton = (value: Difficulty) => {
@@ -857,6 +916,9 @@ function RetryOverlay({
 
           {evolutionOpen && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8, background: "rgba(4,12,35,0.92)", border: "1px solid rgba(30,144,255,0.28)", borderRadius: 12, padding: 12 }}>
+              <div style={{ fontSize: 12, color: "#aac8f0", lineHeight: 1.45 }}>
+                Le jeu crée une <strong>{requestedKindLabel}</strong> via l'endpoint configuré. Sans endpoint, il ouvre une issue GitHub pré-remplie à valider.
+              </div>
               <textarea
                 value={requestText}
                 onChange={(event) => setRequestText(event.currentTarget.value)}
@@ -866,9 +928,15 @@ function RetryOverlay({
                 style={{ width: "100%", boxSizing: "border-box", borderRadius: 8, border: "1px solid rgba(30,144,255,0.35)", background: "rgba(0,0,0,0.45)", color: "#eaf4ff", padding: 10, fontFamily: "inherit", resize: "vertical" }}
               />
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button onClick={(event) => { event.stopPropagation(); startVoiceInput(); }} style={{ flex: 1, border: "1px solid rgba(255,255,255,0.28)", background: voiceActive ? "rgba(255,77,122,0.34)" : "rgba(0,0,0,0.38)", color: "#ffe6f0", borderRadius: 8, padding: "8px 10px", cursor: "pointer" }}>{voiceActive ? "🎙️ écoute…" : "🎙️ Vocal"}</button>
-                <button onClick={(event) => { event.stopPropagation(); copyEvolutionPrompt(); }} style={{ flex: 1, border: "1px solid #1e90ff", background: "#1e90ff", color: "#061122", borderRadius: 8, padding: "8px 10px", fontWeight: 900, cursor: "pointer" }}>{copied ? "Copié" : "Envoyer PR"}</button>
+                <button onClick={(event) => { event.stopPropagation(); startVoiceInput(); }} disabled={submitStatus.phase === "submitting"} style={{ flex: 1, border: "1px solid rgba(255,255,255,0.28)", background: voiceActive ? "rgba(255,77,122,0.34)" : "rgba(0,0,0,0.38)", color: "#ffe6f0", borderRadius: 8, padding: "8px 10px", cursor: submitStatus.phase === "submitting" ? "wait" : "pointer" }}>{voiceActive ? "🎙️ écoute…" : "🎙️ Vocal"}</button>
+                <button onClick={(event) => { event.stopPropagation(); void submitEvolutionRequest(); }} disabled={submitStatus.phase === "submitting"} style={{ flex: 1, border: "1px solid #1e90ff", background: submitStatus.phase === "submitting" ? "#88bfff" : "#1e90ff", color: "#061122", borderRadius: 8, padding: "8px 10px", fontWeight: 900, cursor: submitStatus.phase === "submitting" ? "wait" : "pointer" }}>{submitStatus.phase === "submitting" ? "En cours" : "Envoyer"}</button>
               </div>
+              {submitStatus.phase !== "idle" && (
+                <div style={{ border: `1px solid ${submitStatus.phase === "error" ? "rgba(255,77,122,0.65)" : "rgba(102,255,187,0.45)"}`, background: submitStatus.phase === "error" ? "rgba(80,0,20,0.38)" : "rgba(0,60,42,0.34)", color: submitStatus.phase === "error" ? "#ffd0dc" : "#c8ffe7", borderRadius: 8, padding: "8px 10px", fontSize: 12, lineHeight: 1.4 }}>
+                  {submitStatus.message}
+                  {submitStatus.phase === "success" && submitStatus.url && <div><a href={submitStatus.url} target="_blank" rel="noreferrer" style={{ color: "#8fd3ff" }}>Ouvrir dans GitHub</a></div>}
+                </div>
+              )}
             </div>
           )}
         </section>
