@@ -506,8 +506,8 @@ export class GameEngine {
       }
 
       if (ball.isProjectile()) {
-        this.hospital.vx += ball.velocity.x * 0.015;
-        this.hospital.vy += ball.velocity.y * 0.015;
+        this.hospital.vx -= ball.velocity.x * 0.015;
+        this.hospital.vy -= ball.velocity.y * 0.015;
         ball.isAlive = false;
         this.pendingEvents.push({ type: "ball_despawned", ballId: ball.id, reason: "projectile_hit_hospital", position: { ...ball.position }, velocity: { ...ball.velocity }, effect: String(ball.metadata?.effect ?? "") });
         continue;
