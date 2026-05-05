@@ -66,6 +66,31 @@ function App() {
     return true;
   };
 
+  const computeInterceptTarget = (targetPos: Vec2, targetVel: Vec2, shotSpeed: number): Vec2 => {
+    const shooter = { x: 0, y: -(config?.graphics.arena.height ?? 14) * 0.5 };
+    const rx = targetPos.x - shooter.x;
+    const ry = targetPos.y - shooter.y;
+    const vx = targetVel.x;
+    const vy = targetVel.y;
+    const s2 = shotSpeed * shotSpeed;
+    const a = vx * vx + vy * vy - s2;
+    const b = 2 * (rx * vx + ry * vy);
+    const c = rx * rx + ry * ry;
+    let t = 0;
+    if (Math.abs(a) < 1e-6) t = Math.abs(b) < 1e-6 ? 0 : Math.max(0, -c / b);
+    else {
+      const d = b * b - 4 * a * c;
+      if (d >= 0) {
+        const sd = Math.sqrt(d);
+        const t1 = (-b - sd) / (2 * a);
+        const t2 = (-b + sd) / (2 * a);
+        const cs = [t1, t2].filter((x) => x > 0);
+        t = cs.length ? Math.min(...cs) : 0;
+      }
+    }
+    return { x: targetPos.x + targetVel.x * t, y: targetPos.y + targetVel.y * t };
+  };
+
   // ---- Charge tracking (always visible cursor) ----
   useEffect(() => {
     const tick = () => {
@@ -113,18 +138,10 @@ function App() {
         const b = gameState.balls.get(lockedBallId);
         if (b?.isAlive) {
           const shotKind = classifyHold(holdTime);
-          const baseLead = shotKind === "light" ? 0.6 : shotKind === "heavy" ? 0.5 : 0.4;
-          const arenaW = config?.graphics.arena.width ?? 10;
-          const arenaH = config?.graphics.arena.height ?? 14;
-          const shooterY = -arenaH * 0.5;
-          const targetDist = Math.hypot(b.position.x, b.position.y - shooterY);
-          const distNorm = Math.max(0, Math.min(1.5, targetDist / Math.max(1, Math.hypot(arenaW, arenaH))));
-          const speed = Math.hypot(b.velocity.x, b.velocity.y);
-          const horizontalCos = speed > 0.001 ? Math.abs(b.velocity.x) / speed : 0;
-          const leadBoost = 1 + distNorm * 0.65 + horizontalCos * 0.45;
-          const lead = homingOn ? baseLead * leadBoost : 0;
-          tx = b.position.x + b.velocity.x * lead;
-          ty = b.position.y + b.velocity.y * lead;
+          const shotSpeed = config?.gameplay_controls.shot_types?.[shotKind]?.speed ?? 28;
+          const intercept = homingOn ? computeInterceptTarget(b.position, b.velocity, shotSpeed) : b.position;
+          tx = intercept.x;
+          ty = intercept.y;
           const halfH = (config?.graphics.arena.height ?? 14) * 0.5;
           ty = Math.max(-halfH + 0.2, Math.min(halfH - 0.2, ty));
         }
@@ -175,7 +192,8 @@ function App() {
   useEffect(() => {
     if (!gameState) return;
     const lastAliveHit = [...lastEvents].reverse().find((e) => e.type === "ball_damaged" && e.remainingHp > 0) as Extract<(typeof lastEvents)[number], { type: "ball_damaged" }> | undefined;
-    if (lastAliveHit) setLockedBallId(lastAliveHit.ballId);
+    const currentLocked = lockedBallId ? gameState.balls.get(lockedBallId) : null;
+    if ((!currentLocked || !currentLocked.isAlive || currentLocked.hp <= 0) && lastAliveHit) setLockedBallId(lastAliveHit.ballId);
     if (!lockOn) return;
     let id = lockedBallId;
     const current = id ? gameState.balls.get(id) : null;
@@ -193,19 +211,11 @@ function App() {
       const b = gameState.balls.get(id);
       if (b) {
         const shotKind = classifyHold(holdTime);
-        const baseLead = shotKind === "light" ? 0.6 : shotKind === "heavy" ? 0.5 : 0.4;
-        const arenaW = config?.graphics.arena.width ?? 10;
-        const arenaH = config?.graphics.arena.height ?? 14;
-        const shooterY = -arenaH * 0.5;
-        const targetDist = Math.hypot(b.position.x, b.position.y - shooterY);
-        const distNorm = Math.max(0, Math.min(1.5, targetDist / Math.max(1, Math.hypot(arenaW, arenaH))));
-        const speed = Math.hypot(b.velocity.x, b.velocity.y);
-        const horizontalCos = speed > 0.001 ? Math.abs(b.velocity.x) / speed : 0;
-        const leadBoost = 1 + distNorm * 0.65 + horizontalCos * 0.45;
-        const lead = homingOn ? baseLead * leadBoost : 0;
-        const dx = b.position.x + b.velocity.x * lead;
+        const shotSpeed = config?.gameplay_controls.shot_types?.[shotKind]?.speed ?? 28;
+        const intercept = homingOn ? computeInterceptTarget(b.position, b.velocity, shotSpeed) : b.position;
+        const dx = intercept.x;
         const halfH = (config?.graphics.arena.height ?? 14) * 0.5;
-        const ty = Math.max(-halfH + 0.2, Math.min(halfH - 0.2, b.position.y + b.velocity.y * lead));
+        const ty = Math.max(-halfH + 0.2, Math.min(halfH - 0.2, intercept.y));
         const dy = ty + (config?.graphics.arena.height ?? 0) * 0.5;
         const len = Math.hypot(dx, dy);
         if (len > 0.001) {
