@@ -21,7 +21,7 @@ function App() {
   const {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
-    shoot, setCustomTerrainDistribution, setActiveLevel, setLevelWeights, playBossRush, classifyHold, toggleGrenade, grenadesLeft, setDifficulty, difficulty,
+    shoot, setCustomTerrainDistribution, setActiveLevel, setLevelWeights, playBossRush, classifyHold, toggleGrenade, grenadesLeft, setDifficulty, difficulty, setHpAdjustment, hpAdjustment,
   } = useGameEngine();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -421,6 +421,11 @@ function App() {
       {retryReason && (
         <RetryOverlay
           reason={retryReason}
+          levelNumber={gameState.currentLevelId || gameState.currentLevelIndex + 1}
+          difficulty={difficulty}
+          hpAdjustment={hpAdjustment}
+          onDifficultyChange={setDifficulty}
+          onHpAdjustmentChange={setHpAdjustment}
           onRetry={() => {
             const lvl = config.levels?.list?.[gameState.currentLevelIndex];
             setRetryResetInProgress(true);
@@ -696,11 +701,112 @@ function SessionClearOverlay({
   );
 }
 
-function RetryOverlay({ reason, onRetry }: { reason: "timeout" | "ammo"; onRetry: () => void }) {
+type Difficulty = "easy" | "medium" | "hard";
+
+function RetryOverlay({
+  reason,
+  levelNumber,
+  difficulty,
+  hpAdjustment,
+  onDifficultyChange,
+  onHpAdjustmentChange,
+  onRetry,
+}: {
+  reason: "timeout" | "ammo";
+  levelNumber: number;
+  difficulty: Difficulty;
+  hpAdjustment: number;
+  onDifficultyChange: (difficulty: Difficulty) => void;
+  onHpAdjustmentChange: (adjustment: number) => void;
+  onRetry: () => void;
+}) {
   const subtitle = reason === "timeout" ? "Temps écoulé" : "Munitions épuisées";
+  const [evolutionOpen, setEvolutionOpen] = useState(false);
+  const [requestText, setRequestText] = useState("");
+  const [voiceActive, setVoiceActive] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const buildEvolutionPrompt = () => {
+    const trimmed = requestText.trim() || "<texte dicté par le joueur>";
+    const paramLine = trimmed.startsWith("/param")
+      ? `Paramètres custom joueur : niveau ${levelNumber}, difficulté ${difficulty}, ajustement relatif PV ${hpAdjustment >= 0 ? "+" : ""}${hpAdjustment}.`
+      : null;
+    return [
+      "Demande joueur depuis le jeu :",
+      "",
+      "Contexte :",
+      "- Repo : Pierrickian/ball-rules",
+      "- App : WebGL / Capacitor",
+      "- Respecter replit.md",
+      "- Mettre à jour release_notes",
+      "- Ne pas casser les tirs, grenades, menus",
+      "",
+      "Demande :",
+      trimmed,
+      paramLine,
+      "",
+      "Livrable :",
+      "- créer une branche",
+      "- modifier le jeu",
+      "- tester",
+      "- ouvrir une PR",
+    ].filter(Boolean).join("\n");
+  };
+
+  const startVoiceInput = () => {
+    const SpeechRecognitionCtor = (window as unknown as { SpeechRecognition?: any; webkitSpeechRecognition?: any }).SpeechRecognition
+      ?? (window as unknown as { webkitSpeechRecognition?: any }).webkitSpeechRecognition;
+    if (!SpeechRecognitionCtor) {
+      setRequestText((prev) => `${prev}${prev ? "\n" : ""}Micro non disponible sur ce navigateur.`);
+      return;
+    }
+    const recognition = new SpeechRecognitionCtor();
+    recognition.lang = "fr-FR";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onstart = () => setVoiceActive(true);
+    recognition.onend = () => setVoiceActive(false);
+    recognition.onresult = (event: any) => {
+      const text = event.results[0]?.[0]?.transcript ?? "";
+      if (text) setRequestText((prev) => `${prev}${prev ? " " : ""}${text}`);
+    };
+    recognition.start();
+  };
+
+  const copyEvolutionPrompt = () => {
+    const prompt = buildEvolutionPrompt();
+    void navigator.clipboard?.writeText(prompt);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1500);
+  };
+
+  const difficultyButton = (value: Difficulty) => {
+    const active = difficulty === value;
+    return (
+      <button
+        key={value}
+        onClick={(event) => { event.stopPropagation(); onDifficultyChange(value); }}
+        style={{
+          border: `1px solid ${active ? "#ffe66d" : "rgba(255,255,255,0.28)"}`,
+          background: active ? "linear-gradient(180deg, #ffe66d, #ff9f1c)" : "rgba(0,0,0,0.42)",
+          color: active ? "#1b1000" : "#ffe6f0",
+          borderRadius: 999,
+          padding: "8px 13px",
+          fontWeight: 900,
+          textTransform: "uppercase",
+          letterSpacing: 1,
+          cursor: "pointer",
+          boxShadow: active ? "0 0 18px rgba(255,230,109,0.58)" : "none",
+        }}
+      >
+        {value}
+      </button>
+    );
+  };
+
   return (
-    <button
-      onClick={onRetry}
+    <div
+      onClick={(event) => { if (event.target === event.currentTarget) onRetry(); }}
       style={{
         position: "absolute",
         inset: 0,
@@ -711,13 +817,63 @@ function RetryOverlay({ reason, onRetry }: { reason: "timeout" | "ammo"; onRetry
         alignItems: "center",
         justifyContent: "center",
         flexDirection: "column",
-        gap: 10,
+        gap: 12,
         cursor: "pointer",
+        fontFamily: "'Courier New', monospace",
+        color: "#ffe6f0",
       }}
     >
-      <div style={{ fontSize: 72, fontWeight: 900, color: "#ff4d7a", letterSpacing: 8, textShadow: "0 0 16px #ff4d7a" }}>RETRY</div>
-      <div style={{ fontSize: 18, color: "#ffe6f0", fontFamily: "'Courier New', monospace" }}>{subtitle} — cliquez pour rejouer ce niveau</div>
-    </button>
+      <div onClick={(event) => event.stopPropagation()} style={{ width: "min(92vw, 430px)", display: "flex", flexDirection: "column", alignItems: "stretch", gap: 12, cursor: "default" }}>
+        <div style={{ textAlign: "center", fontSize: 72, fontWeight: 900, color: "#ff4d7a", letterSpacing: 8, textShadow: "0 0 16px #ff4d7a" }}>RETRY</div>
+        <div style={{ textAlign: "center", fontSize: 18 }}>{subtitle} — cliquez le fond pour rejouer</div>
+
+        <section style={{ background: "rgba(0,0,0,0.38)", border: "1px solid rgba(255,77,122,0.34)", borderRadius: 16, padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 11, letterSpacing: 3, color: "#ff9fca", textTransform: "uppercase" }}>level</div>
+            <div style={{ fontSize: 24, fontWeight: 900 }}>#{levelNumber}</div>
+          </div>
+
+          <div>
+            <div style={{ fontSize: 11, letterSpacing: 3, color: "#ff9fca", textTransform: "uppercase", marginBottom: 8 }}>difficulty</div>
+            <div style={{ display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>{(["easy", "medium", "hard"] as Difficulty[]).map(difficultyButton)}</div>
+          </div>
+
+          <label style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <span style={{ fontSize: 11, letterSpacing: 3, color: "#ff9fca", textTransform: "uppercase" }}>PV adjust</span>
+            <input
+              type="range"
+              min={-10}
+              max={10}
+              step={1}
+              value={hpAdjustment}
+              onClick={(event) => event.stopPropagation()}
+              onChange={(event) => onHpAdjustmentChange(Number(event.currentTarget.value))}
+              style={{ width: "100%", accentColor: hpAdjustment === 0 ? "#1e90ff" : hpAdjustment > 0 ? "#ff9f1c" : "#66ffbb" }}
+            />
+            <span style={{ alignSelf: "center", fontWeight: 900, color: hpAdjustment === 0 ? "#c8deff" : hpAdjustment > 0 ? "#ffd79a" : "#a8ffd7" }}>{hpAdjustment >= 0 ? "+" : ""}{hpAdjustment} PV</span>
+          </label>
+
+          <button onClick={(event) => { event.stopPropagation(); setEvolutionOpen((open) => !open); }} style={{ border: "1px solid rgba(30,144,255,0.55)", background: evolutionOpen ? "rgba(30,144,255,0.28)" : "rgba(12,28,72,0.8)", color: "#d9ecff", borderRadius: 10, padding: "10px 14px", fontWeight: 900, cursor: "pointer" }}>Evolution</button>
+
+          {evolutionOpen && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, background: "rgba(4,12,35,0.92)", border: "1px solid rgba(30,144,255,0.28)", borderRadius: 12, padding: 12 }}>
+              <textarea
+                value={requestText}
+                onChange={(event) => setRequestText(event.currentTarget.value)}
+                onClick={(event) => event.stopPropagation()}
+                placeholder="Décris l'évolution voulue. Commence par /param pour inclure niveau, difficulté et ajustement PV dans la demande PR."
+                rows={5}
+                style={{ width: "100%", boxSizing: "border-box", borderRadius: 8, border: "1px solid rgba(30,144,255,0.35)", background: "rgba(0,0,0,0.45)", color: "#eaf4ff", padding: 10, fontFamily: "inherit", resize: "vertical" }}
+              />
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button onClick={(event) => { event.stopPropagation(); startVoiceInput(); }} style={{ flex: 1, border: "1px solid rgba(255,255,255,0.28)", background: voiceActive ? "rgba(255,77,122,0.34)" : "rgba(0,0,0,0.38)", color: "#ffe6f0", borderRadius: 8, padding: "8px 10px", cursor: "pointer" }}>{voiceActive ? "🎙️ écoute…" : "🎙️ Vocal"}</button>
+                <button onClick={(event) => { event.stopPropagation(); copyEvolutionPrompt(); }} style={{ flex: 1, border: "1px solid #1e90ff", background: "#1e90ff", color: "#061122", borderRadius: 8, padding: "8px 10px", fontWeight: 900, cursor: "pointer" }}>{copied ? "Copié" : "Envoyer PR"}</button>
+              </div>
+            </div>
+          )}
+        </section>
+      </div>
+    </div>
   );
 }
 

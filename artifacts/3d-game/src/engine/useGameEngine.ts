@@ -44,6 +44,8 @@ export interface UseGameEngineResult {
   grenadesLeft: number;
   setDifficulty: (difficulty: "easy" | "medium" | "hard") => void;
   difficulty: "easy" | "medium" | "hard";
+  setHpAdjustment: (adjustment: number) => void;
+  hpAdjustment: number;
 }
 
 const DEFAULT_STATE: GameState = {
@@ -84,6 +86,7 @@ export function useGameEngine(): UseGameEngineResult {
   const [playerQueue, setPlayerQueue] = useState<ShotKind[]>([]);
   const [grenadesLeft, setGrenadesLeft] = useState(5);
   const [difficulty, setDifficultyState] = useState<"easy" | "medium" | "hard">("easy");
+  const [hpAdjustment, setHpAdjustmentState] = useState(0);
 
   const engineRef          = useRef<GameEngine | null>(null);
   const grenadeZonesRef    = useRef(createGrenadeZoneStore());
@@ -99,6 +102,7 @@ export function useGameEngine(): UseGameEngineResult {
   const sessionModeRef     = useRef<"levels" | "single_color" | "boss_rush">("levels");
   const bossRushOrderRef   = useRef<number[]>([]);
   const defaultMaxSpawnRef = useRef<number>(20);
+  const hpAdjustmentRef = useRef(0);
 
   // Load config and initialize engine
   useEffect(() => {
@@ -113,6 +117,7 @@ export function useGameEngine(): UseGameEngineResult {
         currentLevelIdxRef.current = 0;
         engineRef.current = new GameEngine(cfg, currentLevelIdxRef.current);
         engineRef.current.setDifficultyBonusHp(0);
+        engineRef.current.setHpAdjustment(hpAdjustmentRef.current);
         grenadeZonesRef.current = createGrenadeZoneStore();
         setGrenadesLeft(engineRef.current.getGrenadesLeft());
         const q = buildQueue(cfg.gameplay_controls.queue_size, cfg.gameplay_controls.player_projectile_distribution ?? { light: 0.6, heavy: 0.3, mega: 0.1 });
@@ -206,6 +211,7 @@ export function useGameEngine(): UseGameEngineResult {
     const activeDifficulty = forcedDifficulty ?? difficulty;
     const bonus = activeDifficulty === "easy" ? 0 : activeDifficulty === "medium" ? 2 : 6;
     engineRef.current.setDifficultyBonusHp(bonus);
+    engineRef.current.setHpAdjustment(hpAdjustmentRef.current);
     grenadeZonesRef.current = createGrenadeZoneStore();
     setGrenadesLeft(engineRef.current.getGrenadesLeft());
     // Re-apply the persistent session mode so resets keep the user's choice
@@ -410,10 +416,19 @@ export function useGameEngine(): UseGameEngineResult {
     doReset(next);
   }, [doReset]);
 
+  const setHpAdjustment = useCallback((next: number) => {
+    const safe = Math.max(-10, Math.min(10, Math.round(next)));
+    hpAdjustmentRef.current = safe;
+    setHpAdjustmentState(safe);
+    engineRef.current?.setHpAdjustment(safe);
+    rebootingRef.current = false;
+    doReset();
+  }, [doReset]);
+
   return {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
     shoot, setLauncherColor, setCustomTerrainDistribution, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, playBossRush, classifyHold, toggleGrenade, grenadesLeft,
-    setDifficulty, difficulty,
+    setDifficulty, difficulty, setHpAdjustment, hpAdjustment,
   };
 }
