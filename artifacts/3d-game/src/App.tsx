@@ -38,6 +38,7 @@ function App() {
   const [lockOn, setLockOn] = useState(false);
   const [lockedBallId, setLockedBallId] = useState<string | null>(null);
   const [homingOn, setHomingOn] = useState(false);
+  const [autoFireOn, setAutoFireOn] = useState(false);
   const [ballEffect, setBallEffect] = useState(() => localStorage.getItem("bg_effect_ball") ?? "spark");
   const [grenadeEffect, setGrenadeEffect] = useState(() => localStorage.getItem("bg_effect_grenade") ?? "spark");
   const [debugExplosionTexture, setDebugExplosionTexture] = useState(() => localStorage.getItem("bg_debug_explosion_texture") === "1");
@@ -53,8 +54,18 @@ function App() {
   // mount) always read the latest values without re-subscribing.
   const menuOpenRef = useRef(menuOpen);
   const isRunningRef = useRef(isRunning);
+  const gameStateRef = useRef<GameState | null>(gameState);
+  const configRef = useRef<GameConfig | null>(config);
+  const lockOnRef = useRef(lockOn);
+  const lockedBallIdRef = useRef<string | null>(lockedBallId);
+  const homingOnRef = useRef(homingOn);
   useEffect(() => { menuOpenRef.current = menuOpen; }, [menuOpen]);
   useEffect(() => { isRunningRef.current = isRunning; }, [isRunning]);
+  useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
+  useEffect(() => { configRef.current = config; }, [config]);
+  useEffect(() => { lockOnRef.current = lockOn; }, [lockOn]);
+  useEffect(() => { lockedBallIdRef.current = lockedBallId; }, [lockedBallId]);
+  useEffect(() => { homingOnRef.current = homingOn; }, [homingOn]);
 
   const handleMenuOpen = () => { pause(); setMenuOpen(true); };
   const handleMenuClose = () => { setMenuOpen(false); resume(); };
@@ -174,6 +185,7 @@ function App() {
     return () => cancelAnimationFrame(animRef.current);
   }, [config]);
 
+
   const handlePointerDown = (gameX: number, gameY: number) => {
     if (menuOpenRef.current || !isRunningRef.current) return;
     pointerActiveRef.current = true;
@@ -201,24 +213,57 @@ function App() {
     }
   };
 
+  const resolveShotTarget = (gameX: number, gameY: number, chargeSeconds: number): Vec2 => {
+    const currentConfig = configRef.current;
+    const currentState = gameStateRef.current;
+    let tx = gameX;
+    let ty = gameY;
+    if (lockOnRef.current && lockedBallIdRef.current && currentState) {
+      const b = currentState.balls.get(lockedBallIdRef.current);
+      if (b?.isAlive) {
+        const shotKind = classifyHold(chargeSeconds);
+        const shotSpeed = currentConfig?.gameplay_controls.shot_types?.[shotKind]?.speed ?? 28;
+        const intercept = homingOnRef.current ? computeInterceptTarget(b.position, b.velocity, shotSpeed) : b.position;
+        tx = intercept.x;
+        ty = intercept.y;
+      }
+    }
+    const halfW = (currentConfig?.graphics.arena.width ?? 8) * 0.5;
+    const halfH = (currentConfig?.graphics.arena.height ?? 14) * 0.5;
+    return {
+      x: Math.max(-halfW + 0.2, Math.min(halfW - 0.2, tx)),
+      y: Math.max(-halfH + 0.2, Math.min(halfH - 0.2, ty)),
+    };
+  };
+
+
+  useEffect(() => {
+    if (!autoFireOn || !config) return;
+    const interval = window.setInterval(() => {
+      // Auto-fire owns only the idle state: pressing does nothing special,
+      // releasing still fires manually, and no pointer held lets the virtual
+      // charge shoot as soon as the mega tier is available.
+      if (menuOpenRef.current || !isRunningRef.current || pointerActiveRef.current) return;
+      const types = config.gameplay_controls.shot_types;
+      const threshold = types.heavy?.max_hold_seconds ?? 0.8;
+      const currentHold = (performance.now() - cycleStartRef.current) / 1000;
+      if (currentHold < threshold) return;
+      const injectedHold = Math.max(types.mega?.min_hold_seconds ?? threshold, threshold + 0.01);
+      const target = resolveShotTarget(lastTargetRef.current.x, lastTargetRef.current.y, injectedHold);
+      if (tryShootBall(target.x, target.y, injectedHold)) {
+        cycleStartRef.current = performance.now();
+        setHoldTime(0);
+      }
+    }, 100);
+    return () => window.clearInterval(interval);
+  }, [autoFireOn, config]);
+
   const handlePointerUp = (gameX: number, gameY: number) => {
     if (!pointerActiveRef.current) return;
     pointerActiveRef.current = false;
     if (!menuOpenRef.current && isRunningRef.current) {
-      let tx = gameX; let ty = gameY;
-      if (lockOn && lockedBallId && gameState) {
-        const b = gameState.balls.get(lockedBallId);
-        if (b?.isAlive) {
-          const shotKind = classifyHold(holdTime);
-          const shotSpeed = config?.gameplay_controls.shot_types?.[shotKind]?.speed ?? 28;
-          const intercept = homingOn ? computeInterceptTarget(b.position, b.velocity, shotSpeed) : b.position;
-          tx = intercept.x;
-          ty = intercept.y;
-          const halfH = (config?.graphics.arena.height ?? 14) * 0.5;
-          ty = Math.max(-halfH + 0.2, Math.min(halfH - 0.2, ty));
-        }
-      }
-      tryShootBall(tx, ty, holdTime);
+      const target = resolveShotTarget(gameX, gameY, holdTime);
+      tryShootBall(target.x, target.y, holdTime);
     }
     cycleStartRef.current = performance.now();
     setHoldTime(0);
@@ -413,6 +458,10 @@ function App() {
         onResume={resume}
         onReset={reset}
       />
+
+      {retryReason && (
+        <RetryOverlay reason={retryReason} onRetry={reset} />
+      )}
 
       {/* Game-over flash */}
       {gameState.sessionCleared && (
@@ -650,6 +699,18 @@ function ChargeBar({ holdTime, shotKind, config }: { holdTime: number; shotKind:
         <div style={{ position: "absolute", top: -2, left: `${(heavyMax / displayMax) * 100}%`, width: 1, height: 10, background: "#fff8" }} />
       </div>
       <div style={{ fontSize: 9, color: "#446", letterSpacing: 1 }}>{holdTime.toFixed(2)}s</div>
+    </div>
+  );
+}
+
+function RetryOverlay({ reason, onRetry }: { reason: "timeout" | "ammo"; onRetry: () => void }) {
+  const label = reason === "timeout" ? "Temps écoulé" : "Munitions épuisées";
+  const detail = reason === "timeout" ? "Le chrono du niveau est tombé à zéro." : "Toutes les munitions du niveau ont été tirées.";
+  return (
+    <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,5,20,0.62)", backdropFilter:"blur(3px)", zIndex:60, fontFamily:"'Courier New', monospace", flexDirection:"column", gap:14 }}>
+      <div style={{ fontSize:28, color:"#ffcc66", letterSpacing:3, fontWeight:900, textShadow:"0 0 14px #ff8844" }}>{label}</div>
+      <div style={{ maxWidth:300, textAlign:"center", fontSize:13, color:"#dfecff", lineHeight:1.4 }}>{detail}<br />Relance le même niveau avec ses paramètres.</div>
+      <button onClick={onRetry} style={{ pointerEvents:"all", border:"1px solid #1e90ff", background:"#1e90ff", color:"#001226", borderRadius:10, padding:"10px 22px", fontSize:16, fontWeight:900, letterSpacing:2, cursor:"pointer" }}>Retry</button>
     </div>
   );
 }
