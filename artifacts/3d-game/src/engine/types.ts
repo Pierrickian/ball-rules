@@ -120,6 +120,10 @@ export interface GameState {
   currentLevelId: number;
   currentLevelName: string;
   bossIntroActive?: boolean;
+  isBossPhase?: boolean;
+  timerSecondsRemaining?: number;
+  ammoRemaining?: number;
+  retryReason?: "timeout" | "ammo" | null;
   hospital?: {
     isActive: boolean;
     x: number;
