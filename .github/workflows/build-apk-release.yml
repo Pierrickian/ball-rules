@@ -1,0 +1,93 @@
+name: Build APK Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apk-release
+  cancel-in-progress: false
+
+env:
+  APK_BUILD_DIR: android
+  APK_SOURCE_PATH: android/app/build/outputs/apk/release/app-release.apk
+  APK_RELEASE_ASSET: ball-rules.apk
+
+jobs:
+  build-release-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Install Capacitor
+        run: pnpm add -Dw @capacitor/cli && pnpm add -w @capacitor/core @capacitor/android
+
+      - name: Build web app
+        run: pnpm --filter 3d-game run build
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Create Android project if missing
+        run: |
+          if [ ! -d android ]; then
+            npx cap add android
+          fi
+
+      - name: Sync Capacitor Android project
+        run: npx cap sync android
+
+      - name: Build release APK
+        working-directory: ${{ env.APK_BUILD_DIR }}
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease
+
+      - name: Prepare stable APK asset
+        run: |
+          test -s "$APK_SOURCE_PATH"
+          cp "$APK_SOURCE_PATH" "$APK_RELEASE_ASSET"
+          test -s "$APK_RELEASE_ASSET"
+
+      - name: Upload release APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ball-rules-release-apk
+          path: ${{ env.APK_RELEASE_ASSET }}
+          if-no-files-found: error
+
+      - name: Publish latest APK release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest-apk
+          name: Latest APK
+          body: Latest Android APK built automatically from main.
+          files: ${{ env.APK_RELEASE_ASSET }}
+          make_latest: true
