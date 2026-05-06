@@ -15,7 +15,7 @@ concurrency:
 
 env:
   APK_BUILD_DIR: android
-  APK_SOURCE_PATH: android/app/build/outputs/apk/release/app-release.apk
+  APK_RELEASE_DIR: android/app/build/outputs/apk/release
   APK_RELEASE_ASSET: ball-rules.apk
 
 jobs:
@@ -72,7 +72,12 @@ jobs:
 
       - name: Prepare stable APK asset
         run: |
+          echo "Release APK directory: $APK_RELEASE_DIR"
+          find "$APK_RELEASE_DIR" -maxdepth 1 -type f -name "*.apk" -print
+          APK_SOURCE_PATH="$(find "$APK_RELEASE_DIR" -maxdepth 1 -type f -name "*.apk" | sort | head -n 1)"
+          test -n "$APK_SOURCE_PATH"
           test -s "$APK_SOURCE_PATH"
+          echo "Using release APK: $APK_SOURCE_PATH"
           cp "$APK_SOURCE_PATH" "$APK_RELEASE_ASSET"
           test -s "$APK_RELEASE_ASSET"
 
