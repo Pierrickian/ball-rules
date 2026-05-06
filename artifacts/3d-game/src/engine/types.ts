@@ -183,9 +183,7 @@ export interface LevelEntry {
     diameter_from_boss_hp?: number;
   };
   dark_green_heal_bonus_percent?: number;
-  /** Optional seconds available for this level before retry; runtime fallback is 60. */
   timer_seconds?: number;
-  /** Optional player-shot ammo for this level before retry; runtime fallback is 50. */
   ammo_count?: number;
 }
 
@@ -265,6 +263,17 @@ export interface BounceConditionsConfig {
 }
 
 // ---- Top-Level Config ----
+export interface EvolutionRequestConfig {
+  _description?: string;
+  /** GitHub owner/repo receiving in-game evolution requests. */
+  repo: string;
+  /** Default request kind. PR can only be confirmed when an endpoint creates one. */
+  mode: "issue" | "pr";
+  /** Optional server endpoint that creates the issue/PR and returns its number. */
+  endpoint?: string;
+  default_title: string;
+}
+
 export interface GameConfig {
   graphics: {
     ball_sizes: Record<BallSize, { diameter: number; _label?: string }>;
@@ -370,6 +379,8 @@ export interface GameConfig {
    * The agent must update this list before each commit (see replit.md).
    */
   release_notes: string[];
+  /** In-game Evolution request target and optional creation endpoint. */
+  evolution_request?: EvolutionRequestConfig;
   debug: {
     show_velocities: boolean;
     show_ball_ids: boolean;

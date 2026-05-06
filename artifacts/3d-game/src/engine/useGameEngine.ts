@@ -44,7 +44,8 @@ export interface UseGameEngineResult {
   grenadesLeft: number;
   setDifficulty: (difficulty: "easy" | "medium" | "hard") => void;
   difficulty: "easy" | "medium" | "hard";
-  retryReason: "timeout" | "ammo" | null;
+  setHpAdjustment: (adjustment: number) => void;
+  hpAdjustment: number;
 }
 
 const DEFAULT_STATE: GameState = {
@@ -92,7 +93,7 @@ export function useGameEngine(): UseGameEngineResult {
   const [playerQueue, setPlayerQueue] = useState<ShotKind[]>([]);
   const [grenadesLeft, setGrenadesLeft] = useState(5);
   const [difficulty, setDifficultyState] = useState<"easy" | "medium" | "hard">("easy");
-  const [retryReason, setRetryReason] = useState<"timeout" | "ammo" | null>(null);
+  const [hpAdjustment, setHpAdjustmentState] = useState(0);
 
   const engineRef          = useRef<GameEngine | null>(null);
   const grenadeZonesRef    = useRef(createGrenadeZoneStore());
@@ -108,31 +109,7 @@ export function useGameEngine(): UseGameEngineResult {
   const sessionModeRef     = useRef<"levels" | "single_color" | "boss_rush">("levels");
   const bossRushOrderRef   = useRef<number[]>([]);
   const defaultMaxSpawnRef = useRef<number>(20);
-  const timerRemainingRef = useRef(DEFAULT_LEVEL_TIMER_SECONDS);
-  const ammoRemainingRef = useRef(DEFAULT_LEVEL_AMMO_COUNT);
-  const timerTickAccumulatorRef = useRef(0);
-  const retryReasonRef = useRef<"timeout" | "ammo" | null>(null);
-  const retryResetInProgressRef = useRef(false);
-
-  const getLevelLimits = useCallback(() => {
-    const lvl = engineRef.current?.getCurrentLevel();
-    return {
-      timer: lvl?.timer_seconds ?? DEFAULT_LEVEL_TIMER_SECONDS,
-      ammo: lvl?.ammo_count ?? DEFAULT_LEVEL_AMMO_COUNT,
-    };
-  }, []);
-
-  const applyLevelLimits = useCallback(() => {
-    const limits = getLevelLimits();
-    timerRemainingRef.current = limits.timer;
-    ammoRemainingRef.current = limits.ammo;
-    timerTickAccumulatorRef.current = 0;
-  }, [getLevelLimits]);
-
-  const publishRetryReason = useCallback((reason: "timeout" | "ammo" | null) => {
-    retryReasonRef.current = reason;
-    setRetryReason(reason);
-  }, []);
+  const hpAdjustmentRef = useRef(0);
 
   // Load config and initialize engine
   useEffect(() => {
@@ -150,6 +127,7 @@ export function useGameEngine(): UseGameEngineResult {
         publishRetryReason(null);
         retryResetInProgressRef.current = false;
         engineRef.current.setDifficultyBonusHp(0);
+        engineRef.current.setHpAdjustment(hpAdjustmentRef.current);
         grenadeZonesRef.current = createGrenadeZoneStore();
         setGrenadesLeft(engineRef.current.getGrenadesLeft());
         const q = buildQueue(cfg.gameplay_controls.queue_size, cfg.gameplay_controls.player_projectile_distribution ?? { light: 0.6, heavy: 0.3, mega: 0.1 });
@@ -274,6 +252,7 @@ export function useGameEngine(): UseGameEngineResult {
     const activeDifficulty = forcedDifficulty ?? difficulty;
     const bonus = activeDifficulty === "easy" ? 0 : activeDifficulty === "medium" ? 2 : 6;
     engineRef.current.setDifficultyBonusHp(bonus);
+    engineRef.current.setHpAdjustment(hpAdjustmentRef.current);
     grenadeZonesRef.current = createGrenadeZoneStore();
     setGrenadesLeft(engineRef.current.getGrenadesLeft());
     // Re-apply the persistent session mode so resets keep the user's choice
@@ -506,10 +485,19 @@ export function useGameEngine(): UseGameEngineResult {
     doReset(next);
   }, [doReset]);
 
+  const setHpAdjustment = useCallback((next: number) => {
+    const safe = Math.max(-10, Math.min(10, Math.round(next)));
+    hpAdjustmentRef.current = safe;
+    setHpAdjustmentState(safe);
+    engineRef.current?.setHpAdjustment(safe);
+    rebootingRef.current = false;
+    doReset();
+  }, [doReset]);
+
   return {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
     shoot, setLauncherColor, setCustomTerrainDistribution, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, playBossRush, classifyHold, toggleGrenade, grenadesLeft,
-    setDifficulty, difficulty, retryReason,
+    setDifficulty, difficulty, setHpAdjustment, hpAdjustment,
   };
 }

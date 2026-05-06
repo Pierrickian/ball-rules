@@ -9,10 +9,11 @@ interface HUDProps {
   gameState: GameState;
   config: GameConfig;
   isRunning: boolean;
+  levelTimerSeconds: number | null;
+  shotsRemaining: number | null;
   onPause: () => void;
   onResume: () => void;
   onReset: () => void;
-  onMenu: () => void;
 }
 
 const BTN: React.CSSProperties = {
@@ -28,7 +29,7 @@ const BTN: React.CSSProperties = {
   letterSpacing: 1,
 };
 
-export function HUD({ gameState, config, isRunning, onPause, onResume, onReset, onMenu }: HUDProps) {
+export function HUD({ gameState, config, isRunning, levelTimerSeconds, shotsRemaining, onPause, onResume, onReset }: HUDProps) {
   const activeBalls = Array.from(gameState.balls.values()).filter(
     (b) => b.isAlive && b.color !== "orange" && b.metadata?.isProjectile !== true
   ).length;
@@ -67,35 +68,41 @@ export function HUD({ gameState, config, isRunning, onPause, onResume, onReset, 
         style={{
           display: "flex",
           flexDirection: "column",
+          alignItems: "stretch",
           background: "rgba(0,8,24,0.72)",
           borderRadius: 10,
           padding: "8px 12px",
           backdropFilter: "blur(6px)",
           border: "1px solid rgba(30,144,255,0.25)",
-          gap: 7,
+          gap: 8,
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-          <div>
-            <div style={{ fontSize: 9, color: "#667899", textTransform: "uppercase", letterSpacing: 3 }}>Restantes</div>
-            <div style={{ fontSize: 20, fontWeight: "bold", color: "#1e90ff", lineHeight: 1 }}>{activeBalls}</div>
-          </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14 }}>
+        <div style={{ minWidth: 72 }}>
+          <div style={{ fontSize: 9, color: "#445", textTransform: "uppercase", letterSpacing: 3 }}>Restantes</div>
+          <div style={{ fontSize: 20, fontWeight: "bold", color: "#1e90ff", lineHeight: 1 }}>{activeBalls}</div>
+        </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginLeft: "auto" }}>
-            <Counter icon="⏱" label="Temps" value={bossPhase ? "∞" : `${timer.toFixed(1)}s`} color="#ffcc66" />
-            <Counter icon="✦" label="Ammo" value={bossPhase ? "∞" : `${ammo}`} color="#ff66ff" />
-            <button
-              onClick={onMenu}
-              style={{ ...BTN, pointerEvents: "all", padding: "6px 14px", fontSize: 16 }}
-              title="Menu"
-            >
-              ☰
-            </button>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 18, minWidth: 210, transform: "translateX(-30px)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 16 }}>⏳</span>
+            <span style={{ fontSize: 20, fontWeight: "bold", color: "#ffd166", minWidth: 48, textAlign: "center" }}>
+              {levelTimerSeconds === null ? "∞" : `${Math.max(0, Math.ceil(levelTimerSeconds))}s`}
+            </span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 16 }}>🎯</span>
+            <span style={{ fontSize: 20, fontWeight: "bold", color: "#7afcff", minWidth: 32, textAlign: "center" }}>
+              {shotsRemaining === null ? "∞" : shotsRemaining}
+            </span>
           </div>
         </div>
 
-        <div style={{ width: "100%" }}>
-          <div style={{ fontSize: 9, color: "#667899", textTransform: "uppercase", letterSpacing: 3, marginBottom: 3 }}>
+        </div>
+
+        {/* Session progress */}
+        <div style={{ width: "56%", minWidth: 150 }}>
+          <div style={{ fontSize: 9, color: "#445", textTransform: "uppercase", letterSpacing: 3, marginBottom: 3 }}>
             Vague {launched}/{max}
           </div>
           <div style={{

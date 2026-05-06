@@ -536,11 +536,14 @@
     "_description": "Progression par niveaux. Chaque entrée définit la pondération des couleurs lancées par l'orange (launch_color_weights). Le joueur passe au niveau suivant quand il a nettoyé le terrain (toutes les balles de game_session.max_balls_spawned détruites). Quand le dernier niveau est nettoyé, on revient au niveau 1. Le menu 'Niveau' affiche un carrousel descriptif.",
     "_launch_color_weights_format": "Objet { couleur: poids }. Les poids sont relatifs (peuvent être 0.2, 0.8, 1.0, 5, 10... peu importe l'échelle). Le total est normalisé à 1 pour le tirage. Toute couleur listée DOIT exister dans ball_colors et avoir une règle dans ball_rules.",
     "_override_note": "Quand 'levels.list' n'est pas vide, ces pondérations remplacent gameplay.orange.launch_config.color / allow_colors pour le tirage. Le menu 'Couleur lancée' est conservé pour debug mais son réglage est ignoré tant que le mode niveaux est actif.",
+    "_defaults_note": "Compteurs de niveau: timer par défaut = 60s, munitions par défaut = 50 tirs. Chaque niveau peut surcharger via timer_seconds et ammo_count. Pendant une phase boss, ces compteurs sont désactivés.",
     "list": [
       {
         "id": 1,
         "name": "Niveau 1 — Vague puis boss noir",
         "description": "Vague de blanches, puis boss BLANC à 100 PV quand le terrain est vidé. Le niveau ne se termine qu’après sa défaite.",
+        "timer_seconds": 70,
+        "ammo_count": 60,
         "launch_color_weights": {
           "white": 1
         },
@@ -573,6 +576,8 @@
         "id": 3,
         "name": "Niveau 3 — Forêt verte",
         "description": "100% de balles vert foncé. Le terrain se remplit vite de gros boulets qui s'auto-renforcent. Privilégie les méga tirs pour traverser la mêlée et toucher plusieurs balles à la fois.",
+        "timer_seconds": 75,
+        "ammo_count": 55,
         "launch_color_weights": {
           "dark_green": 1
         },
@@ -725,8 +730,18 @@
     ]
   },
   "release_notes": [
-    "Auto-fire déclenche sans doigt appuyé",
-    "Chrono, munitions et auto-fire tactique",
+    "Téléchargement APK depuis le menu",
+    "Menu Evolution scrollable et simplifié",
+    "Evolution ouvre une issue suivie",
+    "Retry paramétrable avec Evolution",
+    "Auto-fire corrigé + rangée de boutons basse remontée",
+    "Auto-fire continu synchronisé sur seuil heavy→mega",
+    "UI fine: boutons bas remontés et compteurs décalés",
+    "UI: boutons lock/homing/auto alignés + jauge visible",
+    "Auto-fire mega + retry corrigé et HUD recentré",
+    "Retry recharge temps/munitions + menu au premier plan",
+    "Retry fiabilisé et menu accessible pendant échec",
+    "Timer + munitions par niveau avec écran Retry",
     "Impulsion hôpital inversée: le tir le pousse correctement",
     "Homing: avance boostée par distance et composante horizontale",
     "Exception boss rouge: cap 25 PV en phase boss",
@@ -734,21 +749,18 @@
     "Expert lock prédictif + split rouge -1 PV corrigé",
     "Lock cible, rouges capés 8 PV, jaunes +15% visibles",
     "Bonus PV medium/hard appliqué au reset",
-    "Bouton Play ajouté au menu Difficulté",
-    "Reset difficulté immédiat et heal hôpital fiable",
-    "Menu difficulté et hôpital poussé par les tirs",
-    "Boss rouge 25 PV appliqué et hôpital rebondissant",
-    "Niveau 10 hôpital et équilibrage bleu/rouge",
-    "Rollback arrêt non létal des tirs heavy/mega",
-    "Heavy +20%, mega +50%, arrêt sur hit non létal",
-    "Reset de charge au release et tir conditionné au pointer down",
-    "Charge continue: tirs heavy/mega réactivés",
-    "Charge continue conservée sans reset au pointer",
-    "Suppression menu pourcentages et tirs doublés corrigés"
+    "Bouton Play ajouté au menu Difficulté"
   ],
   "debug": {
     "show_velocities": false,
     "show_ball_ids": false,
     "log_rule_changes": true
+  },
+  "evolution_request": {
+    "_description": "Paramètres du bouton Evolution du retry. Sans endpoint, le jeu ouvre une issue GitHub pré-remplie; avec endpoint, il attend une réponse JSON { type, number, title, url } pour confirmer la création.",
+    "repo": "Pierrickian/ball-rules",
+    "mode": "issue",
+    "endpoint": "",
+    "default_title": "Demande d'évolution depuis le jeu"
   }
 }

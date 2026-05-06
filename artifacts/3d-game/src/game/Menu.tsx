@@ -16,6 +16,8 @@ import type { BallColor, GameConfig } from "../engine/types";
 
 type MenuView = "main" | "rules" | "balls" | "terrain" | "player_colors" | "how_to_ask" | "release_notes" | "levels" | "boss" | "effects" | "difficulty";
 
+const APK_DOWNLOAD_URL = "https://github.com/Pierrickian/ball-rules/releases/latest/download/ball-rules.apk";
+
 interface MenuProps {
   config: GameConfig;
   onClose: () => void;
@@ -84,6 +86,33 @@ const CLOSE_BTN: React.CSSProperties = {
   alignSelf: "center",
   marginTop: 4,
 };
+
+
+const DOWNLOAD_APK_BTN: React.CSSProperties = {
+  position: "fixed",
+  top: 14,
+  left: "50%",
+  transform: "translateX(-50%)",
+  zIndex: 101,
+  border: "1px solid rgba(102,255,187,0.55)",
+  background: "rgba(0,60,42,0.88)",
+  color: "#c8ffe7",
+  borderRadius: 999,
+  padding: "9px 16px",
+  fontSize: 13,
+  fontWeight: 900,
+  fontFamily: "inherit",
+  textDecoration: "none",
+  boxShadow: "0 0 18px rgba(102,255,187,0.24)",
+};
+
+function DownloadApkButton() {
+  return (
+    <a href={APK_DOWNLOAD_URL} target="_blank" rel="noreferrer" style={DOWNLOAD_APK_BTN}>
+      ⬇️ Download APK
+    </a>
+  );
+}
 
 const MENU_BTN: React.CSSProperties = {
   background: "rgba(12,28,72,0.8)",
@@ -1503,6 +1532,7 @@ export function Menu({
 
   return (
     <div style={OVERLAY} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <DownloadApkButton />
       {view === "main" && (
         <MainMenu
           onRules={() => setView("rules")}

@@ -99,6 +99,7 @@ export class GameEngine {
   private bossIntroRemaining = 0;
   private hospital: { x: number; y: number; vx: number; vy: number; diameter: number; hp: number; maxHp: number; healPerContact: number; contactIds: Set<string> } | null = null;
   private difficultyBonusHp = 0;
+  private hpAdjustment = 0;
 
   constructor(config: GameConfig, initialLevelIndex = 0) {
     this.config = config;
@@ -200,6 +201,11 @@ export class GameEngine {
     this.configureHospitalForCurrentLevel();
   }
   setDifficultyBonusHp(bonus: number): void { this.difficultyBonusHp = Math.max(0, Math.floor(bonus)); }
+
+  /** Relative HP tuning selected by the player for the current retry/level. */
+  setHpAdjustment(adjustment: number): void {
+    this.hpAdjustment = Math.max(-10, Math.min(10, Math.round(adjustment)));
+  }
 
   getLaunchedCount(): number {
     return this.launchedCount;
@@ -614,8 +620,9 @@ export class GameEngine {
     }
 
     if (options?.bypassHpBonuses !== true) {
-      hp += 1 + this.difficultyBonusHp;
-      maxHp += 1 + this.difficultyBonusHp;
+      const relativeHp = 1 + this.difficultyBonusHp + this.hpAdjustment;
+      hp = Math.max(1, hp + relativeHp);
+      maxHp = Math.max(1, maxHp + relativeHp);
     }
     if (color === "red" && options?.isBoss !== true) {
       maxHp = Math.min(maxHp, 8);
