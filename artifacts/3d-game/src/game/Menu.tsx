@@ -12,11 +12,23 @@
 import { useState, useRef, useCallback } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { ExplosionSprite } from "../scenes/ExplosionSprite";
-import type { BallColor, GameConfig } from "../engine/types";
+import type { BallColor, GameConfig, EvolutionRequestConfig } from "../engine/types";
 
-type MenuView = "main" | "rules" | "balls" | "terrain" | "player_colors" | "how_to_ask" | "release_notes" | "levels" | "boss" | "effects" | "difficulty";
+type MenuView = "main" | "rules" | "balls" | "terrain" | "player_colors" | "how_to_ask" | "release_notes" | "levels" | "boss" | "effects" | "difficulty" | "evolution";
+type Difficulty = "easy" | "medium" | "hard";
+type EvolutionSubmitStatus =
+  | { phase: "idle" }
+  | { phase: "submitting"; message: string }
+  | { phase: "success"; message: string; url?: string }
+  | { phase: "error"; message: string };
 
 const APK_DOWNLOAD_URL = "https://github.com/Pierrickian/ball-rules/releases/latest/download/ball-rules.apk";
+const DEFAULT_EVOLUTION_REQUEST: EvolutionRequestConfig = {
+  repo: "Pierrickian/ball-rules",
+  mode: "issue",
+  endpoint: "",
+  default_title: "Demande d'évolution depuis le jeu",
+};
 
 interface MenuProps {
   config: GameConfig;
@@ -27,10 +39,14 @@ interface MenuProps {
   onLevelSelect: (index: number) => void;
   onLevelWeightsChange: (index: number, weights: Record<BallColor, number>) => void;
   onPlayBossRush: (levelIds: number[]) => void;
-  onDifficultyChange: (difficulty: "easy" | "medium" | "hard") => void;
-  difficulty: "easy" | "medium" | "hard";
+  onDifficultyChange: (difficulty: Difficulty) => void;
+  onHpAdjustmentChange: (adjustment: number) => void;
+  difficulty: Difficulty;
+  hpAdjustment: number;
   /** Index 0-based of the currently active level, or -1 if no levels are configured. */
   currentLevelIndex: number;
+  currentLevelNumber: number;
+  evolutionRequest?: EvolutionRequestConfig;
   ballEffect: string;
   grenadeEffect: string;
   onBallEffectChange: (effect: string) => void;
@@ -176,6 +192,115 @@ function launcherColors(config: GameConfig): BallColor[] {
     (c) =>
       !config.ball_colors[c]?.system_role &&
       !!config.ball_rules[c]
+  );
+}
+
+
+function normalizeWeights(weights: Partial<Record<BallColor, number>>, colors: BallColor[]): Record<BallColor, number> {
+  const next = {} as Record<BallColor, number>;
+  colors.forEach((c) => { next[c] = Math.max(0, weights[c] ?? 0); });
+  const total = colors.reduce((sum, c) => sum + next[c], 0);
+  if (total <= 0 && colors[0]) next[colors[0]] = 1;
+  if (total > 0) colors.forEach((c) => { next[c] = next[c] / total; });
+  return next;
+}
+
+function rebalanceWeight(
+  weights: Partial<Record<BallColor, number>>,
+  colors: BallColor[],
+  color: BallColor,
+  pctValue: number
+): Record<BallColor, number> {
+  const clamped = Math.max(0, Math.min(1, pctValue / 100));
+  const current = normalizeWeights(weights, colors);
+  const others = colors.filter((c) => c !== color);
+  const rem = 1 - clamped;
+  const otherSum = others.reduce((a, c) => a + (current[c] ?? 0), 0);
+  const next = { ...current, [color]: clamped } as Record<BallColor, number>;
+  others.forEach((c, idx) => {
+    next[c] = otherSum <= 0 ? (idx === 0 ? rem : 0) : ((current[c] ?? 0) / otherSum) * rem;
+  });
+  return next;
+}
+
+function addColorToWeights(
+  weights: Partial<Record<BallColor, number>>,
+  colors: BallColor[],
+  color: BallColor,
+  startingShare = 0.1
+): Record<BallColor, number> {
+  const nextColors = colors.includes(color) ? colors : [...colors, color];
+  const base = normalizeWeights(weights, colors);
+  const share = Math.max(0.01, Math.min(0.5, startingShare));
+  const next = {} as Record<BallColor, number>;
+  colors.forEach((c) => { next[c] = (base[c] ?? 0) * (1 - share); });
+  next[color] = share;
+  return normalizeWeights(next, nextColors);
+}
+
+function WeightsEditor({
+  config,
+  colors,
+  weights,
+  onChange,
+  allowAdd = false,
+}: {
+  config: GameConfig;
+  colors: BallColor[];
+  weights: Partial<Record<BallColor, number>>;
+  onChange: (weights: Record<BallColor, number>, colors: BallColor[]) => void;
+  allowAdd?: boolean;
+}) {
+  const allColors = launcherColors(config);
+  const activeColors = colors.filter((c) => allColors.includes(c));
+  const normalized = normalizeWeights(weights, activeColors);
+  const missingColors = allColors.filter((c) => !activeColors.includes(c));
+  const [addOpen, setAddOpen] = useState(false);
+
+  const setWeightPct = (color: BallColor, pctValue: number) => {
+    onChange(rebalanceWeight(normalized, activeColors, color, pctValue), activeColors);
+  };
+
+  const addColor = (color: BallColor) => {
+    const nextColors = [...activeColors, color];
+    onChange(addColorToWeights(normalized, activeColors, color), nextColors);
+    setAddOpen(false);
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {activeColors.map((c) => {
+        const entry = config.ball_colors[c];
+        const pct = Math.round((normalized[c] ?? 0) * 100);
+        const isWhiteSwatch = c === "white";
+        return (
+          <div key={c} style={{ background: "rgba(8,18,40,0.6)", border: "1px solid rgba(30,144,255,0.18)", borderRadius: 10, padding: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+              <div style={{ width: 18, height: 18, borderRadius: "50%", background: entry?.hex ?? "#888", boxShadow: `0 0 8px ${entry?.hex ?? "#888"}88`, border: isWhiteSwatch ? "1px solid #555" : "none", flexShrink: 0 }} />
+              <div style={{ flex: 1, fontSize: 12, color: "#cbd6e8" }}>{entry?._label ?? c}</div>
+              <div style={{ fontSize: 12, fontFamily: "monospace", color: "#7fb3ff", width: 38, textAlign: "right" }}>{pct}%</div>
+            </div>
+            <input type="range" min={0} max={100} value={pct} onChange={(e) => setWeightPct(c, Number(e.target.value))} style={{ width: "100%" }} />
+          </div>
+        );
+      })}
+      {allowAdd && missingColors.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <button style={{ ...CLOSE_BTN, alignSelf: "stretch", marginTop: 0, color: "#c8ffe7", borderColor: "rgba(102,255,187,0.45)" }} onClick={() => setAddOpen((open) => !open)}>
+            ＋ Ajouter une couleur
+          </button>
+          {addOpen && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {missingColors.map((c) => (
+                <button key={c} onClick={() => addColor(c)} style={{ ...CLOSE_BTN, marginTop: 0, padding: "7px 10px", borderColor: config.ball_colors[c]?.hex ?? "rgba(30,144,255,0.3)" }}>
+                  {config.ball_colors[c]?._label ?? c}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -450,23 +575,12 @@ function PlayerColorsMenu({
   onBack: () => void;
 }) {
   const colors = launcherColors(config);
+  const [activeColors, setActiveColors] = useState<BallColor[]>(colors);
   const [weights, setWeights] = useState<Record<BallColor, number>>(() => {
     const base = {} as Record<BallColor, number>;
     colors.forEach((c, i) => { base[c] = i === colors.length - 1 ? 1 : 0; });
-    return base;
+    return normalizeWeights(base, colors);
   });
-
-  const setWeightPct = (color: BallColor, pctValue: number) => {
-    const clamped = Math.max(0, Math.min(1, pctValue / 100));
-    const others = colors.filter((c) => c !== color);
-    const rem = 1 - clamped;
-    const otherSum = others.reduce((a, c) => a + (weights[c] ?? 0), 0);
-    const next = { ...weights, [color]: clamped } as Record<BallColor, number>;
-    others.forEach((c, idx) => {
-      next[c] = otherSum <= 0 ? (idx === 0 ? rem : 0) : ((weights[c] ?? 0) / otherSum) * rem;
-    });
-    setWeights(next);
-  };
 
   return (
     <div style={PANEL}>
@@ -477,20 +591,13 @@ function PlayerColorsMenu({
       <div style={{ fontSize: 12, color: "#7a9fcc", lineHeight: 1.5 }}>
         Ajuste les pourcentages des couleurs de terrain pour une partie custom. Le total reste à 100%.
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
-        {colors.map((c) => {
-          const entry = config.ball_colors[c];
-          const pct = Math.round((weights[c] ?? 0) * 100);
-          return (
-            <div key={c} style={{ background: "rgba(8,18,40,0.6)", border: "1px solid rgba(30,144,255,0.18)", borderRadius: 10, padding: 10 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 8, color: "#aac8f0" }}>
-                <span>{entry?._label ?? c}</span><span>{pct}%</span>
-              </div>
-              <input type="range" min={0} max={100} value={pct} onChange={(e) => setWeightPct(c, Number(e.target.value))} style={{ width: "100%" }} />
-            </div>
-          );
-        })}
-      </div>
+      <WeightsEditor
+        config={config}
+        colors={activeColors}
+        weights={weights}
+        onChange={(next, nextColors) => { setWeights(next); setActiveColors(nextColors); }}
+        allowAdd
+      />
       <button style={{ ...CLOSE_BTN, color: "#0a1628", background: "#1e90ff", borderColor: "#1e90ff", fontWeight: "bold" }} onClick={() => { onTerrainDistributionPlay(weights); onClose(); }}>▶ Play</button>
       <button style={CLOSE_BTN} onClick={onBack}>← Retour</button>
     </div>
@@ -501,18 +608,16 @@ function PlayerColorsMenu({
 // Main Menu
 // ============================================================
 function MainMenu({
-  onRules, onLevels, onBoss, onBalls, onTerrain, onPlayerColors, onHowToAsk, onReleaseNotes, onEffects, onDifficulty, onClose,
+  onEvolution, onDifficulty, onLevels, onBoss, onTerrain, onPlayerColors, onReleaseNotes, onEffects, onClose,
 }: {
-  onRules:          () => void;
+  onEvolution:      () => void;
+  onDifficulty:     () => void;
   onLevels:         () => void;
   onBoss:           () => void;
-  onBalls:          () => void;
   onTerrain:        () => void;
   onPlayerColors:   () => void;
-  onHowToAsk:       () => void;
   onReleaseNotes:   () => void;
   onEffects:        () => void;
-  onDifficulty:     () => void;
   onClose:          () => void;
 }) {
   return (
@@ -521,18 +626,25 @@ function MainMenu({
         <div style={TITLE}>Menu</div>
         <div style={{ fontSize: 20, fontWeight: "bold", color: "#1e90ff" }}>Ball Game</div>
       </div>
-      <button style={MENU_BTN} onClick={onRules}>
-        <span style={{ fontSize: 20 }}>📖</span>
+      <button style={MENU_BTN} onClick={onEvolution}>
+        <span style={{ fontSize: 20 }}>🚀</span>
         <div>
-          <div style={{ fontWeight: "bold" }}>Règles du jeu</div>
-          <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Comprendre le concept</div>
+          <div style={{ fontWeight: "bold" }}>Evolution</div>
+          <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Envoyer une demande avec /param</div>
+        </div>
+      </button>
+      <button style={MENU_BTN} onClick={onDifficulty}>
+        <span style={{ fontSize: 20 }}>🎚️</span>
+        <div>
+          <div style={{ fontWeight: "bold" }}>Difficulté</div>
+          <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Boutons, PV, règles et balles</div>
         </div>
       </button>
       <button style={MENU_BTN} onClick={onLevels}>
         <span style={{ fontSize: 20 }}>🏁</span>
         <div>
           <div style={{ fontWeight: "bold" }}>Niveau</div>
-          <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Progression et description par niveau</div>
+          <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Custom et progression par niveau</div>
         </div>
       </button>
       <button style={MENU_BTN} onClick={onBoss}>
@@ -540,13 +652,6 @@ function MainMenu({
         <div>
           <div style={{ fontWeight: "bold" }}>Boss</div>
           <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Boss Rush multi-niveaux</div>
-        </div>
-      </button>
-      <button style={MENU_BTN} onClick={onBalls}>
-        <span style={{ fontSize: 20 }}>🔮</span>
-        <div>
-          <div style={{ fontWeight: "bold" }}>Détail des balles</div>
-          <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Carte d'identité de chaque couleur</div>
         </div>
       </button>
       <button style={MENU_BTN} onClick={onPlayerColors}>
@@ -559,21 +664,11 @@ function MainMenu({
       <button style={MENU_BTN} onClick={onEffects}>
         <span style={{ fontSize: 20 }}>💥</span><div><div style={{ fontWeight: "bold" }}>Effects</div></div>
       </button>
-      <button style={MENU_BTN} onClick={onDifficulty}>
-        <div>🎚️</div><div><div style={{ fontWeight: "bold" }}>Difficulté</div></div>
-      </button>
       <button style={MENU_BTN} onClick={onTerrain}>
         <span style={{ fontSize: 20 }}>⬛</span>
         <div>
           <div style={{ fontWeight: "bold" }}>Terrain</div>
           <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Ratio d'aspect &amp; résolution</div>
-        </div>
-      </button>
-      <button style={MENU_BTN} onClick={onHowToAsk}>
-        <span style={{ fontSize: 20 }}>💬</span>
-        <div>
-          <div style={{ fontWeight: "bold" }}>Comment demander</div>
-          <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Tutos pour interroger l'agent</div>
         </div>
       </button>
       <button style={MENU_BTN} onClick={onReleaseNotes}>
@@ -1180,6 +1275,7 @@ function LevelsCarousel({
   currentLevelIndex,
   onLevelSelect,
   onLevelWeightsChange,
+  onTerrainDistributionPlay,
   onClose,
   onBack,
 }: {
@@ -1187,200 +1283,117 @@ function LevelsCarousel({
   currentLevelIndex: number;
   onLevelSelect: (index: number) => void;
   onLevelWeightsChange: (index: number, weights: Record<BallColor, number>) => void;
+  onTerrainDistributionPlay: (weights: Record<BallColor, number>) => void;
   onClose: () => void;
   onBack: () => void;
 }) {
   const levels = config.levels?.list ?? [];
-  // Start the carousel on the active level so the player sees where they are.
+  const customColors = launcherColors(config);
+  const [customActiveColors, setCustomActiveColors] = useState<BallColor[]>(customColors);
+  const [customWeights, setCustomWeights] = useState<Record<BallColor, number>>(() => {
+    const base = {} as Record<BallColor, number>;
+    customColors.forEach((c, i) => { base[c] = i === customColors.length - 1 ? 1 : 0; });
+    return normalizeWeights(base, customColors);
+  });
+  // Page 0 is the custom level, then story levels start at page 1.
   const [index, setIndex] = useState(() =>
     levels.length > 0 && currentLevelIndex >= 0 && currentLevelIndex < levels.length
-      ? currentLevelIndex
+      ? currentLevelIndex + 1
       : 0
   );
 
-  if (levels.length === 0) {
-    return (
-      <div style={PANEL}>
-        <div>
-          <div style={TITLE}>Niveau</div>
-          <div style={{ fontSize: 13, color: "#778", fontStyle: "italic" }}>
-            Aucun niveau configuré dans <code>game_config.json</code> (section <code>levels.list</code>).
-          </div>
-        </div>
-        <button style={CLOSE_BTN} onClick={onBack}>← Retour</button>
-      </div>
-    );
-  }
-
-  const prev = () => setIndex((i) => (i - 1 + levels.length) % levels.length);
-  const next = () => setIndex((i) => (i + 1) % levels.length);
-  const lvl = levels[index];
-  const isCurrent = index === currentLevelIndex;
-
-  // Compute total weight for percentage display.
-  const weights = lvl.launch_color_weights ?? {};
-  const totalWeight = Object.values(weights).reduce(
-    (s, w) => s + (typeof w === "number" && w > 0 ? w : 0),
-    0
-  );
-
-  const weightEntries = Object.entries(weights)
-     .filter(([, w]) => typeof w === "number")
-    .sort(([, a], [, b]) => (b as number) - (a as number)) as Array<[BallColor, number]>;
-  const setWeightPct = (color: BallColor, pctValue: number) => {
-    const keys = weightEntries.map(([c]) => c);
-    const clamped = Math.max(0, Math.min(1, pctValue / 100));
-    const next: Record<BallColor, number> = { ...(weights as Record<BallColor, number>), [color]: clamped };
-    const others = keys.filter((k) => k !== color);
-    const rem = 1 - clamped;
-    const otherSum = others.reduce((a, c) => a + (weights[c] ?? 0), 0);
-    others.forEach((k, idx) => {
-      next[k] = otherSum <= 0 ? (idx === 0 ? rem : 0) : ((weights[k] ?? 0) / otherSum) * rem;
-    });
-    onLevelWeightsChange(index, next);
-  };
+  const pageCount = levels.length + 1;
+  const prev = () => setIndex((i) => (i - 1 + pageCount) % pageCount);
+  const next = () => setIndex((i) => (i + 1) % pageCount);
+  const isCustomPage = index === 0;
+  const levelIndex = index - 1;
+  const lvl = !isCustomPage ? levels[levelIndex] : null;
+  const isCurrent = !isCustomPage && levelIndex === currentLevelIndex;
 
   return (
     <div style={PANEL}>
       <div>
         <div style={TITLE}>Niveau</div>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 10,
-          }}
-        >
-          <div style={{ fontSize: 16, fontWeight: "bold", color: "#1e90ff" }}>
-            {index + 1} / {levels.length}
-          </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+          <div style={{ fontSize: 16, fontWeight: "bold", color: "#1e90ff" }}>{index + 1} / {pageCount}</div>
           {isCurrent && (
-            <div
-              style={{
-                fontSize: 10,
-                letterSpacing: 1.5,
-                fontWeight: "bold",
-                color: "#0a1628",
-                background: "#1e90ff",
-                padding: "3px 8px",
-                borderRadius: 8,
-              }}
-            >
+            <div style={{ fontSize: 10, letterSpacing: 1.5, fontWeight: "bold", color: "#0a1628", background: "#1e90ff", padding: "3px 8px", borderRadius: 8 }}>
               ★ NIVEAU ACTIF
             </div>
           )}
-        </div>
-      </div>
-
-      <div
-        style={{
-          background: "rgba(6,16,45,0.9)",
-          border: `1.5px solid ${isCurrent ? "rgba(30,144,255,0.7)" : "rgba(30,144,255,0.25)"}`,
-          borderRadius: 14,
-          padding: "20px 18px",
-          display: "flex",
-          flexDirection: "column",
-          gap: 14,
-          minHeight: 280,
-        }}
-      >
-        <div>
-          <div style={{ fontSize: 10, color: "#445", letterSpacing: 1.5 }}>NIVEAU {lvl.id}</div>
-          <div style={{ fontSize: 18, fontWeight: "bold", color: "#ddeeff", marginTop: 4 }}>
-            {lvl.name}
-          </div>
-        </div>
-
-        <div style={{ fontSize: 13, color: "#aac2dc", lineHeight: 1.6 }}>
-          {lvl.description}
-        </div>
-
-        <div>
-          <div style={TITLE}>Pondération des balles lancées</div>
-          {weightEntries.length === 0 ? (
-            <div style={{ fontSize: 12, color: "#778", fontStyle: "italic" }}>
-              Aucune pondération définie.
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 4 }}>
-              {weightEntries.map(([color, w]) => {
-                const entry = config.ball_colors[color];
-                const pct = totalWeight > 0 ? Math.round((w / totalWeight) * 100) : 0;
-                const isWhiteSwatch = color === "white";
-                return (
-                  <div key={color} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div
-                      style={{
-                        width: 18,
-                        height: 18,
-                        borderRadius: "50%",
-                        background: entry?.hex ?? "#888",
-                        boxShadow: `0 0 8px ${entry?.hex ?? "#888"}88`,
-                        border: isWhiteSwatch ? "1px solid #555" : "none",
-                        flexShrink: 0,
-                      }}
-                    />
-                    <div style={{ flex: 1, fontSize: 12, color: "#cbd6e8" }}>
-                      {entry?._label ?? color}
-                    </div>
-                    <div
-                      style={{
-                        width: 90,
-                        height: 8,
-                        background: "rgba(255,255,255,0.08)",
-                        borderRadius: 4,
-                        overflow: "hidden",
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: `${pct}%`,
-                          height: "100%",
-                          background: entry?.hex ?? "#888",
-                          boxShadow: `0 0 4px ${entry?.hex ?? "#888"}`,
-                        }}
-                      />
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        fontFamily: "monospace",
-                        color: "#7fb3ff",
-                        width: 38,
-                        textAlign: "right",
-                      }}
-                    >
-                      {pct}%
-                    </div>
-                    <input type="range" min={0} max={100} value={pct} onChange={(e) => setWeightPct(color, Number(e.target.value))} />
-                  </div>
-                );
-              })}
+          {isCustomPage && (
+            <div style={{ fontSize: 10, letterSpacing: 1.5, fontWeight: "bold", color: "#062013", background: "#66ffbb", padding: "3px 8px", borderRadius: 8 }}>
+              CUSTOM
             </div>
           )}
         </div>
       </div>
 
-      <div style={{ fontSize: 11, color: "#556677", lineHeight: 1.5 }}>
-        Tu progresses au niveau suivant en nettoyant le terrain (toutes les balles détruites
-        après le quota de spawn). Quand le dernier niveau est nettoyé, le jeu repart au niveau 1.
+      <div style={{ background: "rgba(6,16,45,0.9)", border: `1.5px solid ${isCurrent || isCustomPage ? "rgba(30,144,255,0.7)" : "rgba(30,144,255,0.25)"}`, borderRadius: 14, padding: "20px 18px", display: "flex", flexDirection: "column", gap: 14, minHeight: 280 }}>
+        {isCustomPage ? (
+          <>
+            <div>
+              <div style={{ fontSize: 10, color: "#445", letterSpacing: 1.5 }}>NIVEAU CUSTOM</div>
+              <div style={{ fontSize: 18, fontWeight: "bold", color: "#ddeeff", marginTop: 4 }}>Partie custom — Couleur terrain</div>
+            </div>
+            <div style={{ fontSize: 13, color: "#aac2dc", lineHeight: 1.6 }}>
+              Cette première page reprend le contenu du menu Couleur terrain : choisis la répartition des balles lancées par l'orange, puis lance une partie custom.
+            </div>
+            <div>
+              <div style={TITLE}>Répartition des balles de terrain</div>
+              <WeightsEditor
+                config={config}
+                colors={customActiveColors}
+                weights={customWeights}
+                onChange={(nextWeights, nextColors) => { setCustomWeights(nextWeights); setCustomActiveColors(nextColors); }}
+                allowAdd
+              />
+            </div>
+          </>
+        ) : lvl ? (
+          <>
+            <div>
+              <div style={{ fontSize: 10, color: "#445", letterSpacing: 1.5 }}>NIVEAU {lvl.id}</div>
+              <div style={{ fontSize: 18, fontWeight: "bold", color: "#ddeeff", marginTop: 4 }}>{lvl.name}</div>
+            </div>
+            <div style={{ fontSize: 13, color: "#aac2dc", lineHeight: 1.6 }}>{lvl.description}</div>
+            <div>
+              <div style={TITLE}>Pondération des balles lancées</div>
+              <WeightsEditor
+                config={config}
+                colors={(Object.keys(lvl.launch_color_weights ?? {}) as BallColor[]).filter((c) => typeof lvl.launch_color_weights[c] === "number")}
+                weights={lvl.launch_color_weights ?? {}}
+                onChange={(nextWeights) => onLevelWeightsChange(levelIndex, nextWeights)}
+                allowAdd
+              />
+            </div>
+          </>
+        ) : (
+          <div style={{ fontSize: 13, color: "#778", fontStyle: "italic" }}>
+            Aucun niveau configuré dans <code>game_config.json</code> (section <code>levels.list</code>).
+          </div>
+        )}
       </div>
 
-      {/* Pagination dots — clickable, above the action row */}
-      <div style={{ display: "flex", justifyContent: "center", gap: 6 }}>
-        {levels.map((l, i) => (
+      <div style={{ fontSize: 11, color: "#556677", lineHeight: 1.5 }}>
+        Le niveau custom est jouable immédiatement. Les niveaux standards progressent après nettoyage du terrain et bouclent après le dernier niveau.
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "center", gap: 6, flexWrap: "wrap" }}>
+        {Array.from({ length: pageCount }).map((_, i) => (
           <div
-            key={l.id}
+            key={i === 0 ? "custom" : levels[i - 1]?.id ?? i}
             onClick={() => setIndex(i)}
             style={{
               width: i === index ? 10 : 6, height: i === index ? 10 : 6,
               borderRadius: "50%",
-              background: i === currentLevelIndex
-                ? "#1e90ff"
-                : i === index
-                  ? "#7fb3ff"
-                  : "rgba(255,255,255,0.18)",
+              background: i === 0
+                ? (i === index ? "#66ffbb" : "rgba(102,255,187,0.35)")
+                : i - 1 === currentLevelIndex
+                  ? "#1e90ff"
+                  : i === index
+                    ? "#7fb3ff"
+                    : "rgba(255,255,255,0.18)",
               cursor: "pointer",
               boxShadow: i === index ? "0 0 6px #1e90ff" : "none",
               transition: "all 0.2s",
@@ -1389,42 +1402,20 @@ function LevelsCarousel({
         ))}
       </div>
 
-      {/* Action row: Précédent — Jouer — Suivant */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+        <button onClick={prev} style={{ ...CLOSE_BTN, flex: 1, textAlign: "center", color: "#aac8f0", borderColor: "rgba(30,144,255,0.4)" }}>← Précédent</button>
         <button
-          onClick={prev}
-          style={{
-            ...CLOSE_BTN, flex: 1, textAlign: "center",
-            color: "#aac8f0", borderColor: "rgba(30,144,255,0.4)",
+          onClick={() => {
+            if (isCustomPage) onTerrainDistributionPlay(customWeights);
+            else onLevelSelect(levelIndex);
+            onClose();
           }}
+          title={isCustomPage ? "Jouer une partie custom" : isCurrent && lvl ? `Relancer le niveau ${lvl.id} (${lvl.name})` : lvl ? `Jouer le niveau ${lvl.id} (${lvl.name})` : "Jouer"}
+          style={{ ...CLOSE_BTN, flex: 1, textAlign: "center", color: "#0a1628", background: isCustomPage ? "#66ffbb" : "#1e90ff", borderColor: isCustomPage ? "#66ffbb" : "#1e90ff", fontWeight: "bold", boxShadow: "0 0 12px rgba(30,144,255,0.55)" }}
         >
-          ← Précédent
+          {isCustomPage ? "▶ Custom" : isCurrent ? "▶ Rejouer" : "▶ Jouer"}
         </button>
-        <button
-          onClick={() => { onLevelSelect(index); onClose(); }}
-          title={isCurrent
-            ? `Relancer le niveau ${lvl.id} (${lvl.name})`
-            : `Jouer le niveau ${lvl.id} (${lvl.name})`}
-          style={{
-            ...CLOSE_BTN, flex: 1, textAlign: "center",
-            color: "#0a1628",
-            background: "#1e90ff",
-            borderColor: "#1e90ff",
-            fontWeight: "bold",
-            boxShadow: "0 0 12px rgba(30,144,255,0.55)",
-          }}
-        >
-          {isCurrent ? "▶ Rejouer" : "▶ Jouer"}
-        </button>
-        <button
-          onClick={next}
-          style={{
-            ...CLOSE_BTN, flex: 1, textAlign: "center",
-            color: "#aac8f0", borderColor: "rgba(30,144,255,0.4)",
-          }}
-        >
-          Suivant →
-        </button>
+        <button onClick={next} style={{ ...CLOSE_BTN, flex: 1, textAlign: "center", color: "#aac8f0", borderColor: "rgba(30,144,255,0.4)" }}>Suivant →</button>
       </div>
 
       <button style={CLOSE_BTN} onClick={onBack}>← Retour</button>
@@ -1519,8 +1510,12 @@ export function Menu({
   onLevelWeightsChange,
   onPlayBossRush,
   onDifficultyChange,
+  onHpAdjustmentChange,
   difficulty,
+  hpAdjustment,
   currentLevelIndex,
+  currentLevelNumber,
+  evolutionRequest,
   ballEffect,
   grenadeEffect,
   onBallEffectChange,
@@ -1535,13 +1530,11 @@ export function Menu({
       <DownloadApkButton />
       {view === "main" && (
         <MainMenu
-          onRules={() => setView("rules")}
+          onEvolution={() => setView("evolution")}
           onLevels={() => setView("levels")}
           onBoss={() => setView("boss")}
-          onBalls={() => setView("balls")}
           onTerrain={() => setView("terrain")}
           onPlayerColors={() => setView("player_colors")}
-          onHowToAsk={() => setView("how_to_ask")}
           onReleaseNotes={() => setView("release_notes")}
           onEffects={() => setView("effects")}
           onDifficulty={() => setView("difficulty")}
@@ -1549,7 +1542,7 @@ export function Menu({
         />
       )}
       {view === "rules"          && <RulesView      config={config} onBack={() => setView("main")} />}
-      {view === "levels"         && <LevelsCarousel config={config} currentLevelIndex={currentLevelIndex} onLevelSelect={onLevelSelect} onLevelWeightsChange={onLevelWeightsChange} onClose={onClose} onBack={() => setView("main")} />}
+      {view === "levels"         && <LevelsCarousel config={config} currentLevelIndex={currentLevelIndex} onLevelSelect={onLevelSelect} onLevelWeightsChange={onLevelWeightsChange} onTerrainDistributionPlay={onTerrainDistributionPlay} onClose={onClose} onBack={() => setView("main")} />}
       {view === "boss"           && <BossMenu config={config} onPlayBossRush={onPlayBossRush} onClose={onClose} onBack={() => setView("main")} />}
       {view === "balls"          && <BallsCarousel  config={config} onBack={() => setView("main")} />}
       {view === "terrain"        && <TerrainMenu    config={config} onArenaChange={onArenaChange} onBack={() => setView("main")} />}
@@ -1557,24 +1550,173 @@ export function Menu({
       {view === "how_to_ask"     && <HowToAskCarousel onBack={() => setView("main")} />}
       {view === "release_notes"  && <ReleaseNotesView config={config} onBack={() => setView("main")} />}
       {view === "effects"        && <EffectsMenu ballEffect={ballEffect} grenadeEffect={grenadeEffect} debugExplosionTexture={debugExplosionTexture} onDebugExplosionTextureChange={onDebugExplosionTextureChange} onBallEffectChange={onBallEffectChange} onGrenadeEffectChange={onGrenadeEffectChange} onBack={() => setView("main")} />}
-      {view === "difficulty"     && <DifficultyMenu difficulty={difficulty} onChange={onDifficultyChange} onBack={() => setView("main")} onClose={onClose} />}
+      {view === "evolution"      && <EvolutionMenu evolutionRequest={evolutionRequest} levelNumber={currentLevelNumber} difficulty={difficulty} hpAdjustment={hpAdjustment} onBack={() => setView("main")} />}
+      {view === "difficulty"     && <DifficultyMenu difficulty={difficulty} hpAdjustment={hpAdjustment} onChange={onDifficultyChange} onHpAdjustmentChange={onHpAdjustmentChange} onRules={() => setView("rules")} onBalls={() => setView("balls")} onBack={() => setView("main")} />}
     </div>
   );
 }
 
-function DifficultyMenu({ difficulty, onChange, onBack, onClose }: { difficulty: "easy" | "medium" | "hard"; onChange: (d: "easy" | "medium" | "hard") => void; onBack: () => void; onClose: () => void; }) {
-  const [selected, setSelected] = useState<"easy" | "medium" | "hard">(difficulty);
-  const button = (d: "easy" | "medium" | "hard", label: string) => (
-    <button style={{ ...CLOSE_BTN, background: selected === d ? "rgba(30,144,255,.3)" : "transparent" }} onClick={() => setSelected(d)}>{label}</button>
-  );
+function EvolutionMenu({
+  evolutionRequest,
+  levelNumber,
+  difficulty,
+  hpAdjustment,
+  onBack,
+}: {
+  evolutionRequest?: EvolutionRequestConfig;
+  levelNumber: number;
+  difficulty: Difficulty;
+  hpAdjustment: number;
+  onBack: () => void;
+}) {
+  const [requestText, setRequestText] = useState("");
+  const [voiceActive, setVoiceActive] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<EvolutionSubmitStatus>({ phase: "idle" });
+  const requestConfig = { ...DEFAULT_EVOLUTION_REQUEST, ...evolutionRequest };
+
+  const requestTitle = () => {
+    const firstLine = requestText.trim().split("\n").find((line) => line.trim().length > 0)?.replace(/^\/param\s*/i, "").trim();
+    if (!firstLine) return requestConfig.default_title;
+    return firstLine.length > 72 ? `${firstLine.slice(0, 69)}…` : firstLine;
+  };
+
+  const buildEvolutionPrompt = () => {
+    const trimmed = requestText.trim() || "<texte dicté par le joueur>";
+    const paramLine = trimmed.startsWith("/param")
+      ? `Paramètres custom joueur : niveau ${levelNumber}, difficulté ${difficulty}, ajustement relatif PV ${hpAdjustment >= 0 ? "+" : ""}${hpAdjustment}.`
+      : null;
+    return [
+      "Demande joueur depuis le jeu :",
+      "",
+      "Contexte :",
+      "- Repo : Pierrickian/ball-rules",
+      "- App : WebGL / Capacitor",
+      "- Respecter replit.md",
+      "- Mettre à jour release_notes",
+      "- Ne pas casser les tirs, grenades, menus",
+      "",
+      "Demande :",
+      trimmed,
+      paramLine,
+      "",
+      "Livrable :",
+      "- créer une branche",
+      "- modifier le jeu",
+      "- tester",
+      "- ouvrir une PR",
+    ].filter(Boolean).join("\n");
+  };
+
+  const startVoiceInput = () => {
+    const SpeechRecognitionCtor = (window as unknown as { SpeechRecognition?: any; webkitSpeechRecognition?: any }).SpeechRecognition
+      ?? (window as unknown as { webkitSpeechRecognition?: any }).webkitSpeechRecognition;
+    if (!SpeechRecognitionCtor) {
+      setRequestText((prev) => `${prev}${prev ? "\n" : ""}Micro non disponible sur ce navigateur.`);
+      return;
+    }
+    const recognition = new SpeechRecognitionCtor();
+    recognition.lang = "fr-FR";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onstart = () => setVoiceActive(true);
+    recognition.onend = () => setVoiceActive(false);
+    recognition.onresult = (event: any) => {
+      const transcript = event.results?.[0]?.[0]?.transcript;
+      if (transcript) setRequestText((prev) => `${prev}${prev ? "\n" : ""}${transcript}`);
+    };
+    recognition.start();
+  };
+
+  const submitEvolutionRequest = async () => {
+    setSubmitStatus({ phase: "submitting", message: "Préparation de la demande…" });
+    const title = requestTitle();
+    const body = buildEvolutionPrompt();
+    try {
+      const endpoint = requestConfig.endpoint?.trim();
+      if (endpoint) {
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ repo: requestConfig.repo, type: requestConfig.mode, title, body, params: { level: levelNumber, difficulty, hpAdjustment } }),
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const created = await response.json() as { type?: "issue" | "pr"; number?: number; title?: string; url?: string };
+        const createdTitle = created.title ?? title;
+        const numberPart = typeof created.number === "number" ? ` #${created.number}` : "";
+        setSubmitStatus({ phase: "success", message: `Demande${numberPart} créée : ${createdTitle}`, url: created.url });
+        window.setTimeout(() => setSubmitStatus({ phase: "idle" }), 4500);
+        return;
+      }
+      const issueUrl = `https://github.com/${requestConfig.repo}/issues/new?${new URLSearchParams({ title, body }).toString()}`;
+      window.open(issueUrl, "_blank", "noopener,noreferrer");
+      setSubmitStatus({ phase: "success", message: `Formulaire ouvert : ${title}. Valide l'envoi pour obtenir son numéro.`, url: issueUrl });
+      window.setTimeout(() => setSubmitStatus({ phase: "idle" }), 6500);
+    } catch (error) {
+      setSubmitStatus({ phase: "error", message: `Création impossible : ${error instanceof Error ? error.message : "erreur inconnue"}` });
+      window.setTimeout(() => setSubmitStatus({ phase: "idle" }), 6500);
+    }
+  };
+
   return <div style={PANEL}>
-    <h3 style={{ margin: 0 }}>Difficulté</h3>
-    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-      {button("easy", "Easy")}
-      {button("medium", "Medium")}
-      {button("hard", "Hard")}
+    <div>
+      <div style={TITLE}>Evolution</div>
+      <div style={{ fontSize: 18, fontWeight: "bold", color: "#1e90ff" }}>Demande d'évolution</div>
     </div>
-    <button style={{ ...CLOSE_BTN, color: "#0a1628", background: "#1e90ff", borderColor: "#1e90ff", fontWeight: "bold" }} onClick={() => { onChange(selected); onClose(); }}>▶ Play</button>
+    <div style={{ fontSize: 12, color: "#aac8f0", lineHeight: 1.45 }}>
+      Ajoute <strong>/param</strong> au début de ton prompt pour joindre le niveau courant ({levelNumber}), la difficulté ({difficulty}) et l'ajustement PV ({hpAdjustment >= 0 ? "+" : ""}{hpAdjustment}).
+    </div>
+    <textarea value={requestText} onChange={(event) => setRequestText(event.currentTarget.value)} placeholder="Décris l'évolution voulue. /param ajoute niveau, difficulté et PV." rows={6} style={{ width: "100%", boxSizing: "border-box", borderRadius: 8, border: "1px solid rgba(30,144,255,0.35)", background: "rgba(0,0,0,0.45)", color: "#eaf4ff", padding: 10, fontFamily: "inherit", resize: "vertical" }} />
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+      <button onClick={startVoiceInput} disabled={submitStatus.phase === "submitting"} style={{ ...CLOSE_BTN, flex: 1, marginTop: 0 }}>{voiceActive ? "🎙️ écoute…" : "🎙️ Vocal"}</button>
+      <button onClick={() => void submitEvolutionRequest()} disabled={submitStatus.phase === "submitting"} style={{ ...CLOSE_BTN, flex: 1, marginTop: 0, borderColor: "#1e90ff", background: submitStatus.phase === "submitting" ? "#88bfff" : "#1e90ff", color: "#061122", fontWeight: 900 }}>{submitStatus.phase === "submitting" ? "En cours" : "Envoyer"}</button>
+    </div>
+    {submitStatus.phase !== "idle" && (
+      <div style={{ border: `1px solid ${submitStatus.phase === "error" ? "rgba(255,77,122,0.65)" : "rgba(102,255,187,0.45)"}`, background: submitStatus.phase === "error" ? "rgba(80,0,20,0.38)" : "rgba(0,60,42,0.34)", color: submitStatus.phase === "error" ? "#ffd0dc" : "#c8ffe7", borderRadius: 8, padding: "8px 10px", fontSize: 12, lineHeight: 1.4 }}>
+        {submitStatus.message}
+        {submitStatus.phase === "success" && submitStatus.url && <div><a href={submitStatus.url} target="_blank" rel="noreferrer" style={{ color: "#8fd3ff" }}>Voir le suivi</a></div>}
+      </div>
+    )}
+    <button style={CLOSE_BTN} onClick={onBack}>← Retour</button>
+  </div>;
+}
+
+function DifficultyMenu({
+  difficulty,
+  hpAdjustment,
+  onChange,
+  onHpAdjustmentChange,
+  onRules,
+  onBalls,
+  onBack,
+}: {
+  difficulty: Difficulty;
+  hpAdjustment: number;
+  onChange: (d: Difficulty) => void;
+  onHpAdjustmentChange: (adjustment: number) => void;
+  onRules: () => void;
+  onBalls: () => void;
+  onBack: () => void;
+}) {
+  const difficultyButton = (value: Difficulty) => {
+    const active = difficulty === value;
+    return <button key={value} onClick={() => onChange(value)} style={{ ...CLOSE_BTN, marginTop: 0, border: `1px solid ${active ? "#ffe66d" : "rgba(255,255,255,0.28)"}`, background: active ? "linear-gradient(180deg, #ffe66d, #ff9f1c)" : "rgba(0,0,0,0.42)", color: active ? "#1b1000" : "#ffe6f0", borderRadius: 999, fontWeight: 900, textTransform: "uppercase", letterSpacing: 1, boxShadow: active ? "0 0 18px rgba(255,230,109,0.58)" : "none" }}>{value}</button>;
+  };
+
+  return <div style={PANEL}>
+    <div>
+      <div style={TITLE}>Difficulté</div>
+      <div style={{ fontSize: 18, fontWeight: "bold", color: "#1e90ff" }}>Réglages de retry</div>
+    </div>
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>{(["easy", "medium", "hard"] as Difficulty[]).map(difficultyButton)}</div>
+    <label style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <span style={{ fontSize: 11, letterSpacing: 3, color: "#ff9fca", textTransform: "uppercase" }}>PV adjust</span>
+      <input type="range" min={-10} max={10} step={1} value={hpAdjustment} onChange={(event) => onHpAdjustmentChange(Number(event.currentTarget.value))} style={{ width: "100%", accentColor: hpAdjustment === 0 ? "#1e90ff" : hpAdjustment > 0 ? "#ff9f1c" : "#66ffbb" }} />
+      <span style={{ alignSelf: "center", fontWeight: 900, color: hpAdjustment === 0 ? "#c8deff" : hpAdjustment > 0 ? "#ffd79a" : "#a8ffd7" }}>{hpAdjustment >= 0 ? "+" : ""}{hpAdjustment} PV</span>
+    </label>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}>
+      <button style={MENU_BTN} onClick={onRules}><span style={{ fontSize: 20 }}>📖</span><div><div style={{ fontWeight: "bold" }}>Règles du jeu</div><div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Comprendre le concept</div></div></button>
+      <button style={MENU_BTN} onClick={onBalls}><span style={{ fontSize: 20 }}>🔮</span><div><div style={{ fontWeight: "bold" }}>Détail des balles</div><div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Carte d'identité de chaque couleur</div></div></button>
+    </div>
     <button style={CLOSE_BTN} onClick={onBack}>← Retour</button>
   </div>;
 }

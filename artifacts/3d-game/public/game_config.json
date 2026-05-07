@@ -730,6 +730,7 @@
     ]
   },
   "release_notes": [
+    "Menu évolution et niveaux custom",
     "Auto-fire restauré après merge",
     "Build et retry stabilisés",
     "Téléchargement APK depuis le menu",
@@ -748,8 +749,7 @@
     "Homing: avance boostée par distance et composante horizontale",
     "Exception boss rouge: cap 25 PV en phase boss",
     "Homing multi-tirs + clamp angle + split rouge hard corrigé",
-    "Expert lock prédictif + split rouge -1 PV corrigé",
-    "Lock cible, rouges capés 8 PV, jaunes +15% visibles"
+    "Expert lock prédictif + split rouge -1 PV corrigé"
   ],
   "debug": {
     "show_velocities": false,
