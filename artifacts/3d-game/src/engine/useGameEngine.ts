@@ -110,6 +110,24 @@ export function useGameEngine(): UseGameEngineResult {
   const bossRushOrderRef   = useRef<number[]>([]);
   const defaultMaxSpawnRef = useRef<number>(20);
   const hpAdjustmentRef = useRef(0);
+  const timerRemainingRef = useRef<number>(DEFAULT_LEVEL_TIMER_SECONDS);
+  const ammoRemainingRef = useRef<number>(DEFAULT_LEVEL_AMMO_COUNT);
+  const retryReasonRef = useRef<"timeout" | "ammo" | null>(null);
+  const retryResetInProgressRef = useRef(false);
+  const timerTickAccumulatorRef = useRef(0);
+
+  const publishRetryReason = useCallback((reason: "timeout" | "ammo" | null) => {
+    retryReasonRef.current = reason;
+    setGameState((prev) => prev ? { ...prev, retryReason: reason } : prev);
+  }, []);
+
+  const applyLevelLimits = useCallback(() => {
+    const lvl = engineRef.current?.getCurrentLevel();
+    const bossPhase = engineRef.current?.isBossPhase() ?? false;
+    timerRemainingRef.current = bossPhase ? Infinity : lvl?.timer_seconds ?? DEFAULT_LEVEL_TIMER_SECONDS;
+    ammoRemainingRef.current = bossPhase ? Infinity : lvl?.ammo_count ?? DEFAULT_LEVEL_AMMO_COUNT;
+    timerTickAccumulatorRef.current = 0;
+  }, []);
 
   // Load config and initialize engine
   useEffect(() => {
@@ -151,7 +169,7 @@ export function useGameEngine(): UseGameEngineResult {
       });
 
     return () => { cancelAnimationFrame(animFrameRef.current); };
-  }, [difficulty, applyLevelLimits, publishRetryReason]);
+  }, [applyLevelLimits, publishRetryReason]);
 
   // Game loop
   useEffect(() => {
