@@ -626,13 +626,6 @@ function MainMenu({
       <button style={MENU_BTN} onClick={onDifficulty}>
         <div>🎚️</div><div><div style={{ fontWeight: "bold" }}>Difficulté</div><div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Retry rapide et ajustement PV</div></div>
       </button>
-      <button style={MENU_BTN} onClick={onRules}>
-        <span style={{ fontSize: 20 }}>📖</span>
-        <div>
-          <div style={{ fontWeight: "bold" }}>Règles du jeu</div>
-          <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Comprendre le concept</div>
-        </div>
-      </button>
       <button style={MENU_BTN} onClick={onLevels}>
         <span style={{ fontSize: 20 }}>🏁</span>
         <div>
@@ -663,6 +656,13 @@ function MainMenu({
       </button>
       <button style={MENU_BTN} onClick={onEffects}>
         <span style={{ fontSize: 20 }}>💥</span><div><div style={{ fontWeight: "bold" }}>Effects</div></div>
+      </button>
+      <button style={MENU_BTN} onClick={onRules}>
+        <span style={{ fontSize: 20 }}>📖</span>
+        <div>
+          <div style={{ fontWeight: "bold" }}>Règles du jeu</div>
+          <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Comprendre le concept</div>
+        </div>
       </button>
       <button style={MENU_BTN} onClick={onTerrain}>
         <span style={{ fontSize: 20 }}>⬛</span>
