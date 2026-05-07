@@ -73,6 +73,21 @@ function pickRandom<T>(arr: T[]): T {
 const DEFAULT_LEVEL_TIMER_SECONDS = 60;
 const DEFAULT_LEVEL_AMMO_COUNT = 50;
 const DEFAULT_DIFFICULTY: "easy" | "medium" | "hard" = "medium";
+const FALLBACK_DIFFICULTY_HP_PRESETS: Record<"easy" | "medium" | "hard", number> = { easy: 0, medium: 2, hard: 6 };
+
+function getDifficultyHpValue(config: GameConfig | null, difficulty: "easy" | "medium" | "hard"): number {
+  return config?.gameplay_controls.difficulty_hp?.presets[difficulty] ?? FALLBACK_DIFFICULTY_HP_PRESETS[difficulty];
+}
+
+function getDefaultDifficulty(config: GameConfig | null): "easy" | "medium" | "hard" {
+  return config?.gameplay_controls.difficulty_hp?.default ?? DEFAULT_DIFFICULTY;
+}
+
+function clampDifficultyHpValue(config: GameConfig | null, value: number): number {
+  const min = config?.gameplay_controls.difficulty_hp?.min ?? -10;
+  const max = config?.gameplay_controls.difficulty_hp?.max ?? 10;
+  return Math.max(min, Math.min(max, Math.round(value)));
+}
 
 function buildQueue(size: number, distribution: Record<ShotKind, number>): ShotKind[] {
   const weighted: ShotKind[] = [];
@@ -94,7 +109,7 @@ export function useGameEngine(): UseGameEngineResult {
   const [playerQueue, setPlayerQueue] = useState<ShotKind[]>([]);
   const [grenadesLeft, setGrenadesLeft] = useState(5);
   const [difficulty, setDifficultyState] = useState<"easy" | "medium" | "hard">(DEFAULT_DIFFICULTY);
-  const [hpAdjustment, setHpAdjustmentState] = useState(0);
+  const [hpAdjustment, setHpAdjustmentState] = useState(FALLBACK_DIFFICULTY_HP_PRESETS[DEFAULT_DIFFICULTY]);
 
   const engineRef          = useRef<GameEngine | null>(null);
   const grenadeZonesRef    = useRef(createGrenadeZoneStore());
@@ -110,7 +125,7 @@ export function useGameEngine(): UseGameEngineResult {
   const sessionModeRef     = useRef<"levels" | "single_color" | "boss_rush">("levels");
   const bossRushOrderRef   = useRef<number[]>([]);
   const defaultMaxSpawnRef = useRef<number>(20);
-  const hpAdjustmentRef = useRef(0);
+  const hpAdjustmentRef = useRef(FALLBACK_DIFFICULTY_HP_PRESETS[DEFAULT_DIFFICULTY]);
   const timerRemainingRef = useRef<number>(DEFAULT_LEVEL_TIMER_SECONDS);
   const ammoRemainingRef = useRef<number>(DEFAULT_LEVEL_AMMO_COUNT);
   const retryReasonRef = useRef<"timeout" | "ammo" | null>(null);
@@ -140,6 +155,11 @@ export function useGameEngine(): UseGameEngineResult {
         configRef.current = cfg;
         defaultMaxSpawnRef.current = cfg.game_session?.max_balls_spawned ?? 20;
         setConfig(cfg);
+        const configuredDifficulty = getDefaultDifficulty(cfg);
+        const configuredHpAdjustment = clampDifficultyHpValue(cfg, getDifficultyHpValue(cfg, configuredDifficulty));
+        setDifficultyState(configuredDifficulty);
+        setHpAdjustmentState(configuredHpAdjustment);
+        hpAdjustmentRef.current = configuredHpAdjustment;
         currentLevelIdxRef.current = 0;
         engineRef.current = new GameEngine(cfg, currentLevelIdxRef.current);
         applyLevelLimits();
@@ -262,15 +282,13 @@ export function useGameEngine(): UseGameEngineResult {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRunning]);
 
-  const doReset = useCallback((forcedDifficulty?: "easy" | "medium" | "hard") => {
+  const doReset = useCallback(() => {
     const cfg = configRef.current;
     if (!cfg) return;
     retryResetInProgressRef.current = true;
     publishRetryReason(null);
     engineRef.current = new GameEngine(cfg, currentLevelIdxRef.current);
-    const activeDifficulty = forcedDifficulty ?? difficulty;
-    const bonus = activeDifficulty === "easy" ? 0 : activeDifficulty === "medium" ? 2 : 6;
-    engineRef.current.setDifficultyBonusHp(bonus);
+    engineRef.current.setDifficultyBonusHp(0);
     engineRef.current.setHpAdjustment(hpAdjustmentRef.current);
     grenadeZonesRef.current = createGrenadeZoneStore();
     setGrenadesLeft(engineRef.current.getGrenadesLeft());
@@ -298,7 +316,7 @@ export function useGameEngine(): UseGameEngineResult {
     pausedRef.current = false;
     setIsRunning(true);
     window.setTimeout(() => { retryResetInProgressRef.current = false; }, 0);
-  }, [difficulty, applyLevelLimits, publishRetryReason]);
+  }, [applyLevelLimits, publishRetryReason]);
 
   const pause  = useCallback(() => { pausedRef.current = true;  setIsRunning(false); }, []);
   const resume = useCallback(() => { pausedRef.current = false; lastTimeRef.current = performance.now(); setIsRunning(true); }, []);
@@ -498,14 +516,10 @@ export function useGameEngine(): UseGameEngineResult {
 
   const setDifficulty = useCallback((next: "easy" | "medium" | "hard") => {
     setDifficultyState(next);
-    const bonus = next === "easy" ? 0 : next === "medium" ? 2 : 6;
-    engineRef.current?.setDifficultyBonusHp(bonus);
-    rebootingRef.current = false;
-    doReset(next);
-  }, [doReset]);
+  }, []);
 
   const setHpAdjustment = useCallback((next: number) => {
-    const safe = Math.max(-10, Math.min(10, Math.round(next)));
+    const safe = clampDifficultyHpValue(configRef.current, next);
     hpAdjustmentRef.current = safe;
     setHpAdjustmentState(safe);
     engineRef.current?.setHpAdjustment(safe);

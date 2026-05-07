@@ -237,6 +237,13 @@ export interface GameplayControlsConfig {
   queue_size: number;
   queue_ball_colors: BallColor[];
   player_projectile_distribution?: Record<ShotKind, number>;
+  difficulty_hp?: {
+    _description?: string;
+    min: number;
+    max: number;
+    presets: Record<"easy" | "medium" | "hard", number>;
+    default: "easy" | "medium" | "hard";
+  };
   queue_ball_size: BallSize;
   shot_origin: {
     mode: string;
