@@ -730,6 +730,7 @@
     ]
   },
   "release_notes": [
+    "Règles du jeu rapprochées du terrain",
     "Menus niveaux scrollables et balles ajoutables",
     "Auto-fire restauré après merge",
     "Build et retry stabilisés",
@@ -748,9 +749,7 @@
     "Impulsion hôpital inversée: le tir le pousse correctement",
     "Homing: avance boostée par distance et composante horizontale",
     "Exception boss rouge: cap 25 PV en phase boss",
-    "Homing multi-tirs + clamp angle + split rouge hard corrigé",
-    "Expert lock prédictif + split rouge -1 PV corrigé",
-    "Lock cible, rouges capés 8 PV, jaunes +15% visibles"
+    "Homing multi-tirs + clamp angle + split rouge hard corrigé"
   ],
   "debug": {
     "show_velocities": false,
