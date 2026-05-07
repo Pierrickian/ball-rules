@@ -424,6 +424,10 @@ function App() {
           onPlayBossRush={playBossRush}
           onDifficultyChange={setDifficulty}
           difficulty={difficulty}
+          hpAdjustment={hpAdjustment}
+          onHpAdjustmentChange={setHpAdjustment}
+          evolutionRequest={config.evolution_request}
+          currentLevelNumber={gameState.currentLevelId || gameState.currentLevelIndex + 1}
           currentLevelIndex={gameState.currentLevelIndex}
           ballEffect={ballEffect}
           grenadeEffect={grenadeEffect}

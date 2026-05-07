@@ -730,6 +730,7 @@
     ]
   },
   "release_notes": [
+    "Menus niveaux scrollables et balles ajoutables",
     "Auto-fire restauré après merge",
     "Build et retry stabilisés",
     "Téléchargement APK depuis le menu",
