@@ -730,6 +730,7 @@
     ]
   },
   "release_notes": [
+    "Auto-fire restauré après merge",
     "Build et retry stabilisés",
     "Téléchargement APK depuis le menu",
     "Menu Evolution scrollable et simplifié",
@@ -748,8 +749,7 @@
     "Exception boss rouge: cap 25 PV en phase boss",
     "Homing multi-tirs + clamp angle + split rouge hard corrigé",
     "Expert lock prédictif + split rouge -1 PV corrigé",
-    "Lock cible, rouges capés 8 PV, jaunes +15% visibles",
-    "Bonus PV medium/hard appliqué au reset"
+    "Lock cible, rouges capés 8 PV, jaunes +15% visibles"
   ],
   "debug": {
     "show_velocities": false,

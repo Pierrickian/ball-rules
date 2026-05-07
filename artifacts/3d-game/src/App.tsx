@@ -39,7 +39,6 @@ function App() {
   const [lockOn, setLockOn] = useState(false);
   const [lockedBallId, setLockedBallId] = useState<string | null>(null);
   const [homingOn, setHomingOn] = useState(false);
-  const [autoFireOn, setAutoFireOn] = useState(false);
   const [ballEffect, setBallEffect] = useState(() => localStorage.getItem("bg_effect_ball") ?? "spark");
   const [grenadeEffect, setGrenadeEffect] = useState(() => localStorage.getItem("bg_effect_grenade") ?? "spark");
   const [debugExplosionTexture, setDebugExplosionTexture] = useState(() => localStorage.getItem("bg_debug_explosion_texture") === "1");
@@ -74,8 +73,6 @@ function App() {
   };
 
   const tryShootBall = (targetX: number, targetY: number, holdSeconds: number): boolean => {
-    if (retryReason) return false;
-    if (!isBossPhase && shotsRemaining <= 0) return false;
     return shoot(targetX, targetY, holdSeconds) !== null;
   };
 
@@ -87,32 +84,6 @@ function App() {
   const retryReason = gameState?.retryReason ?? null;
   const levelTimerSeconds = gameState?.timerSecondsRemaining ?? 60;
   const shotsRemaining = gameState?.ammoRemaining ?? 50;
-
-  useEffect(() => {
-    if (!autoFire || !isRunning || retryReason || menuOpen) return;
-    const heavyMax = config?.gameplay_controls.shot_types?.heavy?.max_hold_seconds ?? 0.3;
-    const megaMin = config?.gameplay_controls.shot_types?.mega?.min_hold_seconds ?? heavyMax;
-    const megaThreshold = heavyMax;
-    const holdForAutoMega = Math.max(megaMin, megaThreshold + 0.01);
-    const id = window.setInterval(() => {
-      const held = (performance.now() - cycleStartRef.current) / 1000;
-      if (held < megaThreshold) return;
-      let tx = lastTargetRef.current.x;
-      let ty = lastTargetRef.current.y;
-      if (lockOn && lockedBallId && gameState) {
-        const b = gameState.balls.get(lockedBallId);
-        if (b?.isAlive) {
-          const shotSpeed = config?.gameplay_controls.shot_types?.mega?.speed ?? 28;
-          const intercept = homingOn ? computeInterceptTarget(b.position, b.velocity, shotSpeed) : b.position;
-          tx = intercept.x;
-          ty = intercept.y;
-        }
-      }
-      const didShoot = tryShootBall(tx, ty, holdForAutoMega);
-      if (didShoot) cycleStartRef.current = performance.now();
-    }, 35);
-    return () => window.clearInterval(id);
-  }, [autoFire, isRunning, retryReason, menuOpen, config, lockOn, lockedBallId, gameState, homingOn]);
 
   const computeInterceptTarget = (targetPos: Vec2, targetVel: Vec2, shotSpeed: number): Vec2 => {
     const shooter = { x: 0, y: -(config?.graphics.arena.height ?? 14) * 0.5 };
@@ -203,7 +174,7 @@ function App() {
 
 
   useEffect(() => {
-    if (!autoFireOn || !config) return;
+    if (!autoFire || !config) return;
     const interval = window.setInterval(() => {
       // Auto-fire owns only the idle state: pressing does nothing special,
       // releasing still fires manually, and no pointer held lets the virtual
@@ -221,7 +192,7 @@ function App() {
       }
     }, 100);
     return () => window.clearInterval(interval);
-  }, [autoFireOn, config]);
+  }, [autoFire, config, shoot, classifyHold]);
 
   const handlePointerUp = (gameX: number, gameY: number) => {
     if (!pointerActiveRef.current) return;
