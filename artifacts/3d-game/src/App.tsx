@@ -43,10 +43,6 @@ function App() {
   const [ballEffect, setBallEffect] = useState(() => localStorage.getItem("bg_effect_ball") ?? "spark");
   const [grenadeEffect, setGrenadeEffect] = useState(() => localStorage.getItem("bg_effect_grenade") ?? "spark");
   const [debugExplosionTexture, setDebugExplosionTexture] = useState(() => localStorage.getItem("bg_debug_explosion_texture") === "1");
-  const [levelTimerSeconds, setLevelTimerSeconds] = useState(60);
-  const [shotsRemaining, setShotsRemaining] = useState(50);
-  const [retryReason, setRetryReason] = useState<"timeout" | "ammo" | null>(null);
-  const [retryResetInProgress, setRetryResetInProgress] = useState(false);
   const [autoFire, setAutoFire] = useState(false);
   useEffect(() => { localStorage.setItem("bg_effect_ball", ballEffect); }, [ballEffect]);
   useEffect(() => { localStorage.setItem("bg_effect_grenade", grenadeEffect); }, [grenadeEffect]);
@@ -80,10 +76,7 @@ function App() {
   const tryShootBall = (targetX: number, targetY: number, holdSeconds: number): boolean => {
     if (retryReason) return false;
     if (!isBossPhase && shotsRemaining <= 0) return false;
-    const fired = shoot(targetX, targetY, holdSeconds);
-    if (!fired) return false;
-    if (!isBossPhase) setShotsRemaining((prev) => Math.max(0, prev - 1));
-    return true;
+    return shoot(targetX, targetY, holdSeconds) !== null;
   };
 
   const isBossPhase = (() => {
@@ -91,38 +84,9 @@ function App() {
     if (gameState.bossIntroActive) return true;
     return Array.from(gameState.balls.values()).some((b) => b.isAlive && b.isBoss);
   })();
-
-  useEffect(() => {
-    if (!config || !gameState) return;
-    const lvl = config.levels?.list?.[gameState.currentLevelIndex];
-    setLevelTimerSeconds(lvl?.timer_seconds ?? 60);
-    setShotsRemaining(lvl?.ammo_count ?? 50);
-    setRetryReason(null);
-  }, [config, gameState?.currentLevelIndex]);
-
-  useEffect(() => {
-    if (!isRunning || retryReason || retryResetInProgress || isBossPhase || gameState?.sessionCleared) return;
-    const id = window.setInterval(() => {
-      setLevelTimerSeconds((prev) => {
-        const next = Math.max(0, prev - 0.1);
-        if (next <= 0) {
-          setRetryReason("timeout");
-          pause();
-        }
-        return next;
-      });
-    }, 100);
-    return () => window.clearInterval(id);
-  }, [isRunning, retryReason, retryResetInProgress, isBossPhase, gameState?.sessionCleared, pause]);
-
-  useEffect(() => {
-    if (retryReason || retryResetInProgress) return;
-    if (isBossPhase) return;
-    if (shotsRemaining <= 0) {
-      setRetryReason("ammo");
-      pause();
-    }
-  }, [shotsRemaining, retryReason, retryResetInProgress, isBossPhase, pause]);
+  const retryReason = gameState?.retryReason ?? null;
+  const levelTimerSeconds = gameState?.timerSecondsRemaining ?? 60;
+  const shotsRemaining = gameState?.ammoRemaining ?? 50;
 
   useEffect(() => {
     if (!autoFire || !isRunning || retryReason || menuOpen) return;
@@ -460,10 +424,6 @@ function App() {
         onReset={reset}
       />
 
-      {retryReason && (
-        <RetryOverlay reason={retryReason} onRetry={reset} />
-      )}
-
       {/* Game-over flash */}
       {gameState.sessionCleared && (
         <SessionClearOverlay config={config} gameState={gameState} />
@@ -477,16 +437,7 @@ function App() {
           hpAdjustment={hpAdjustment}
           onDifficultyChange={setDifficulty}
           onHpAdjustmentChange={setHpAdjustment}
-          onRetry={() => {
-            const lvl = config.levels?.list?.[gameState.currentLevelIndex];
-            setRetryResetInProgress(true);
-            setShotsRemaining(lvl?.ammo_count ?? 50);
-            setLevelTimerSeconds(lvl?.timer_seconds ?? 60);
-            setRetryReason(null);
-            reset();
-            resume();
-            window.setTimeout(() => setRetryResetInProgress(false), 80);
-          }}
+          onRetry={reset}
         />
       )}
 
@@ -700,18 +651,6 @@ function ChargeBar({ holdTime, shotKind, config }: { holdTime: number; shotKind:
         <div style={{ position: "absolute", top: -2, left: `${(heavyMax / displayMax) * 100}%`, width: 1, height: 10, background: "#fff8" }} />
       </div>
       <div style={{ fontSize: 9, color: "#446", letterSpacing: 1 }}>{holdTime.toFixed(2)}s</div>
-    </div>
-  );
-}
-
-function RetryOverlay({ reason, onRetry }: { reason: "timeout" | "ammo"; onRetry: () => void }) {
-  const label = reason === "timeout" ? "Temps écoulé" : "Munitions épuisées";
-  const detail = reason === "timeout" ? "Le chrono du niveau est tombé à zéro." : "Toutes les munitions du niveau ont été tirées.";
-  return (
-    <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,5,20,0.62)", backdropFilter:"blur(3px)", zIndex:60, fontFamily:"'Courier New', monospace", flexDirection:"column", gap:14 }}>
-      <div style={{ fontSize:28, color:"#ffcc66", letterSpacing:3, fontWeight:900, textShadow:"0 0 14px #ff8844" }}>{label}</div>
-      <div style={{ maxWidth:300, textAlign:"center", fontSize:13, color:"#dfecff", lineHeight:1.4 }}>{detail}<br />Relance le même niveau avec ses paramètres.</div>
-      <button onClick={onRetry} style={{ pointerEvents:"all", border:"1px solid #1e90ff", background:"#1e90ff", color:"#001226", borderRadius:10, padding:"10px 22px", fontSize:16, fontWeight:900, letterSpacing:2, cursor:"pointer" }}>Retry</button>
     </div>
   );
 }
