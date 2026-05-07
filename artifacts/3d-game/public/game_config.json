@@ -519,7 +519,18 @@
       "heavy": 0.3,
       "mega": 0.1
     },
-    "_player_projectile_distribution_comment": "Répartition par défaut des projectiles joueur (blanc/jaune/rose)."
+    "_player_projectile_distribution_comment": "Répartition par défaut des projectiles joueur (blanc/jaune/rose).",
+    "difficulty_hp": {
+      "_description": "PV bonus appliqués aux balles de terrain par les presets de difficulté. Le curseur du menu Difficulté édite cette même valeur.",
+      "min": -10,
+      "max": 10,
+      "presets": {
+        "easy": 0,
+        "medium": 2,
+        "hard": 6
+      },
+      "default": "medium"
+    }
   },
   "game_session": {
     "_description": "Conditions de fin de partie et redémarrage automatique.",
@@ -730,6 +741,7 @@
     ]
   },
   "release_notes": [
+    "Curseur PV synchronisé avec la difficulté",
     "Difficulté Medium sélectionnée par défaut",
     "Règles du jeu rapprochées du terrain",
     "Menus niveaux scrollables et balles ajoutables",
@@ -749,8 +761,7 @@
     "Timer + munitions par niveau avec écran Retry",
     "Impulsion hôpital inversée: le tir le pousse correctement",
     "Homing: avance boostée par distance et composante horizontale",
-    "Exception boss rouge: cap 25 PV en phase boss",
-    "Homing multi-tirs + clamp angle + split rouge hard corrigé"
+    "Exception boss rouge: cap 25 PV en phase boss"
   ],
   "debug": {
     "show_velocities": false,
