@@ -72,6 +72,7 @@ function pickRandom<T>(arr: T[]): T {
 
 const DEFAULT_LEVEL_TIMER_SECONDS = 60;
 const DEFAULT_LEVEL_AMMO_COUNT = 50;
+const DEFAULT_DIFFICULTY: "easy" | "medium" | "hard" = "medium";
 
 function buildQueue(size: number, distribution: Record<ShotKind, number>): ShotKind[] {
   const weighted: ShotKind[] = [];
@@ -92,7 +93,7 @@ export function useGameEngine(): UseGameEngineResult {
   const [lastEvents, setLastEvents] = useState<GameEvent[]>([]);
   const [playerQueue, setPlayerQueue] = useState<ShotKind[]>([]);
   const [grenadesLeft, setGrenadesLeft] = useState(5);
-  const [difficulty, setDifficultyState] = useState<"easy" | "medium" | "hard">("easy");
+  const [difficulty, setDifficultyState] = useState<"easy" | "medium" | "hard">(DEFAULT_DIFFICULTY);
   const [hpAdjustment, setHpAdjustmentState] = useState(0);
 
   const engineRef          = useRef<GameEngine | null>(null);
