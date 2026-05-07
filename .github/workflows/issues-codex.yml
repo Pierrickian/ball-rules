@@ -1,34 +1,34 @@
-name: Auto dispatch Codex on new issues
+name: Issues Codex
 
-on:
-issues:
-types:
-- opened
+'on':
+  issues:
+    types:
+      - opened
 
 permissions:
-issues: write
+  issues: write
 
 jobs:
-ask-codex:
-runs-on: ubuntu-latest
+  ask-codex:
+    if: ${{ github.event.issue.pull_request == null && github.event.issue.state == 'open' }}
+    runs-on: ubuntu-latest
 
-steps:
-  - name: Trigger Codex
-    uses: actions/github-script@v7
-    with:
-      script: |
-        const issueNumber = context.payload.issue.number;
+    steps:
+      - name: Trigger Codex
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = context.payload.issue.number;
 
-        await github.rest.issues.createComment({
-          owner: context.repo.owner,
-          repo: context.repo.repo,
-          issue_number: issueNumber,
-          body: `@codex implement this issue.
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: `@codex implement this issue.
 
 Read replit.md first.
-Read skills/new/SKILL.md.
-Update release_notes in artifacts/3d-game/public/game_config.json.
+Update release_notes.
 Create a branch from latest main.
 Open a PR against main.
 Mention: Closes #${issueNumber}`
-});
+            });
