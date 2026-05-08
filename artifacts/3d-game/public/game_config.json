@@ -526,7 +526,7 @@
       "max": 10,
       "presets": {
         "easy": 0,
-        "medium": 2,
+        "medium": 3,
         "hard": 6
       },
       "default": "medium"
@@ -737,8 +737,9 @@
     ]
   },
   "release_notes": [
+    "Difficulté Medium passe à +3 PV",
     "Formulaire Evolution simplifié sans préfixe technique",
-    "Retry Medium applique +2 PV",
+    "Retry Medium applique le preset PV",
     "Curseur PV synchronisé avec la difficulté",
     "Difficulté Medium sélectionnée par défaut",
     "Règles du jeu rapprochées du terrain",
@@ -755,8 +756,7 @@
     "UI: boutons lock/homing/auto alignés + jauge visible",
     "Auto-fire mega + retry corrigé et HUD recentré",
     "Retry recharge temps/munitions + menu au premier plan",
-    "Retry fiabilisé et menu accessible pendant échec",
-    "Timer + munitions par niveau avec écran Retry"
+    "Retry fiabilisé et menu accessible pendant échec"
   ],
   "debug": {
     "show_velocities": false,

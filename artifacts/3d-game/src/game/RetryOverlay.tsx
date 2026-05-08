@@ -15,7 +15,7 @@ const DEFAULT_EVOLUTION_REQUEST: EvolutionRequestConfig = {
   default_title: "Demande d'évolution depuis le jeu",
 };
 
-const FALLBACK_DIFFICULTY_HP_PRESETS: Record<Difficulty, number> = { easy: 0, medium: 2, hard: 6 };
+const FALLBACK_DIFFICULTY_HP_PRESETS: Record<Difficulty, number> = { easy: 0, medium: 3, hard: 6 };
 
 export function RetryOverlay({
   reason,
