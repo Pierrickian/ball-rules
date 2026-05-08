@@ -403,12 +403,8 @@ function App() {
         <RetryOverlay
           reason={retryReason}
           levelNumber={gameState.currentLevelId || gameState.currentLevelIndex + 1}
-          evolutionRequest={config.evolution_request}
-          difficulty={difficulty}
-          hpAdjustment={hpAdjustment}
-          onDifficultyChange={setDifficulty}
-          onHpAdjustmentChange={setHpAdjustment}
           onRetry={reset}
+          onSkipLevel={() => setActiveLevel(gameState.currentLevelIndex + 1)}
         />
       )}
 

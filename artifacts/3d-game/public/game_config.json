@@ -526,7 +526,7 @@
       "max": 10,
       "presets": {
         "easy": 0,
-        "medium": 2,
+        "medium": 3,
         "hard": 6
       },
       "default": "medium"
@@ -553,8 +553,8 @@
         "id": 1,
         "name": "Niveau 1 — Vague puis boss noir",
         "description": "Vague de blanches, puis boss BLANC à 100 PV quand le terrain est vidé. Le niveau ne se termine qu’après sa défaite.",
-        "timer_seconds": 70,
-        "ammo_count": 60,
+        "timer_seconds": 60,
+        "ammo_count": 50,
         "launch_color_weights": {
           "white": 1
         },
@@ -568,9 +568,7 @@
           "launcher_diameter_multiplier": 2.2,
           "intro_overlay_seconds": 1.6,
           "horizontal_speed": 10
-        },
-        "timer_seconds": 60,
-        "ammo_count": 50
+        }
       },
       {
         "id": 2,
@@ -587,8 +585,8 @@
         "id": 3,
         "name": "Niveau 3 — Forêt verte",
         "description": "100% de balles vert foncé. Le terrain se remplit vite de gros boulets qui s'auto-renforcent. Privilégie les méga tirs pour traverser la mêlée et toucher plusieurs balles à la fois.",
-        "timer_seconds": 75,
-        "ammo_count": 55,
+        "timer_seconds": 65,
+        "ammo_count": 52,
         "launch_color_weights": {
           "dark_green": 1
         },
@@ -606,9 +604,7 @@
             "y": 6.35
           },
           "dark_green_heal_bonus_percent": 900
-        },
-        "timer_seconds": 65,
-        "ammo_count": 52
+        }
       },
       {
         "id": 4,
@@ -741,6 +737,10 @@
     ]
   },
   "release_notes": [
+    "Retry propose rejouer ou passer",
+    "Difficulté Medium passe à +3 PV",
+    "Formulaire Evolution simplifié sans préfixe technique",
+    "Difficulté réglable depuis le menu",
     "Curseur PV synchronisé avec la difficulté",
     "Difficulté Medium sélectionnée par défaut",
     "Règles du jeu rapprochées du terrain",
@@ -750,18 +750,13 @@
     "Téléchargement APK depuis le menu",
     "Menu Evolution scrollable et simplifié",
     "Evolution ouvre une issue suivie",
-    "Retry paramétrable avec Evolution",
+    "Evolution paramétrable depuis menu",
     "Auto-fire corrigé + rangée de boutons basse remontée",
     "Auto-fire continu synchronisé sur seuil heavy→mega",
     "UI fine: boutons bas remontés et compteurs décalés",
     "UI: boutons lock/homing/auto alignés + jauge visible",
     "Auto-fire mega + retry corrigé et HUD recentré",
-    "Retry recharge temps/munitions + menu au premier plan",
-    "Retry fiabilisé et menu accessible pendant échec",
-    "Timer + munitions par niveau avec écran Retry",
-    "Impulsion hôpital inversée: le tir le pousse correctement",
-    "Homing: avance boostée par distance et composante horizontale",
-    "Exception boss rouge: cap 25 PV en phase boss"
+    "Retry recharge temps/munitions + menu au premier plan"
   ],
   "debug": {
     "show_velocities": false,

@@ -73,7 +73,7 @@ function pickRandom<T>(arr: T[]): T {
 const DEFAULT_LEVEL_TIMER_SECONDS = 60;
 const DEFAULT_LEVEL_AMMO_COUNT = 50;
 const DEFAULT_DIFFICULTY: "easy" | "medium" | "hard" = "medium";
-const FALLBACK_DIFFICULTY_HP_PRESETS: Record<"easy" | "medium" | "hard", number> = { easy: 0, medium: 2, hard: 6 };
+const FALLBACK_DIFFICULTY_HP_PRESETS: Record<"easy" | "medium" | "hard", number> = { easy: 0, medium: 3, hard: 6 };
 
 function getDifficultyHpValue(config: GameConfig | null, difficulty: "easy" | "medium" | "hard"): number {
   return config?.gameplay_controls.difficulty_hp?.presets[difficulty] ?? FALLBACK_DIFFICULTY_HP_PRESETS[difficulty];
