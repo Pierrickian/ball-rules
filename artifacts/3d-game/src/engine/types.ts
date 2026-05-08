@@ -103,7 +103,7 @@ export type GameEvent =
   | { type: "ball_damaged"; ballId: string; amount: number; remainingHp: number; position: Vec2 }
   | { type: "ball_healed"; ballId: string; amount: number; remainingHp: number; position: Vec2 }
   | { type: "player_shot"; projectileId: string; shotKind: ShotKind }
-  | { type: "combo_popup"; projectileId: string; label: string; streak: number; position: Vec2 }
+  | { type: "combo_popup"; projectileId: string; label: string; streak: number; tier: number; position: Vec2 }
   | { type: "session_clear"; launchedCount: number }
   | { type: "session_reboot" }
   | { type: "level_changed"; levelIndex: number; levelId: number; levelName: string };

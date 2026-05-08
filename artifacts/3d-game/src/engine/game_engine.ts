@@ -100,7 +100,6 @@ export class GameEngine {
   private hospital: { x: number; y: number; vx: number; vy: number; diameter: number; hp: number; maxHp: number; healPerContact: number; contactIds: Set<string> } | null = null;
   private difficultyBonusHp = 0;
   private hpAdjustment = 0;
-  private lastComboType: string | null = null;
   private comboStreak = 0;
 
   constructor(config: GameConfig, initialLevelIndex = 0) {
@@ -1409,41 +1408,44 @@ export class GameEngine {
     const killCount = meta.killCount ?? 0;
     let comboType: string | null = null;
     let label: string | null = null;
+    let tier = 0;
 
     if (killCount >= 5) {
       comboType = "kill_5_plus";
       label = "god is playing!";
+      tier = 5;
     } else if (killCount === 4) {
       comboType = "kill_4";
       label = "awesome";
+      tier = 4;
     } else if (killCount === 3) {
       comboType = "kill_3";
       label = "impressive";
+      tier = 3;
     } else if (killCount === 2) {
       comboType = "kill_2";
       label = "amazing";
-    } else if (killCount === 0 && hitCount >= 2) {
-      comboType = "multi_nonlethal";
+      tier = 2;
+    } else if (hitCount >= 4) {
+      comboType = "hit_4_plus";
       label = "great";
+      tier = 1;
     }
 
     if (!comboType || !label) {
-      this.lastComboType = null;
       this.comboStreak = 0;
       return;
     }
 
-    this.comboStreak = this.lastComboType === comboType ? this.comboStreak + 1 : 1;
-    this.lastComboType = comboType;
+    this.comboStreak += 1;
 
-    const sum = meta.comboPositionSum ?? { ...ball.position };
-    const divisor = Math.max(1, hitCount);
     ctx.events.push({
       type: "combo_popup",
       projectileId: ball.id,
       label,
       streak: this.comboStreak,
-      position: { x: sum.x / divisor, y: sum.y / divisor },
+      tier,
+      position: { x: 0, y: 0 },
     });
   }
 

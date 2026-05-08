@@ -737,6 +737,7 @@
     ]
   },
   "release_notes": [
+    "Combos centrés et multiplicateur continu",
     "Popups de combos pour tirs remarquables",
     "Retry propose rejouer ou passer",
     "Difficulté Medium passe à +3 PV",
@@ -755,8 +756,7 @@
     "Auto-fire corrigé + rangée de boutons basse remontée",
     "Auto-fire continu synchronisé sur seuil heavy→mega",
     "UI fine: boutons bas remontés et compteurs décalés",
-    "UI: boutons lock/homing/auto alignés + jauge visible",
-    "Auto-fire mega + retry corrigé et HUD recentré"
+    "UI: boutons lock/homing/auto alignés + jauge visible"
   ],
   "debug": {
     "show_velocities": false,
