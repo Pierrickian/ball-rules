@@ -1,24 +1,8 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node";
-
-type EvolutionRequestBody = {
-  repo?: string;
-  type?: "issue" | "pr";
-  title?: string;
-  body?: string;
-  params?: Record<string, unknown>;
-};
-
-type GitHubIssueResponse = {
-  number: number;
-  title: string;
-  html_url: string;
-};
-
 const DEFAULT_REPO = "Pierrickian/ball-rules";
 const DEFAULT_REF = "main";
 const CODEX_WORKFLOW_FILE = "issues-codex.yml";
 
-function setCorsHeaders(response: VercelResponse) {
+function setCorsHeaders(response) {
   response.setHeader("Access-Control-Allow-Origin", "*");
   response.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   response.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -31,7 +15,7 @@ function readToken() {
     ?? "";
 }
 
-function parseRepo(repo: string) {
+function parseRepo(repo) {
   const [owner, name] = repo.split("/");
   if (!owner || !name || repo.split("/").length !== 2) {
     throw new Error("Invalid repo. Expected owner/name.");
@@ -39,7 +23,7 @@ function parseRepo(repo: string) {
   return { owner, name };
 }
 
-async function githubRequest<T>(url: string, token: string, init: RequestInit): Promise<T> {
+async function githubRequest(url, token, init) {
   const response = await fetch(url, {
     ...init,
     headers: {
@@ -56,31 +40,26 @@ async function githubRequest<T>(url: string, token: string, init: RequestInit): 
     throw new Error(`GitHub API ${response.status}: ${details}`);
   }
 
-  return response.status === 204 ? ({} as T) : ((await response.json()) as T);
+  return response.status === 204 ? {} : response.json();
 }
 
-async function dispatchCodexWorkflow(params: {
-  token: string;
-  owner: string;
-  repo: string;
-  issueNumber: number;
-}) {
-  await githubRequest<void>(
-    `https://api.github.com/repos/${params.owner}/${params.repo}/actions/workflows/${CODEX_WORKFLOW_FILE}/dispatches`,
-    params.token,
+async function dispatchCodexWorkflow({ token, owner, repo, issueNumber }) {
+  await githubRequest(
+    `https://api.github.com/repos/${owner}/${repo}/actions/workflows/${CODEX_WORKFLOW_FILE}/dispatches`,
+    token,
     {
       method: "POST",
       body: JSON.stringify({
         ref: DEFAULT_REF,
         inputs: {
-          issue_number: String(params.issueNumber),
+          issue_number: String(issueNumber),
         },
       }),
     },
   );
 }
 
-export default async function handler(request: VercelRequest, response: VercelResponse) {
+export default async function handler(request, response) {
   setCorsHeaders(response);
 
   if (request.method === "OPTIONS") {
@@ -102,13 +81,13 @@ export default async function handler(request: VercelRequest, response: VercelRe
   }
 
   try {
-    const payload = request.body as EvolutionRequestBody;
+    const payload = request.body ?? {};
     const repoFullName = payload.repo?.trim() || DEFAULT_REPO;
     const { owner, name } = parseRepo(repoFullName);
     const title = payload.title?.trim() || "Demande d'évolution depuis le jeu";
     const body = payload.body?.trim() || "Demande joueur depuis le jeu.";
 
-    const issue = await githubRequest<GitHubIssueResponse>(
+    const issue = await githubRequest(
       `https://api.github.com/repos/${owner}/${name}/issues`,
       token,
       {

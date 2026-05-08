@@ -16,16 +16,7 @@ permissions:
 
 jobs:
   ask-codex:
-    if: >-
-      ${
-        {
-          (
-            github.event_name == 'issues' &&
-            github.event.issue.pull_request == null &&
-            github.event.issue.state == 'open'
-          ) || github.event_name == 'workflow_dispatch'
-        }
-      }
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'issues' && github.event.issue.pull_request == null && github.event.issue.state == 'open')
     runs-on: ubuntu-latest
 
     steps:
@@ -44,15 +35,9 @@ jobs:
           github-token: ${{ secrets.CODEX_DISPATCH_TOKEN }}
           script: |
             const issueNumber = Number('${{ steps.resolve.outputs.issue_number }}');
-
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issueNumber,
-              body: `@codex implement this issue.
-              Read replit.md first.
-              Update release_notes.
-              Create a branch from latest main.
-              Open a PR against main.
-              Mention: Closes #${issueNumber}`
+              body: `@codex implement this issue.\nRead replit.md first.\nUpdate release_notes.\nCreate a branch from latest main.\nOpen a PR against main.\nMention: Closes #${issueNumber}`
             });
