@@ -14,21 +14,32 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Debug issue payload
+        run: |
+          echo "Issue number: ${{ github.event.issue.number }}"
+          echo "Issue title: ${{ github.event.issue.title }}"
+          echo "Issue state: ${{ github.event.issue.state }}"
+
       - name: Trigger Codex
         uses: actions/github-script@v7
         with:
           script: |
             const issueNumber = context.payload.issue.number;
 
-            await github.rest.issues.createComment({
+            console.log(`Posting Codex trigger comment to issue #${issueNumber}`);
+
+            const response = await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issueNumber,
               body: `@codex implement this issue.
 
 Read replit.md first.
+Read skills/new/SKILL.md.
 Update release_notes.
 Create a branch from latest main.
 Open a PR against main.
 Mention: Closes #${issueNumber}`
             });
+
+            console.log(`Comment created: ${response.data.html_url}`);
