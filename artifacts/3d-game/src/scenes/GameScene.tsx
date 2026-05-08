@@ -16,6 +16,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactElement } from "react";
 import { BallMesh } from "./BallMesh";
 import { HpPopups } from "./HpPopups";
+import { ComboPopups } from "./ComboPopups";
 import { ExplosionSprite } from "./ExplosionSprite";
 import type { BallState, GameConfig, GameEvent, GameState } from "../engine/types";
 
@@ -315,6 +316,7 @@ function Scene({ gameState, config, events, aimDirection, ballEffect, grenadeEff
         />
       ))}
       <HpPopups events={events} />
+      <ComboPopups events={events} />
       {events.filter((e) => e.type === "ball_damaged").slice(-8).map((e, i) => {
         const ev = e as Extract<GameEvent, { type: "ball_damaged" }>;
         return <mesh key={`${ev.ballId}-${i}`} position={[ev.position.x, 0.1, -ev.position.y]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[0.2, 0.35, 20]} /><meshBasicMaterial color={ballEffect === "shock" ? "#ffcc66" : "#66ccff"} transparent opacity={0.4} /></mesh>;

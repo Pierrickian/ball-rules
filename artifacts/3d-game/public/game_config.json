@@ -737,6 +737,7 @@
     ]
   },
   "release_notes": [
+    "Popups de combos pour tirs remarquables",
     "Retry propose rejouer ou passer",
     "Difficulté Medium passe à +3 PV",
     "Formulaire Evolution simplifié sans préfixe technique",
@@ -755,8 +756,7 @@
     "Auto-fire continu synchronisé sur seuil heavy→mega",
     "UI fine: boutons bas remontés et compteurs décalés",
     "UI: boutons lock/homing/auto alignés + jauge visible",
-    "Auto-fire mega + retry corrigé et HUD recentré",
-    "Retry recharge temps/munitions + menu au premier plan"
+    "Auto-fire mega + retry corrigé et HUD recentré"
   ],
   "debug": {
     "show_velocities": false,
