@@ -240,6 +240,17 @@
       "selectable_by_player": false,
       "for_terrain": false
     },
+    "purple": {
+      "hex": "#8B5CFF",
+      "rgb": [
+        139,
+        92,
+        255
+      ],
+      "_label": "Violet",
+      "selectable_by_player": false,
+      "for_terrain": true
+    },
     "gray": {
       "hex": "#808080",
       "rgb": [
@@ -292,6 +303,10 @@
     "red": {
       "rule": "red_split_bouncer",
       "_description": "Rebondit sur les murs avec 5 PV. Si un tir la touche sans la détruire, elle se divise en 2 rouges, chacune avec les PV restants de la mère après impact (5→4→3→2→1)."
+    },
+    "purple": {
+      "rule": "magnet_field",
+      "_description": "Génère un gabarit transparent de 3× son diamètre. Les balles du terrain qui y entrent sont attirées vers elle comme par un aimant, restent au contact sans la traverser ni rebondir. Quand un projectile pénètre le gabarit, la violette accélère 0,5 s puis reprend sa vitesse initiale."
     }
   },
   "bounce_conditions": {
@@ -311,7 +326,8 @@
       "gray": "against_wall",
       "yellow": "against_wall",
       "black": "against_wall",
-      "red": "against_wall"
+      "red": "against_wall",
+      "purple": "against_wall"
     }
   },
   "rule_parameters": {
@@ -369,6 +385,15 @@
     "red_split_bouncer": {
       "default_hp": 5,
       "max_hp": 5
+    },
+    "magnet_field": {
+      "_description": "Paramètres de la balle violette: diamètre du gabarit transparent, force d'attraction, boost déclenché par projectile et amortissement du contact sans rebond.",
+      "field_diameter_multiplier": 3,
+      "attraction_strength": 22,
+      "boost_speed_multiplier": 2,
+      "boost_duration_seconds": 0.5,
+      "contact_velocity_damping": 0,
+      "_contact_velocity_damping_comment": "0 annule la vitesse entrante au contact (pas de rebond); 1 la conserve."
     }
   },
   "gameplay": {
@@ -397,7 +422,8 @@
           "blue",
           "yellow",
           "black",
-          "red"
+          "red",
+          "purple"
         ],
         "_allow_colors_comment": "Couleurs que le lanceur orange peut faire entrer dans l'arène. Le gris est volontairement exclu : c'est une couleur dédiée au joueur (file de tir / projectiles)."
       }
@@ -451,6 +477,14 @@
       }
     },
     "red": {
+      "spawn": {
+        "condition": "launched_by_orange"
+      },
+      "despawn": {
+        "condition": "killed_at_zero_hp"
+      }
+    },
+    "purple": {
       "spawn": {
         "condition": "launched_by_orange"
       },
@@ -708,6 +742,16 @@
         },
         "timer_seconds": 60,
         "ammo_count": 50
+      },
+      {
+        "id": 11,
+        "name": "Niveau 11 — Aimant violet",
+        "description": "100% de balles violettes. Leur gabarit transparent attire les autres balles et chaque projectile qui le pénètre déclenche une accélération courte.",
+        "launch_color_weights": {
+          "purple": 1
+        },
+        "timer_seconds": 65,
+        "ammo_count": 50
       }
     ],
     "boss_intro_overlay_seconds": 1.5,
@@ -737,6 +781,7 @@
     ]
   },
   "release_notes": [
+    "Niveau violet magnétique ajouté",
     "Combos centrés et multiplicateur continu",
     "Popups de combos pour tirs remarquables",
     "Retry propose rejouer ou passer",
@@ -755,8 +800,7 @@
     "Evolution paramétrable depuis menu",
     "Auto-fire corrigé + rangée de boutons basse remontée",
     "Auto-fire continu synchronisé sur seuil heavy→mega",
-    "UI fine: boutons bas remontés et compteurs décalés",
-    "UI: boutons lock/homing/auto alignés + jauge visible"
+    "UI fine: boutons bas remontés et compteurs décalés"
   ],
   "debug": {
     "show_velocities": false,

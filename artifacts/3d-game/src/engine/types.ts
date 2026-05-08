@@ -18,6 +18,7 @@ export type BallColor =
   | "blue"
   | "dark_blue"
   | "pink"
+  | "purple"
   | "gray"
   | "black";
 
@@ -43,7 +44,8 @@ export type BallRule =
   | "hp_grow_bouncer"
   | "blink_hp_bouncer"
   | "red_split_bouncer"
-  | "player_projectile";
+  | "player_projectile"
+  | "magnet_field";
 
 // ---- Bounce Condition Enum ----
 export enum BounceCondition {
@@ -324,6 +326,13 @@ export interface GameConfig {
     accelerate?: { acceleration_per_second: number };
     slow_nearby?: { radius: number; slow_factor: number };
     attract?: { radius: number; strength: number };
+    magnet_field?: {
+      field_diameter_multiplier: number;
+      attraction_strength: number;
+      boost_speed_multiplier: number;
+      boost_duration_seconds: number;
+      contact_velocity_damping?: number;
+    };
     freeze_nearby?: { radius: number; freeze_duration_seconds: number };
     gravity_sink?: { strength: number };
     absorb?: { max_diameter_multiplier: number };

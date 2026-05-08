@@ -31,6 +31,14 @@ import { BallSize, BounceCondition } from "./types";
 
 type RuleHandler = (ball: Ball, delta: number, context: RuleContext) => void;
 
+interface MagnetFieldParams {
+  field_diameter_multiplier: number;
+  attraction_strength: number;
+  boost_speed_multiplier: number;
+  boost_duration_seconds: number;
+  contact_velocity_damping?: number;
+}
+
 interface RuleContext {
   allBalls: Ball[];
   config: GameConfig;
@@ -133,6 +141,7 @@ export class GameEngine {
     this.registerRuleHandler("blink_hp_bouncer",  this.handleBlinkHpBouncer.bind(this));
     this.registerRuleHandler("red_split_bouncer", this.handleRedSplitBouncer.bind(this));
     this.registerRuleHandler("player_projectile", this.handlePlayerProjectile.bind(this));
+    this.registerRuleHandler("magnet_field",      this.handleMagnetField.bind(this));
   }
 
   registerRuleHandler(rule: BallRule, handler: RuleHandler): void {
@@ -719,6 +728,93 @@ export class GameEngine {
     return ball.color === "yellow" && Number(ball.metadata.visibilityAlpha ?? 1) <= 0;
   }
 
+  private getMagnetFieldParams(config: GameConfig): MagnetFieldParams {
+    return config.rule_parameters.magnet_field ?? {
+      field_diameter_multiplier: 3,
+      attraction_strength: 18,
+      boost_speed_multiplier: 2,
+      boost_duration_seconds: 0.5,
+      contact_velocity_damping: 0,
+    };
+  }
+
+  private getSpeed(v: Vec2): number {
+    return Math.sqrt(v.x * v.x + v.y * v.y);
+  }
+
+  private rescaleVelocity(ball: Ball, targetSpeed: number): void {
+    const speed = this.getSpeed(ball.velocity);
+    if (speed <= 0.001 || targetSpeed <= 0) return;
+    const scale = targetSpeed / speed;
+    ball.velocity.x *= scale;
+    ball.velocity.y *= scale;
+  }
+
+  private triggerMagnetBoost(ball: Ball, p: MagnetFieldParams): void {
+    const currentSpeed = this.getSpeed(ball.velocity);
+    if (currentSpeed <= 0.001) return;
+    if (typeof ball.metadata.magnetBaseSpeed !== "number" || Number(ball.metadata.magnetBoostTimer ?? 0) <= 0) {
+      ball.metadata.magnetBaseSpeed = currentSpeed;
+    }
+    this.rescaleVelocity(ball, currentSpeed * Math.max(1, p.boost_speed_multiplier));
+    ball.metadata.magnetBoostTimer = Math.max(0, p.boost_duration_seconds);
+  }
+
+  private applyMagnetBoostTimer(ball: Ball, delta: number): void {
+    const timer = Number(ball.metadata.magnetBoostTimer ?? 0);
+    if (timer <= 0) return;
+    const nextTimer = timer - delta;
+    if (nextTimer > 0) {
+      ball.metadata.magnetBoostTimer = nextTimer;
+      return;
+    }
+
+    const baseSpeed = typeof ball.metadata.magnetBaseSpeed === "number"
+      ? Math.max(0, ball.metadata.magnetBaseSpeed)
+      : null;
+    if (baseSpeed !== null) this.rescaleVelocity(ball, baseSpeed);
+    ball.metadata.magnetBoostTimer = 0;
+    delete ball.metadata.magnetBaseSpeed;
+  }
+
+
+  private triggerMagnetFieldsForProjectile(projectile: Ball, ctx: RuleContext): void {
+    for (const magnet of ctx.allBalls) {
+      if (!magnet.isAlive || magnet.id === projectile.id || magnet.rule !== "magnet_field") continue;
+      const p = this.getMagnetFieldParams(ctx.config);
+      const fieldRadius = (magnet.diameter * p.field_diameter_multiplier) / 2;
+      if (magnet.distanceTo(projectile) > fieldRadius + projectile.diameter / 2) continue;
+
+      const projectilesInside = magnet.metadata.projectilesInsideField instanceof Set
+        ? magnet.metadata.projectilesInsideField as Set<string>
+        : new Set<string>();
+      if (!projectilesInside.has(projectile.id)) this.triggerMagnetBoost(magnet, p);
+      projectilesInside.add(projectile.id);
+      magnet.metadata.projectilesInsideField = projectilesInside;
+    }
+  }
+
+  private resolveMagnetContact(magnet: Ball, other: Ball, p: MagnetFieldParams): void {
+    const dx = other.position.x - magnet.position.x;
+    const dy = other.position.y - magnet.position.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const minDist = (magnet.diameter + other.diameter) / 2;
+    if (dist >= minDist || dist <= 0.001) return;
+
+    const nx = dx / dist;
+    const ny = dy / dist;
+    const overlap = minDist - dist;
+    other.position.x += nx * (overlap + 0.01);
+    other.position.y += ny * (overlap + 0.01);
+
+    const inwardVelocity = other.velocity.x * nx + other.velocity.y * ny;
+    if (inwardVelocity < 0) {
+      const damping = Math.max(0, Math.min(1, p.contact_velocity_damping ?? 0));
+      other.velocity.x -= inwardVelocity * (1 - damping) * nx;
+      other.velocity.y -= inwardVelocity * (1 - damping) * ny;
+    }
+  }
+
   /** Global ball-to-ball elastic collision pass — projectiles excluded. */
   private resolveBallCollisions(balls: Ball[], _arena: Arena2D): void {
     const restitution = this.config.rule_parameters.ball_collision?.restitution ?? 0.95;
@@ -731,6 +827,13 @@ export class GameEngine {
         if (this.isTemporarilyUntouchable(a) || this.isTemporarilyUntouchable(b)) continue;
         if (a.isProjectile() || b.isProjectile()) continue; // projectiles handle their own
         if (a.isFrozen && b.isFrozen) continue;
+
+        if (a.rule === "magnet_field" || b.rule === "magnet_field") {
+          const magnet = a.rule === "magnet_field" ? a : b;
+          const other = magnet === a ? b : a;
+          if (!magnet.isFrozen) this.resolveMagnetContact(magnet, other, this.getMagnetFieldParams(this.config));
+          continue;
+        }
 
         // A bouncy_surface color (e.g. blue) acts as a bumper: any ball
         // that touches it ricochets off, regardless of its own bounce
@@ -1051,6 +1154,45 @@ export class GameEngine {
     if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
   }
 
+  /** PURPLE — transparent magnetic field. */
+  private handleMagnetField(ball: Ball, delta: number, ctx: RuleContext): void {
+    const p = this.getMagnetFieldParams(ctx.config);
+    ball.metadata.magnetFieldDiameter = ball.diameter * p.field_diameter_multiplier;
+
+    this.applyMagnetBoostTimer(ball, delta);
+    this.applyMovement(ball, delta, ctx.arena);
+
+    const fieldRadius = (ball.diameter * p.field_diameter_multiplier) / 2;
+    const projectilesInside = ball.metadata.projectilesInsideField instanceof Set
+      ? ball.metadata.projectilesInsideField as Set<string>
+      : new Set<string>();
+    const currentProjectilesInside = new Set<string>();
+
+    for (const other of ctx.allBalls) {
+      if (other.id === ball.id || !other.isAlive || other.color === "orange") continue;
+      const distance = ball.distanceTo(other);
+      const enteredField = distance <= fieldRadius + other.diameter / 2;
+
+      if (other.isProjectile()) {
+        if (enteredField) {
+          currentProjectilesInside.add(other.id);
+          if (!projectilesInside.has(other.id)) this.triggerMagnetBoost(ball, p);
+        }
+        continue;
+      }
+
+      if (!enteredField || distance <= 0.001) continue;
+      const dir = normalize({ x: ball.position.x - other.position.x, y: ball.position.y - other.position.y });
+      other.velocity.x += dir.x * p.attraction_strength * delta;
+      other.velocity.y += dir.y * p.attraction_strength * delta;
+      this.resolveMagnetContact(ball, other, p);
+    }
+
+    ball.metadata.projectilesInsideField = currentProjectilesInside;
+    if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
+  }
+
+
   /** TURQUOISE — split */
   private handleSplit(ball: Ball, delta: number, ctx: RuleContext): void {
     ball.position.x += ball.velocity.x * delta;
@@ -1317,6 +1459,8 @@ export class GameEngine {
     // Move
     ball.position.x += ball.velocity.x * delta;
     ball.position.y += ball.velocity.y * delta;
+
+    this.triggerMagnetFieldsForProjectile(ball, ctx);
 
     // --- Wall handling ---
     const wallAxis = this.detectWallHit(ball, ctx.arena);

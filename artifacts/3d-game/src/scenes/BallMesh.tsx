@@ -23,6 +23,7 @@ const UNIT_RADIUS = 0.5;
 
 export function BallMesh({ ball, config, showBlackHpLabel = false }: BallMeshProps) {
   const meshRef  = useRef<THREE.Mesh>(null);
+  const fieldRef = useRef<THREE.Mesh>(null);
   const glowRef  = useRef<THREE.Mesh>(null);
   const trailRef = useRef<THREE.Mesh>(null);
   const pulseRef = useRef(0);
@@ -37,6 +38,11 @@ export function BallMesh({ ball, config, showBlackHpLabel = false }: BallMeshPro
   const tintColor = tint ? new THREE.Color(tint) : null;
   const visibilityAlpha = typeof ball.metadata?.visibilityAlpha === "number" ? Math.max(0, Math.min(1, ball.metadata.visibilityAlpha as number)) : 1;
   const isInvisibleSprite = ball.color === "black";
+  const magnetFieldDiameter = ball.rule === "magnet_field"
+    ? (typeof ball.metadata?.magnetFieldDiameter === "number"
+      ? Math.max(0, ball.metadata.magnetFieldDiameter as number)
+      : ball.diameter * (config.rule_parameters.magnet_field?.field_diameter_multiplier ?? 3))
+    : 0;
 
   useFrame((_, delta) => {
     if (!meshRef.current) return;
@@ -56,6 +62,14 @@ export function BallMesh({ ball, config, showBlackHpLabel = false }: BallMeshPro
     meshRef.current.scale.setScalar(ball.diameter);
 
     pulseRef.current += delta * 4;
+
+    if (fieldRef.current) {
+      const mat = fieldRef.current.material as THREE.MeshBasicMaterial;
+      mat.opacity = 0.12 + 0.04 * Math.sin(pulseRef.current * 1.5);
+      fieldRef.current.scale.setScalar(magnetFieldDiameter);
+      fieldRef.current.position.x = meshRef.current.position.x;
+      fieldRef.current.position.z = meshRef.current.position.z;
+    }
 
     if (glowRef.current) {
       const pulsed = ball.isFrozen ? 0.15 + 0.1 * Math.sin(pulseRef.current) : 0;
@@ -92,6 +106,25 @@ export function BallMesh({ ball, config, showBlackHpLabel = false }: BallMeshPro
 
   return (
     <group>
+      {/* Transparent magnetic footprint for purple balls */}
+      {!isInvisibleSprite && magnetFieldDiameter > 0 && (
+        <mesh
+          ref={fieldRef}
+          position={[ball.position.x, Math.max(0.006, ball.diameter * 0.08), -ball.position.y]}
+          rotation={[-Math.PI / 2, 0, 0]}
+          renderOrder={-1}
+        >
+          <circleGeometry args={[UNIT_RADIUS, 64]} />
+          <meshBasicMaterial
+            color={threeColor}
+            transparent
+            opacity={0.12}
+            depthWrite={false}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      )}
+
       {/* Main metallic ball */}
       {!isInvisibleSprite && <mesh
         ref={meshRef}
