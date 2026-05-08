@@ -1,4 +1,14 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+type VercelRequestLike = {
+  method?: string;
+  body?: unknown;
+};
+
+type VercelResponseLike = {
+  setHeader: (name: string, value: string) => void;
+  status: (code: number) => VercelResponseLike;
+  json: (body: unknown) => void;
+  end: () => void;
+};
 
 type EvolutionRequestBody = {
   repo?: string;
@@ -18,7 +28,7 @@ const DEFAULT_REPO = "Pierrickian/ball-rules";
 const DEFAULT_REF = "main";
 const CODEX_WORKFLOW_FILE = "issues-codex.yml";
 
-function setCorsHeaders(response: VercelResponse) {
+function setCorsHeaders(response: VercelResponseLike) {
   response.setHeader("Access-Control-Allow-Origin", "*");
   response.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   response.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -80,7 +90,7 @@ async function dispatchCodexWorkflow(params: {
   );
 }
 
-export default async function handler(request: VercelRequest, response: VercelResponse) {
+export default async function handler(request: VercelRequestLike, response: VercelResponseLike) {
   setCorsHeaders(response);
 
   if (request.method === "OPTIONS") {
@@ -102,7 +112,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
   }
 
   try {
-    const payload = request.body as EvolutionRequestBody;
+    const payload = (request.body ?? {}) as EvolutionRequestBody;
     const repoFullName = payload.repo?.trim() || DEFAULT_REPO;
     const { owner, name } = parseRepo(repoFullName);
     const title = payload.title?.trim() || "Demande d'évolution depuis le jeu";
