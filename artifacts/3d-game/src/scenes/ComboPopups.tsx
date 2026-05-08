@@ -1,7 +1,7 @@
 // ============================================================
 // ComboPopups — floating player-shot combo labels
 //
-// Shows short-lived world-anchored DOM labels for notable player
+// Shows short-lived centered DOM labels for notable player
 // shot combos emitted by the engine.
 // ============================================================
 
@@ -11,14 +11,25 @@ import type { GameEvent } from "../engine/types";
 
 const POPUP_DURATION_MS = 1400;
 
+const COMBO_FONT_SIZES: Record<number, number> = {
+  1: 24,
+  2: 30,
+  3: 36,
+  4: 44,
+  5: 54,
+};
+
+function comboFontSize(tier: number): number {
+  return COMBO_FONT_SIZES[Math.max(1, Math.min(5, tier))] ?? COMBO_FONT_SIZES[1];
+}
+
 type ComboEvent = Extract<GameEvent, { type: "combo_popup" }>;
 
 interface ComboPopup {
   id: string;
-  x: number;
-  y: number;
   label: string;
   streak: number;
+  tier: number;
 }
 
 interface ComboPopupsProps {
@@ -40,10 +51,9 @@ export function ComboPopups({ events }: ComboPopupsProps) {
       seqRef.current += 1;
       fresh.push({
         id: `${combo.projectileId}-${seqRef.current}`,
-        x: combo.position.x,
-        y: combo.position.y,
         label: combo.label,
         streak: combo.streak,
+        tier: combo.tier,
       });
     }
     if (fresh.length === 0) return;
@@ -71,7 +81,7 @@ export function ComboPopups({ events }: ComboPopupsProps) {
       {popups.map((p) => (
         <Html
           key={p.id}
-          position={[p.x, 1.7, -p.y]}
+          position={[0, 1.7, 0]}
           center
           zIndexRange={[360, 0]}
           occlude={false}
@@ -80,27 +90,21 @@ export function ComboPopups({ events }: ComboPopupsProps) {
         >
           <div
             style={{
-              minWidth: 120,
-              padding: "8px 12px",
-              borderRadius: 14,
-              border: "1px solid rgba(255, 255, 255, 0.65)",
-              background: "linear-gradient(180deg, rgba(20, 28, 54, 0.9), rgba(7, 10, 24, 0.78))",
-              boxShadow: "0 0 20px rgba(255, 225, 128, 0.5), inset 0 0 10px rgba(255, 255, 255, 0.12)",
-              color: "#ffe680",
+              padding: "4px 10px",
+              background: "rgba(7, 10, 24, 0.28)",
+              color: "rgba(255, 230, 128, 0.94)",
               fontFamily: "'Courier New', monospace",
               fontWeight: "bold",
               textAlign: "center",
               letterSpacing: 1,
-              textShadow: "0 0 8px rgba(255, 211, 77, 0.95), 0 2px 2px #000",
+              textShadow: "0 0 10px rgba(255, 211, 77, 0.95), 0 2px 2px #000",
               whiteSpace: "nowrap",
               animation: `ballGameComboPopup ${POPUP_DURATION_MS}ms ease-out forwards`,
               userSelect: "none",
             }}
           >
-            <div style={{ fontSize: 20, lineHeight: 1.05 }}>{p.label}</div>
-            {p.streak > 1 && (
-              <div style={{ fontSize: 16, marginTop: 3, color: "#9de0ff" }}>x{p.streak}</div>
-            )}
+            <div style={{ fontSize: comboFontSize(p.tier), lineHeight: 1.05 }}>{p.label}</div>
+            <div style={{ fontSize: 16, marginTop: 3, color: "rgba(157, 224, 255, 0.9)" }}>x{p.streak}</div>
           </div>
         </Html>
       ))}
