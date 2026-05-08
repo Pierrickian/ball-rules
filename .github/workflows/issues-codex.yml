@@ -25,10 +25,9 @@ jobs:
               repo: context.repo.repo,
               issue_number: issueNumber,
               body: `@codex implement this issue.
-
-Read replit.md first.
-Update release_notes.
-Create a branch from latest main.
-Open a PR against main.
-Mention: Closes #${issueNumber}`
+              Read replit.md first.
+              Update release_notes.
+              Create a branch from latest main.
+              Open a PR against main.
+              Mention: Closes #${issueNumber}`
             });
