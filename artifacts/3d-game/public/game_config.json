@@ -737,6 +737,7 @@
     ]
   },
   "release_notes": [
+    "Formulaire Evolution simplifié sans préfixe technique",
     "Retry Medium applique +2 PV",
     "Curseur PV synchronisé avec la difficulté",
     "Difficulté Medium sélectionnée par défaut",
@@ -755,8 +756,7 @@
     "Auto-fire mega + retry corrigé et HUD recentré",
     "Retry recharge temps/munitions + menu au premier plan",
     "Retry fiabilisé et menu accessible pendant échec",
-    "Timer + munitions par niveau avec écran Retry",
-    "Impulsion hôpital inversée: le tir le pousse correctement"
+    "Timer + munitions par niveau avec écran Retry"
   ],
   "debug": {
     "show_velocities": false,

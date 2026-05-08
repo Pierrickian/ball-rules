@@ -52,16 +52,13 @@ export function RetryOverlay({
   };
 
   const requestTitle = () => {
-    const firstLine = requestText.trim().split("\n").find((line) => line.trim().length > 0)?.replace(/^\/param\s*/i, "").trim();
+    const firstLine = requestText.trim().split("\n").find((line) => line.trim().length > 0)?.trim();
     if (!firstLine) return requestConfig.default_title;
     return firstLine.length > 72 ? `${firstLine.slice(0, 69)}…` : firstLine;
   };
 
   const buildEvolutionPrompt = () => {
     const trimmed = requestText.trim() || "<texte dicté par le joueur>";
-    const paramLine = trimmed.startsWith("/param")
-      ? `Paramètres custom joueur : niveau ${levelNumber}, difficulté ${difficulty}, ajustement relatif PV ${hpAdjustment >= 0 ? "+" : ""}${hpAdjustment}.`
-      : null;
     return [
       "Demande joueur depuis le jeu :",
       "",
@@ -74,14 +71,13 @@ export function RetryOverlay({
       "",
       "Demande :",
       trimmed,
-      paramLine,
       "",
       "Livrable :",
       "- créer une branche",
       "- modifier le jeu",
       "- tester",
       "- ouvrir une PR",
-    ].filter(Boolean).join("\n");
+    ].join("\n");
   };
 
   const startVoiceInput = () => {
@@ -231,7 +227,7 @@ export function RetryOverlay({
                 value={requestText}
                 onChange={(event) => setRequestText(event.currentTarget.value)}
                 onClick={(event) => event.stopPropagation()}
-                placeholder="Décris l'évolution voulue. /param ajoute niveau, difficulté et PV."
+                placeholder="Décris l'évolution voulue."
                 rows={4}
                 style={{ width: "100%", boxSizing: "border-box", borderRadius: 8, border: "1px solid rgba(30,144,255,0.35)", background: "rgba(0,0,0,0.45)", color: "#eaf4ff", padding: 10, fontFamily: "inherit", resize: "vertical" }}
               />

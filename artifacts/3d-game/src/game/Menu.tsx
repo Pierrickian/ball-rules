@@ -714,20 +714,19 @@ function EvolutionMenu({
   hpAdjustment: number;
   onBack: () => void;
 }) {
-  const [requestText, setRequestText] = useState("/param ");
+  const [requestText, setRequestText] = useState("");
   const [voiceActive, setVoiceActive] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<EvolutionSubmitStatus>({ phase: "idle" });
   const requestConfig = { ...DEFAULT_EVOLUTION_REQUEST, ...evolutionRequest };
 
   const requestTitle = () => {
-    const firstLine = requestText.trim().split("\n").find((line) => line.trim().length > 0)?.replace(/^\/param\s*/i, "").trim();
+    const firstLine = requestText.trim().split("\n").find((line) => line.trim().length > 0)?.trim();
     if (!firstLine) return requestConfig.default_title;
     return firstLine.length > 72 ? `${firstLine.slice(0, 69)}…` : firstLine;
   };
 
   const buildEvolutionPrompt = () => {
-    const trimmed = requestText.trim() || "/param <demande du joueur>";
-    const hasParam = trimmed.startsWith("/param");
+    const trimmed = requestText.trim() || "<demande du joueur>";
     return [
       "Demande joueur depuis le menu Evolution :",
       "",
@@ -740,7 +739,6 @@ function EvolutionMenu({
       "",
       "Demande :",
       trimmed,
-      hasParam ? `Paramètres custom joueur : niveau ${currentLevelNumber}, difficulté ${difficulty}, ajustement relatif PV ${hpAdjustment >= 0 ? "+" : ""}${hpAdjustment}.` : `Paramètres : niveau ${currentLevelNumber}, difficulté ${difficulty}, ajustement PV ${hpAdjustment >= 0 ? "+" : ""}${hpAdjustment}.`,
       "",
       "Livrable : modifier le jeu, tester, ouvrir une PR.",
     ].join("\n");
@@ -798,12 +796,12 @@ function EvolutionMenu({
         <div style={{ fontSize: 18, fontWeight: "bold", color: "#1e90ff" }}>Demande d'amélioration</div>
       </div>
       <div style={{ fontSize: 12, color: "#8aa6cc", lineHeight: 1.5 }}>
-        Le préfixe <code>/param</code> annexe automatiquement le niveau {currentLevelNumber}, la difficulté {difficulty} et l'ajustement PV {hpAdjustment >= 0 ? "+" : ""}{hpAdjustment}.
+        Décris clairement l'amélioration souhaitée : comportement attendu, menu concerné ou règle à modifier.
       </div>
       <textarea
         value={requestText}
         onChange={(event) => setRequestText(event.currentTarget.value)}
-        placeholder="/param Décris l'évolution voulue…"
+        placeholder="Décris l'évolution voulue…"
         rows={6}
         style={{ width: "100%", boxSizing: "border-box", borderRadius: 10, border: "1px solid rgba(30,144,255,0.35)", background: "rgba(0,0,0,0.45)", color: "#eaf4ff", padding: 12, fontFamily: "inherit", resize: "vertical" }}
       />
