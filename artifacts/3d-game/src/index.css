@@ -23,6 +23,13 @@ html, body, #root {
   100% { opacity: 0;   transform: translate(-50%, -48px) scale(0.95); }
 }
 
+@keyframes ballGameComboPopup {
+  0%   { opacity: 0;   transform: translate(-50%, 8px) scale(0.55) rotate(-2deg); }
+  12%  { opacity: 1;   transform: translate(-50%, -8px) scale(1.18) rotate(1deg); }
+  50%  { opacity: 1;   transform: translate(-50%, -28px) scale(1.0) rotate(0deg); }
+  100% { opacity: 0;   transform: translate(-50%, -62px) scale(0.9) rotate(2deg); }
+}
+
 .fx-preview-panel {
   border: 1px solid rgba(88, 152, 255, 0.35);
   border-radius: 10px;

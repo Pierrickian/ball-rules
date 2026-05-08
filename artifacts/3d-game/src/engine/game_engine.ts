@@ -100,6 +100,8 @@ export class GameEngine {
   private hospital: { x: number; y: number; vx: number; vy: number; diameter: number; hp: number; maxHp: number; healPerContact: number; contactIds: Set<string> } | null = null;
   private difficultyBonusHp = 0;
   private hpAdjustment = 0;
+  private lastComboType: string | null = null;
+  private comboStreak = 0;
 
   constructor(config: GameConfig, initialLevelIndex = 0) {
     this.config = config;
@@ -292,6 +294,10 @@ export class GameEngine {
       remainingWallBounces: shotCfg.wall_bounces,
       lifetime: 0,
       damagedIds: new Map<string, number>(),
+      hitCount: 0,
+      killCount: 0,
+      comboPositionSum: { x: 0, y: 0 },
+      comboFinalized: false,
       colorTint: shotCfg.color_tint ?? null,
       effect: shotKind === 'mega' ? 'nova' : shotKind === 'heavy' ? 'shock' : 'pulse',
     };
@@ -1294,12 +1300,17 @@ export class GameEngine {
       remainingWallBounces: number;
       lifetime: number;
       damagedIds: Map<string, number>;
+      hitCount?: number;
+      killCount?: number;
+      comboPositionSum?: Vec2;
+      comboFinalized?: boolean;
     };
 
     // Lifetime safety
     meta.lifetime += delta;
     const maxLife = ctx.config.rule_parameters.player_projectile?.max_lifetime_seconds ?? 4.0;
     if (meta.lifetime > maxLife) {
+      this.finalizePlayerProjectileCombo(ball, ctx);
       ctx.despawnBall(ball, "projectile_expired");
       return;
     }
@@ -1326,6 +1337,7 @@ export class GameEngine {
         meta.remainingWallBounces--;
       } else {
         // No bounces left → stop / despawn
+        this.finalizePlayerProjectileCombo(ball, ctx);
         ctx.despawnBall(ball, "projectile_hit_wall");
         return;
       }
@@ -1348,7 +1360,13 @@ export class GameEngine {
         const hitImmunitySeconds = this.getProjectileHitImmunitySeconds(ctx.config);
         meta.damagedIds.set(other.id, this.elapsedTime + hitImmunitySeconds);
         ctx.events.push({ type: "collision", ballAId: ball.id, ballBId: other.id });
-        ctx.damageBall(other, meta.damage, "killed_by_player");
+        const killed = ctx.damageBall(other, meta.damage, "killed_by_player");
+        meta.hitCount = (meta.hitCount ?? 0) + 1;
+        meta.killCount = (meta.killCount ?? 0) + (killed ? 1 : 0);
+        const comboPositionSum = meta.comboPositionSum ?? { x: 0, y: 0 };
+        comboPositionSum.x += other.position.x;
+        comboPositionSum.y += other.position.y;
+        meta.comboPositionSum = comboPositionSum;
         this.trySplitRedAfterNonLethalHit(other, hpBeforeHit, ball.id, ctx);
 
         // Bouncy_surface targets (e.g. blue) act as bumpers for ALL three
@@ -1364,13 +1382,69 @@ export class GameEngine {
 
         if (!meta.passesThroughBalls) {
           // Light shot: stop after first ball contact (non-bouncy target).
+          this.finalizePlayerProjectileCombo(ball, ctx);
           ctx.despawnBall(ball, "projectile_hit_ball");
           return;
         }
       }
     }
 
-    if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "projectile_out_of_bounds");
+    if (this.isOutOfBounds(ball, ctx.arena)) {
+      this.finalizePlayerProjectileCombo(ball, ctx);
+      ctx.despawnBall(ball, "projectile_out_of_bounds");
+    }
+  }
+
+  private finalizePlayerProjectileCombo(ball: Ball, ctx: RuleContext): void {
+    const meta = ball.metadata as {
+      hitCount?: number;
+      killCount?: number;
+      comboPositionSum?: Vec2;
+      comboFinalized?: boolean;
+    };
+    if (meta.comboFinalized) return;
+    meta.comboFinalized = true;
+
+    const hitCount = meta.hitCount ?? 0;
+    const killCount = meta.killCount ?? 0;
+    let comboType: string | null = null;
+    let label: string | null = null;
+
+    if (killCount >= 5) {
+      comboType = "kill_5_plus";
+      label = "god is playing!";
+    } else if (killCount === 4) {
+      comboType = "kill_4";
+      label = "awesome";
+    } else if (killCount === 3) {
+      comboType = "kill_3";
+      label = "impressive";
+    } else if (killCount === 2) {
+      comboType = "kill_2";
+      label = "amazing";
+    } else if (killCount === 0 && hitCount >= 2) {
+      comboType = "multi_nonlethal";
+      label = "great";
+    }
+
+    if (!comboType || !label) {
+      this.lastComboType = null;
+      this.comboStreak = 0;
+      return;
+    }
+
+    this.comboStreak = this.lastComboType === comboType ? this.comboStreak + 1 : 1;
+    this.lastComboType = comboType;
+
+    const sum = meta.comboPositionSum ?? { ...ball.position };
+    const divisor = Math.max(1, hitCount);
+    ctx.events.push({
+      type: "combo_popup",
+      projectileId: ball.id,
+      label,
+      streak: this.comboStreak,
+      position: { x: sum.x / divisor, y: sum.y / divisor },
+    });
   }
 
   private trySplitRedAfterNonLethalHit(target: Ball, hpBeforeHit: number, sourceProjectileId: string, ctx: RuleContext): void {
