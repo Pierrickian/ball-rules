@@ -15,12 +15,15 @@ const DEFAULT_EVOLUTION_REQUEST: EvolutionRequestConfig = {
   default_title: "Demande d'évolution depuis le jeu",
 };
 
+const FALLBACK_DIFFICULTY_HP_PRESETS: Record<Difficulty, number> = { easy: 0, medium: 2, hard: 6 };
+
 export function RetryOverlay({
   reason,
   levelNumber,
   evolutionRequest,
   difficulty,
   hpAdjustment,
+  difficultyHpPresets,
   onDifficultyChange,
   onHpAdjustmentChange,
   onRetry,
@@ -30,6 +33,7 @@ export function RetryOverlay({
   evolutionRequest?: EvolutionRequestConfig;
   difficulty: Difficulty;
   hpAdjustment: number;
+  difficultyHpPresets?: Partial<Record<Difficulty, number>>;
   onDifficultyChange: (difficulty: Difficulty) => void;
   onHpAdjustmentChange: (adjustment: number) => void;
   onRetry: () => void;
@@ -40,6 +44,12 @@ export function RetryOverlay({
   const [voiceActive, setVoiceActive] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<EvolutionSubmitStatus>({ phase: "idle" });
   const requestConfig = { ...DEFAULT_EVOLUTION_REQUEST, ...evolutionRequest };
+  const difficultyHpFor = (value: Difficulty) => difficultyHpPresets?.[value] ?? FALLBACK_DIFFICULTY_HP_PRESETS[value];
+
+  const applyDifficulty = (value: Difficulty) => {
+    onDifficultyChange(value);
+    onHpAdjustmentChange(difficultyHpFor(value));
+  };
 
   const requestTitle = () => {
     const firstLine = requestText.trim().split("\n").find((line) => line.trim().length > 0)?.replace(/^\/param\s*/i, "").trim();
@@ -141,7 +151,7 @@ export function RetryOverlay({
     return (
       <button
         key={value}
-        onClick={(event) => { event.stopPropagation(); onDifficultyChange(value); }}
+        onClick={(event) => { event.stopPropagation(); applyDifficulty(value); }}
         style={{
           border: `1px solid ${active ? "#ffe66d" : "rgba(255,255,255,0.28)"}`,
           background: active ? "linear-gradient(180deg, #ffe66d, #ff9f1c)" : "rgba(0,0,0,0.42)",
@@ -155,7 +165,8 @@ export function RetryOverlay({
           boxShadow: active ? "0 0 18px rgba(255,230,109,0.58)" : "none",
         }}
       >
-        {value}
+        <span>{value}</span>
+        <span style={{ display: "block", fontSize: 10, marginTop: 3 }}>{difficultyHpFor(value) >= 0 ? "+" : ""}{difficultyHpFor(value)} PV</span>
       </button>
     );
   };

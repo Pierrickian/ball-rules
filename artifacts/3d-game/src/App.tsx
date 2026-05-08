@@ -406,6 +406,7 @@ function App() {
           evolutionRequest={config.evolution_request}
           difficulty={difficulty}
           hpAdjustment={hpAdjustment}
+          difficultyHpPresets={config.gameplay_controls.difficulty_hp?.presets}
           onDifficultyChange={setDifficulty}
           onHpAdjustmentChange={setHpAdjustment}
           onRetry={reset}
