@@ -19,7 +19,7 @@ type MenuView = "main" | "evolution" | "rules" | "balls" | "terrain" | "player_c
 const APK_DOWNLOAD_URL = "https://github.com/Pierrickian/ball-rules/releases/latest/download/ball-rules.apk";
 
 type Difficulty = "easy" | "medium" | "hard";
-const FALLBACK_DIFFICULTY_HP_PRESETS: Record<Difficulty, number> = { easy: 0, medium: 2, hard: 6 };
+const FALLBACK_DIFFICULTY_HP_PRESETS: Record<Difficulty, number> = { easy: 0, medium: 3, hard: 6 };
 
 function difficultyHpSettings(config: GameConfig) {
   return config.gameplay_controls.difficulty_hp ?? {

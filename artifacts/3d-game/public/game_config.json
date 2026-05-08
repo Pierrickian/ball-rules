@@ -737,9 +737,10 @@
     ]
   },
   "release_notes": [
+    "Retry propose rejouer ou passer",
     "Difficulté Medium passe à +3 PV",
     "Formulaire Evolution simplifié sans préfixe technique",
-    "Retry Medium applique le preset PV",
+    "Difficulté réglable depuis le menu",
     "Curseur PV synchronisé avec la difficulté",
     "Difficulté Medium sélectionnée par défaut",
     "Règles du jeu rapprochées du terrain",
@@ -749,14 +750,13 @@
     "Téléchargement APK depuis le menu",
     "Menu Evolution scrollable et simplifié",
     "Evolution ouvre une issue suivie",
-    "Retry paramétrable avec Evolution",
+    "Evolution paramétrable depuis menu",
     "Auto-fire corrigé + rangée de boutons basse remontée",
     "Auto-fire continu synchronisé sur seuil heavy→mega",
     "UI fine: boutons bas remontés et compteurs décalés",
     "UI: boutons lock/homing/auto alignés + jauge visible",
     "Auto-fire mega + retry corrigé et HUD recentré",
-    "Retry recharge temps/munitions + menu au premier plan",
-    "Retry fiabilisé et menu accessible pendant échec"
+    "Retry recharge temps/munitions + menu au premier plan"
   ],
   "debug": {
     "show_velocities": false,
