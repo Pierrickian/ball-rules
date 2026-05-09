@@ -123,6 +123,8 @@ export interface GameState {
   currentLevelId: number;
   currentLevelName: string;
   bossIntroActive?: boolean;
+  bossHintActive?: boolean;
+  bossHintMessage?: string;
   isBossPhase?: boolean;
   timerSecondsRemaining?: number;
   ammoRemaining?: number;
@@ -158,6 +160,11 @@ export interface LevelBossConfig {
   spawn_spacing_x?: number;
   spawn_position?: BossSpawnPosition;
   dark_green_heal_bonus_percent?: number;
+  defeat_hint_message?: string;
+  defeat_hint_seconds?: number;
+  defeat_rule?: "grenade_last_hit";
+  non_matching_kill_recharge_hp?: number;
+  reward_grenades_on_spawn?: number;
 }
 
 

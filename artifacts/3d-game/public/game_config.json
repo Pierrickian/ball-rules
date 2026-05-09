@@ -601,7 +601,12 @@
           "launcher_size": "large",
           "launcher_diameter_multiplier": 2.2,
           "intro_overlay_seconds": 1.6,
-          "horizontal_speed": 10
+          "horizontal_speed": 10,
+          "defeat_hint_message": "Defeat with grenade",
+          "defeat_hint_seconds": 2,
+          "defeat_rule": "grenade_last_hit",
+          "non_matching_kill_recharge_hp": 10,
+          "reward_grenades_on_spawn": 1
         }
       },
       {
@@ -781,6 +786,7 @@
     ]
   },
   "release_notes": [
+    "Boss niveau 1 vulnérable aux grenades",
     "Niveau violet magnétique ajouté",
     "Combos centrés et multiplicateur continu",
     "Popups de combos pour tirs remarquables",
@@ -799,8 +805,7 @@
     "Evolution ouvre une issue suivie",
     "Evolution paramétrable depuis menu",
     "Auto-fire corrigé + rangée de boutons basse remontée",
-    "Auto-fire continu synchronisé sur seuil heavy→mega",
-    "UI fine: boutons bas remontés et compteurs décalés"
+    "Auto-fire continu synchronisé sur seuil heavy→mega"
   ],
   "debug": {
     "show_velocities": false,

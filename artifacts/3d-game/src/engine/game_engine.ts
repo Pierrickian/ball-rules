@@ -105,6 +105,8 @@ export class GameEngine {
   private bossSpawned = false;
   private bossDefeated = false;
   private bossIntroRemaining = 0;
+  private bossHintRemaining = 0;
+  private bossHintMessage = "";
   private hospital: { x: number; y: number; vx: number; vy: number; diameter: number; hp: number; maxHp: number; healPerContact: number; contactIds: Set<string> } | null = null;
   private difficultyBonusHp = 0;
   private hpAdjustment = 0;
@@ -169,6 +171,8 @@ export class GameEngine {
       currentLevelId: lvl?.id ?? 0,
       currentLevelName: lvl?.name ?? "",
       bossIntroActive: this.bossIntroRemaining > 0,
+      bossHintActive: this.bossHintRemaining > 0 && this.bossHintMessage.length > 0,
+      bossHintMessage: this.bossHintRemaining > 0 ? this.bossHintMessage : "",
       isBossPhase: this.isBossPhase(),
       hospital: this.hospital ? {
         isActive: this.hospital.hp > 0,
@@ -426,6 +430,7 @@ export class GameEngine {
     // Spawn level boss when regular wave is fully cleared.
     this.maybeSpawnLevelBoss(arena, delta);
     this.updateHospitalMotion(delta, arena);
+    if (this.bossHintRemaining > 0) this.bossHintRemaining = Math.max(0, this.bossHintRemaining - delta);
 
     // Update freeze timers
     this.balls.forEach((ball) => {
@@ -585,6 +590,19 @@ export class GameEngine {
       remainingHp: ball.hp,
       position: { ...ball.position },
     }, this.isInsideUpdate ? "update" : "external");
+    if (died && this.shouldPreventBossDeath(ball, reason)) {
+      const rechargeHp = Math.max(1, Number(ball.metadata.nonMatchingKillRechargeHp ?? 10));
+      ball.hp = Math.min(ball.maxHp, rechargeHp);
+      this.emitEvent({
+        type: "ball_healed",
+        ballId: ball.id,
+        amount: ball.hp,
+        remainingHp: ball.hp,
+        position: { ...ball.position },
+      }, this.isInsideUpdate ? "update" : "external");
+      this.syncBossDiameterWithHp(ball);
+      return false;
+    }
     if (died) {
       ball.isAlive = false;
       this.emitEvent({ type: "ball_despawned", ballId: ball.id, reason, position: { ...ball.position }, velocity: { ...ball.velocity }, effect: String(ball.metadata?.effect ?? "") }, this.isInsideUpdate ? "update" : "external");
@@ -595,6 +613,13 @@ export class GameEngine {
       ball.diameter = this.computeHpGrowDiameter(ball);
     }
     return died;
+  }
+
+
+  private shouldPreventBossDeath(ball: Ball, reason: string): boolean {
+    if (!ball.isBoss) return false;
+    if (ball.metadata.defeatRule !== "grenade_last_hit") return false;
+    return reason !== "killed_by_grenade";
   }
 
   // --------------------------------------------------------
@@ -933,6 +958,10 @@ export class GameEngine {
       if (typeof bossHealBonus === "number" && spawnedBoss.color === "dark_green") {
         spawnedBoss.metadata.hpGrowHealMultiplier = Math.max(0, 1 + bossHealBonus / 100);
       }
+      if (boss.defeat_rule) spawnedBoss.metadata.defeatRule = boss.defeat_rule;
+      if (typeof boss.non_matching_kill_recharge_hp === "number") {
+        spawnedBoss.metadata.nonMatchingKillRechargeHp = boss.non_matching_kill_recharge_hp;
+      }
       const bossMul = boss.diameter_multiplier ?? 1;
       if (bossMul > 0) {
         spawnedBoss.baseDiameter *= bossMul;
@@ -941,6 +970,12 @@ export class GameEngine {
       spawnedIds.push(spawnedBoss.id);
     }
     this.bossSpawned = true;
+    const rewardGrenades = Math.max(0, Math.floor(boss.reward_grenades_on_spawn ?? 0));
+    if (rewardGrenades > 0) this.grenadesLeft += rewardGrenades;
+    if (boss.defeat_hint_message) {
+      this.bossHintMessage = boss.defeat_hint_message;
+      this.bossHintRemaining = Math.max(0, boss.defeat_hint_seconds ?? 2);
+    }
 
     launcher.isAlive = false;
     this.pendingEvents.push({ type: "orange_launched", launcherId: launcher.id, launchedId: spawnedIds[0] });

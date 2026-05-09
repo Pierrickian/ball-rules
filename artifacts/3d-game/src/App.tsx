@@ -348,6 +348,14 @@ function App() {
         </div>
       )}
 
+      {gameState.bossHintActive && gameState.bossHintMessage && (
+        <div style={{ position:"absolute", inset:0, display:"grid", placeItems:"center", pointerEvents:"none", zIndex:11 }}>
+          <div style={{ marginTop:118, fontSize:24, fontWeight:800, letterSpacing:1.5, color:"#ffe8a3", textShadow:"0 0 16px #000, 0 0 10px #ff8c00", textTransform:"uppercase" }}>
+            {gameState.bossHintMessage}
+          </div>
+        </div>
+      )}
+
       {/* HUD */}
       <button
         onClick={() => toggleGrenade(lastDirectionRef.current, grenadeEffect)}

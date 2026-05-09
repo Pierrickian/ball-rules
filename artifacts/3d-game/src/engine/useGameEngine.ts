@@ -212,6 +212,7 @@ export function useGameEngine(): UseGameEngineResult {
           updateGrenadeZones(engineRef.current, grenadeZonesRef.current, delta);
         }
         const visibleState = engineRef.current.getState();
+        setGrenadesLeft(engineRef.current.getGrenadesLeft());
         const bossPhase = engineRef.current.isBossPhase();
         if (cfg && !bossPhase && !retryReasonRef.current && !retryResetInProgressRef.current && !visibleState.sessionCleared) {
           timerTickAccumulatorRef.current += delta;
