@@ -787,6 +787,7 @@
     ]
   },
   "release_notes": [
+    "Bouton ajout vers Evolution guidée",
     "Retry boss et grenades mieux guidés",
     "Boss niveau 1 vulnérable aux grenades",
     "Niveau violet magnétique ajouté",
@@ -805,8 +806,7 @@
     "Téléchargement APK depuis le menu",
     "Menu Evolution scrollable et simplifié",
     "Evolution ouvre une issue suivie",
-    "Evolution paramétrable depuis menu",
-    "Auto-fire corrigé + rangée de boutons basse remontée"
+    "Evolution paramétrable depuis menu"
   ],
   "debug": {
     "show_velocities": false,

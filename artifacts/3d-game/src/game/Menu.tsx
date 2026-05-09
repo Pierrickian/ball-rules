@@ -9,7 +9,7 @@
 //   7. Notes de version     — recent release notes
 // ============================================================
 
-import { useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { ExplosionSprite } from "../scenes/ExplosionSprite";
 import type { BallColor, EvolutionRequestConfig, GameConfig } from "../engine/types";
@@ -56,6 +56,7 @@ interface MenuProps {
   hpAdjustment: number;
   onHpAdjustmentChange: (adjustment: number) => void;
   evolutionRequest?: EvolutionRequestConfig;
+  evolutionInitialText?: string;
   currentLevelNumber: number;
   /** Index 0-based of the currently active level, or -1 if no levels are configured. */
   currentLevelIndex: number;
@@ -707,16 +708,19 @@ function EvolutionMenu({
   difficulty,
   hpAdjustment,
   onBack,
+  initialText = "",
 }: {
   evolutionRequest?: EvolutionRequestConfig;
   currentLevelNumber: number;
   difficulty: Difficulty;
   hpAdjustment: number;
   onBack: () => void;
+  initialText?: string;
 }) {
-  const [requestText, setRequestText] = useState("");
+  const [requestText, setRequestText] = useState(initialText);
   const [voiceActive, setVoiceActive] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<EvolutionSubmitStatus>({ phase: "idle" });
+  useEffect(() => { setRequestText(initialText); }, [initialText]);
   const requestConfig = { ...DEFAULT_EVOLUTION_REQUEST, ...evolutionRequest };
 
   const requestTitle = () => {
@@ -1625,6 +1629,7 @@ export function Menu({
   hpAdjustment,
   onHpAdjustmentChange,
   evolutionRequest,
+  evolutionInitialText,
   currentLevelNumber,
   currentLevelIndex,
   ballEffect,
@@ -1634,7 +1639,7 @@ export function Menu({
   debugExplosionTexture,
   onDebugExplosionTextureChange,
 }: MenuProps) {
-  const [view, setView] = useState<MenuView>("main");
+  const [view, setView] = useState<MenuView>(evolutionInitialText ? "evolution" : "main");
 
   return (
     <div style={OVERLAY} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
@@ -1655,7 +1660,7 @@ export function Menu({
           onClose={onClose}
         />
       )}
-      {view === "evolution"      && <EvolutionMenu evolutionRequest={evolutionRequest} currentLevelNumber={currentLevelNumber} difficulty={difficulty} hpAdjustment={hpAdjustment} onBack={() => setView("main")} />}
+      {view === "evolution"      && <EvolutionMenu evolutionRequest={evolutionRequest} initialText={evolutionInitialText} currentLevelNumber={currentLevelNumber} difficulty={difficulty} hpAdjustment={hpAdjustment} onBack={() => setView("main")} />}
       {view === "rules"          && <RulesView      config={config} onBack={() => setView("main")} />}
       {view === "levels"         && <LevelsCarousel config={config} currentLevelIndex={currentLevelIndex} onLevelSelect={onLevelSelect} onLevelWeightsChange={onLevelWeightsChange} onTerrainDistributionPlay={onTerrainDistributionPlay} onClose={onClose} onBack={() => setView("main")} />}
       {view === "boss"           && <BossMenu config={config} onPlayBossRush={onPlayBossRush} onClose={onClose} onBack={() => setView("main")} />}

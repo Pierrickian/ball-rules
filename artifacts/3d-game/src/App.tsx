@@ -43,6 +43,8 @@ function App() {
   const [grenadeEffect, setGrenadeEffect] = useState(() => localStorage.getItem("bg_effect_grenade") ?? "spark");
   const [debugExplosionTexture, setDebugExplosionTexture] = useState(() => localStorage.getItem("bg_debug_explosion_texture") === "1");
   const [autoFire, setAutoFire] = useState(false);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [evolutionInitialText, setEvolutionInitialText] = useState("");
   const [grenadeAwardPopups, setGrenadeAwardPopups] = useState<Array<{ id: number; amount: number }>>([]);
   const [grenadeFlashKey, setGrenadeFlashKey] = useState(0);
   useEffect(() => { localStorage.setItem("bg_effect_ball", ballEffect); }, [ballEffect]);
@@ -79,8 +81,14 @@ function App() {
   useEffect(() => { lockedBallIdRef.current = lockedBallId; }, [lockedBallId]);
   useEffect(() => { homingOnRef.current = homingOn; }, [homingOn]);
 
-  const handleMenuOpen = () => { pause(); setMenuOpen(true); };
-  const handleMenuClose = () => { setMenuOpen(false); resume(); };
+  const handleMenuOpen = () => { setEvolutionInitialText(""); setAddMenuOpen(false); pause(); setMenuOpen(true); };
+  const handleMenuClose = () => { setMenuOpen(false); setEvolutionInitialText(""); resume(); };
+  const openEvolutionFromAdd = (prompt: string) => {
+    setEvolutionInitialText(prompt);
+    setAddMenuOpen(false);
+    pause();
+    setMenuOpen(true);
+  };
 
   const getDisplayMax = (): number => {
     if (!config) return 1.2;
@@ -435,6 +443,37 @@ function App() {
       >
         ↻
       </button>
+      <button
+        onClick={() => setAddMenuOpen((open) => !open)}
+        style={{ position: "absolute", top: 102, right: 12, width: 42, height: 42, zIndex: 95, pointerEvents: "all", background: "rgba(10,35,28,0.92)", color: "#d7ffec", border: "1px solid rgba(102,255,187,0.55)", borderRadius: 10, fontSize: 24, fontWeight: 900, cursor: "pointer", display:"grid", placeItems:"center" }}
+        title="Add"
+      >
+        +
+      </button>
+      {addMenuOpen && (
+        <div style={{ position:"absolute", top:102, right:62, zIndex:96, width:250, display:"flex", flexDirection:"column", gap:6, padding:8, borderRadius:12, border:"1px solid rgba(102,255,187,0.35)", background:"rgba(2,12,18,0.94)", boxShadow:"0 12px 28px rgba(0,0,0,0.45)", pointerEvents:"all" }}>
+          {[
+            ["New boss", "Create a new boss with a defeat condition"],
+            ["New ball", "Create a new ball color and its behavior"],
+            ["New level", "Create a new level with the balls you want"],
+            ["New weapon", "Create a new weapon and its damages"],
+            ["New ability", "Create a new power or skill you can use"],
+            ["New object", "Create a new object to add to a level"],
+            ["Other", "In this game, I want to..."],
+            ["New Game", "In another game, I would like to..."],
+          ].map(([label, tooltip]) => (
+            <button
+              key={label}
+              title={tooltip}
+              onClick={() => openEvolutionFromAdd(tooltip)}
+              style={{ textAlign:"left", border:"1px solid rgba(255,255,255,0.12)", borderRadius:8, background:"rgba(255,255,255,0.06)", color:"#eafff5", padding:"8px 10px", cursor:"pointer" }}
+            >
+              <div style={{ fontWeight:900 }}>{label}</div>
+              <div style={{ fontSize:11, color:"#98dcbf", marginTop:2 }}>{tooltip}</div>
+            </button>
+          ))}
+        </div>
+      )}
       <HUD
         gameState={gameState}
         config={config}
@@ -481,6 +520,7 @@ function App() {
           hpAdjustment={hpAdjustment}
           onHpAdjustmentChange={setHpAdjustment}
           evolutionRequest={config.evolution_request}
+          evolutionInitialText={evolutionInitialText}
           currentLevelNumber={gameState.currentLevelId || gameState.currentLevelIndex + 1}
           currentLevelIndex={gameState.currentLevelIndex}
           ballEffect={ballEffect}
