@@ -104,6 +104,8 @@ export type GameEvent =
   | { type: "orange_launched"; launcherId: string; launchedId: string }
   | { type: "ball_damaged"; ballId: string; amount: number; remainingHp: number; position: Vec2 }
   | { type: "ball_healed"; ballId: string; amount: number; remainingHp: number; position: Vec2 }
+  | { type: "grenade_awarded"; amount: number; reason: string }
+  | { type: "grenade_helper_flash"; reason: string }
   | { type: "player_shot"; projectileId: string; shotKind: ShotKind }
   | { type: "combo_popup"; projectileId: string; label: string; streak: number; tier: number; position: Vec2 }
   | { type: "session_clear"; launchedCount: number }
@@ -125,10 +127,11 @@ export interface GameState {
   bossIntroActive?: boolean;
   bossHintActive?: boolean;
   bossHintMessage?: string;
+  bossMasteredActive?: boolean;
   isBossPhase?: boolean;
   timerSecondsRemaining?: number;
   ammoRemaining?: number;
-  retryReason?: "timeout" | "ammo" | null;
+  retryReason?: "timeout" | "ammo" | "manual" | null;
   hospital?: {
     isActive: boolean;
     x: number;
@@ -200,6 +203,7 @@ export interface LevelEntry {
 export interface LevelsConfig {
   _description?: string;
   boss_intro_overlay_seconds?: number;
+  boss_mastered_overlay_seconds?: number;
   list: LevelEntry[];
 }
 

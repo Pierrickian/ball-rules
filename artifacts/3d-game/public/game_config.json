@@ -760,7 +760,8 @@
       }
     ],
     "boss_intro_overlay_seconds": 1.5,
-    "_limit_note": "Chaque niveau peut définir timer_seconds et ammo_count. Sans override, le runtime applique 60 secondes et 50 munitions; Retry recharge ces mêmes valeurs pour le niveau courant."
+    "_limit_note": "Chaque niveau peut définir timer_seconds et ammo_count. Sans override, le runtime applique 60 secondes et 50 munitions; Retry recharge ces mêmes valeurs pour le niveau courant.",
+    "boss_mastered_overlay_seconds": 2
   },
   "game_rules_concept": {
     "_description": "Texte de présentation des règles du jeu (affiché dans le menu).",
@@ -786,6 +787,7 @@
     ]
   },
   "release_notes": [
+    "Retry boss et grenades mieux guidés",
     "Boss niveau 1 vulnérable aux grenades",
     "Niveau violet magnétique ajouté",
     "Combos centrés et multiplicateur continu",
@@ -804,8 +806,7 @@
     "Menu Evolution scrollable et simplifié",
     "Evolution ouvre une issue suivie",
     "Evolution paramétrable depuis menu",
-    "Auto-fire corrigé + rangée de boutons basse remontée",
-    "Auto-fire continu synchronisé sur seuil heavy→mega"
+    "Auto-fire corrigé + rangée de boutons basse remontée"
   ],
   "debug": {
     "show_velocities": false,

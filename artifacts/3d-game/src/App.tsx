@@ -22,7 +22,7 @@ function App() {
   const {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
-    shoot, setCustomTerrainDistribution, setActiveLevel, setLevelWeights, playBossRush, classifyHold, toggleGrenade, grenadesLeft, setDifficulty, difficulty, setHpAdjustment, hpAdjustment,
+    shoot, setCustomTerrainDistribution, setActiveLevel, setLevelWeights, openRetryMenu, goToBoss, playBossRush, classifyHold, toggleGrenade, grenadesLeft, setDifficulty, difficulty, setHpAdjustment, hpAdjustment,
   } = useGameEngine();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -43,9 +43,25 @@ function App() {
   const [grenadeEffect, setGrenadeEffect] = useState(() => localStorage.getItem("bg_effect_grenade") ?? "spark");
   const [debugExplosionTexture, setDebugExplosionTexture] = useState(() => localStorage.getItem("bg_debug_explosion_texture") === "1");
   const [autoFire, setAutoFire] = useState(false);
+  const [grenadeAwardPopups, setGrenadeAwardPopups] = useState<Array<{ id: number; amount: number }>>([]);
+  const [grenadeFlashKey, setGrenadeFlashKey] = useState(0);
   useEffect(() => { localStorage.setItem("bg_effect_ball", ballEffect); }, [ballEffect]);
   useEffect(() => { localStorage.setItem("bg_effect_grenade", grenadeEffect); }, [grenadeEffect]);
   useEffect(() => { localStorage.setItem("bg_debug_explosion_texture", debugExplosionTexture ? "1" : "0"); }, [debugExplosionTexture]);
+  useEffect(() => {
+    for (const event of lastEvents) {
+      if (event.type === "grenade_awarded") {
+        const id = Date.now() + Math.random();
+        setGrenadeAwardPopups((prev) => [...prev, { id, amount: event.amount }]);
+        window.setTimeout(() => {
+          setGrenadeAwardPopups((prev) => prev.filter((popup) => popup.id !== id));
+        }, 900);
+      }
+      if (event.type === "grenade_helper_flash") {
+        setGrenadeFlashKey((prev) => prev + 1);
+      }
+    }
+  }, [lastEvents]);
   // Refs that mirror UI state so window-level listeners (installed once at
   // mount) always read the latest values without re-subscribing.
   const menuOpenRef = useRef(menuOpen);
@@ -357,12 +373,32 @@ function App() {
       )}
 
       {/* HUD */}
+      <style>{`
+        @keyframes grenade-helper-flash {
+          0%, 100% { transform: scale(1); box-shadow: 0 0 0 rgba(255, 214, 102, 0); }
+          50% { transform: scale(1.16); box-shadow: 0 0 24px rgba(255, 214, 102, 0.95), 0 0 42px rgba(255, 122, 0, 0.8); }
+        }
+        @keyframes grenade-award-float {
+          0% { opacity: 0; transform: translateY(8px) scale(0.8); }
+          20% { opacity: 1; transform: translateY(0) scale(1.05); }
+          100% { opacity: 0; transform: translateY(-34px) scale(1); }
+        }
+      `}</style>
       <button
+        key={`grenade-${grenadeFlashKey}`}
         onClick={() => toggleGrenade(lastDirectionRef.current, grenadeEffect)}
-        style={{position:"absolute", right:16, bottom:140, width:56, height:56, borderRadius:"50%", border:"2px solid #ffcc66", background:"radial-gradient(circle at 30% 30%, #667, #223)", color:"#fff", zIndex:12, fontWeight:"bold"}}
+        style={{position:"absolute", right:16, bottom:140, width:56, height:56, borderRadius:"50%", border:"2px solid #ffcc66", background:"radial-gradient(circle at 30% 30%, #667, #223)", color:"#fff", zIndex:12, fontWeight:"bold", animation: grenadeFlashKey > 0 ? "grenade-helper-flash 0.35s ease-in-out 4" : undefined}}
       >
         💣 {grenadesLeft}
       </button>
+      {grenadeAwardPopups.map((popup, index) => (
+        <div
+          key={popup.id}
+          style={{ position:"absolute", right:28, bottom:200 + index * 18, zIndex:13, pointerEvents:"none", color:"#ffed9a", fontWeight:900, fontSize:22, textShadow:"0 0 10px #000, 0 0 12px #ff9f1c", animation:"grenade-award-float 0.9s ease-out forwards" }}
+        >
+          +{popup.amount}
+        </div>
+      ))}
       <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", bottom: 52, display: "flex", gap: 8, zIndex: 12 }}>
         <button
           onClick={() => setLockOn((v) => !v)}
@@ -392,6 +428,13 @@ function App() {
       >
         ☰
       </button>
+      <button
+        onClick={openRetryMenu}
+        style={{ position: "absolute", top: 54, right: 12, width: 42, height: 42, zIndex: 95, pointerEvents: "all", background: "rgba(20,10,35,0.92)", color: "#ffe6f0", border: "1px solid rgba(255,77,122,0.55)", borderRadius: 10, fontSize: 20, cursor: "pointer", display:"grid", placeItems:"center" }}
+        title="Retry"
+      >
+        ↻
+      </button>
       <HUD
         gameState={gameState}
         config={config}
@@ -403,6 +446,12 @@ function App() {
         onReset={reset}
       />
 
+      {gameState.bossMasteredActive && (
+        <div style={{ position:"absolute", inset:0, display:"grid", placeItems:"center", pointerEvents:"none", zIndex:12 }}>
+          <div style={{ fontSize:42, fontWeight:900, letterSpacing:4, color:"#ffe8a3", textShadow:"0 0 24px #ff9f1c, 0 0 10px #000", textTransform:"uppercase" }}>Boss Mastered</div>
+        </div>
+      )}
+
       {/* Game-over flash */}
       {gameState.sessionCleared && (
         <SessionClearOverlay config={config} gameState={gameState} />
@@ -412,6 +461,7 @@ function App() {
           reason={retryReason}
           levelNumber={gameState.currentLevelId || gameState.currentLevelIndex + 1}
           onRetry={reset}
+          onGoToBoss={goToBoss}
           onSkipLevel={() => setActiveLevel(gameState.currentLevelIndex + 1)}
         />
       )}

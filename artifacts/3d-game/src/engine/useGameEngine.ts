@@ -38,6 +38,8 @@ export interface UseGameEngineResult {
   setPlayerProjectileDistribution: (distribution: Record<ShotKind, number>) => void;
   setActiveLevel: (index: number) => void;
   setLevelWeights: (index: number, weights: Record<BallColor, number>) => void;
+  openRetryMenu: () => void;
+  goToBoss: () => void;
   playBossRush: (levelIds: number[]) => void;
   classifyHold: (holdSeconds: number) => ShotKind;
   toggleGrenade: (dir: Vec2, effect?: string) => boolean;
@@ -128,11 +130,11 @@ export function useGameEngine(): UseGameEngineResult {
   const hpAdjustmentRef = useRef(FALLBACK_DIFFICULTY_HP_PRESETS[DEFAULT_DIFFICULTY]);
   const timerRemainingRef = useRef<number>(DEFAULT_LEVEL_TIMER_SECONDS);
   const ammoRemainingRef = useRef<number>(DEFAULT_LEVEL_AMMO_COUNT);
-  const retryReasonRef = useRef<"timeout" | "ammo" | null>(null);
+  const retryReasonRef = useRef<"timeout" | "ammo" | "manual" | null>(null);
   const retryResetInProgressRef = useRef(false);
   const timerTickAccumulatorRef = useRef(0);
 
-  const publishRetryReason = useCallback((reason: "timeout" | "ammo" | null) => {
+  const publishRetryReason = useCallback((reason: "timeout" | "ammo" | "manual" | null) => {
     retryReasonRef.current = reason;
     setGameState((prev) => prev ? { ...prev, retryReason: reason } : prev);
   }, []);
@@ -322,6 +324,43 @@ export function useGameEngine(): UseGameEngineResult {
   const pause  = useCallback(() => { pausedRef.current = true;  setIsRunning(false); }, []);
   const resume = useCallback(() => { pausedRef.current = false; lastTimeRef.current = performance.now(); setIsRunning(true); }, []);
   const reset  = useCallback(() => { rebootingRef.current = false; doReset(); }, [doReset]);
+  const openRetryMenu = useCallback(() => {
+    publishRetryReason("manual");
+    pausedRef.current = true;
+    setIsRunning(false);
+  }, [publishRetryReason]);
+
+  const goToBoss = useCallback(() => {
+    const cfg = configRef.current;
+    if (!cfg || !cfg.levels?.list?.length) return;
+    const levels = cfg.levels.list;
+    const start = ((currentLevelIdxRef.current % levels.length) + levels.length) % levels.length;
+    let target = -1;
+    for (let offset = 0; offset < levels.length; offset += 1) {
+      const idx = (start + offset) % levels.length;
+      if (levels[idx]?.boss) { target = idx; break; }
+    }
+    if (target < 0) return;
+
+    const restored: GameConfig = {
+      ...cfg,
+      game_session: { ...cfg.game_session, max_balls_spawned: defaultMaxSpawnRef.current },
+    };
+    const bossConfig: GameConfig = {
+      ...restored,
+      game_session: { ...restored.game_session, max_balls_spawned: 0 },
+    };
+
+    sessionModeRef.current = "levels";
+    bossRushOrderRef.current = [];
+    currentLevelIdxRef.current = target;
+    rebootingRef.current = false;
+    configRef.current = bossConfig;
+    doReset();
+    configRef.current = restored;
+    setConfig(restored);
+  }, [doReset]);
+
 
   const setArena = useCallback((width: number, height: number) => {
     const cfg = configRef.current;
@@ -531,7 +570,7 @@ export function useGameEngine(): UseGameEngineResult {
   return {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
-    shoot, setLauncherColor, setCustomTerrainDistribution, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, playBossRush, classifyHold, toggleGrenade, grenadesLeft,
+    shoot, setLauncherColor, setCustomTerrainDistribution, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, openRetryMenu, goToBoss, playBossRush, classifyHold, toggleGrenade, grenadesLeft,
     setDifficulty, difficulty, setHpAdjustment, hpAdjustment,
   };
 }
