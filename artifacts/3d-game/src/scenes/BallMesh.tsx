@@ -43,6 +43,14 @@ export function BallMesh({ ball, config, showBlackHpLabel = false }: BallMeshPro
       ? Math.max(0, ball.metadata.magnetFieldDiameter as number)
       : ball.diameter * (config.rule_parameters.magnet_field?.field_diameter_multiplier ?? 3))
     : 0;
+  const heatAuraDiameter = ball.rule === "protective_heat"
+    ? (typeof ball.metadata?.heatAuraDiameter === "number"
+      ? Math.max(0, ball.metadata.heatAuraDiameter as number)
+      : ball.diameter * (config.rule_parameters.protective_heat?.aura_diameter_multiplier ?? 4.2))
+    : 0;
+  const heatRatio = typeof ball.metadata?.heatRatio === "number"
+    ? Math.max(0, Math.min(1, ball.metadata.heatRatio as number))
+    : 0;
 
   useFrame((_, delta) => {
     if (!meshRef.current) return;
@@ -65,8 +73,11 @@ export function BallMesh({ ball, config, showBlackHpLabel = false }: BallMeshPro
 
     if (fieldRef.current) {
       const mat = fieldRef.current.material as THREE.MeshBasicMaterial;
-      mat.opacity = 0.12 + 0.04 * Math.sin(pulseRef.current * 1.5);
-      fieldRef.current.scale.setScalar(magnetFieldDiameter);
+      const auraDiameter = Math.max(magnetFieldDiameter, heatAuraDiameter);
+      mat.opacity = heatAuraDiameter > 0
+        ? 0.08 + heatRatio * 0.18 + 0.04 * Math.sin(pulseRef.current * (1.5 + heatRatio * 2))
+        : 0.12 + 0.04 * Math.sin(pulseRef.current * 1.5);
+      fieldRef.current.scale.setScalar(auraDiameter);
       fieldRef.current.position.x = meshRef.current.position.x;
       fieldRef.current.position.z = meshRef.current.position.z;
     }
@@ -106,8 +117,8 @@ export function BallMesh({ ball, config, showBlackHpLabel = false }: BallMeshPro
 
   return (
     <group>
-      {/* Transparent magnetic footprint for purple balls */}
-      {!isInvisibleSprite && magnetFieldDiameter > 0 && (
+      {/* Transparent footprints for purple magnetic fields and pink protective heat */}
+      {!isInvisibleSprite && (magnetFieldDiameter > 0 || heatAuraDiameter > 0) && (
         <mesh
           ref={fieldRef}
           position={[ball.position.x, Math.max(0.006, ball.diameter * 0.08), -ball.position.y]}
@@ -116,9 +127,9 @@ export function BallMesh({ ball, config, showBlackHpLabel = false }: BallMeshPro
         >
           <circleGeometry args={[UNIT_RADIUS, 64]} />
           <meshBasicMaterial
-            color={threeColor}
+            color={heatAuraDiameter > 0 ? "#ff8acb" : threeColor}
             transparent
-            opacity={0.12}
+            opacity={heatAuraDiameter > 0 ? 0.08 + heatRatio * 0.18 : 0.12}
             depthWrite={false}
             side={THREE.DoubleSide}
           />

@@ -238,7 +238,7 @@
       ],
       "_label": "Rose",
       "selectable_by_player": false,
-      "for_terrain": false
+      "for_terrain": true
     },
     "purple": {
       "hex": "#8B5CFF",
@@ -304,6 +304,10 @@
       "rule": "red_split_bouncer",
       "_description": "Rebondit sur les murs avec 5 PV. Si un tir la touche sans la détruire, elle se divise en 2 rouges, chacune avec les PV restants de la mère après impact (5→4→3→2→1)."
     },
+    "pink": {
+      "rule": "protective_heat",
+      "_description": "Chaleur protectrice Feu + Ocytocine: son aura rose se charge quand le combat s'intensifie autour d'elle. À pleine chaleur, elle relie les menaces proches, les ralentit et offre une grenade de secours au joueur."
+    },
     "purple": {
       "rule": "magnet_field",
       "_description": "Génère un gabarit transparent de 3× son diamètre. Les balles du terrain qui y entrent sont attirées vers elle comme par un aimant, restent au contact sans la traverser ni rebondir. Quand un projectile pénètre le gabarit, la violette accélère 0,5 s puis reprend sa vitesse initiale."
@@ -327,6 +331,7 @@
       "yellow": "against_wall",
       "black": "against_wall",
       "red": "against_wall",
+      "pink": "against_wall",
       "purple": "against_wall"
     }
   },
@@ -386,6 +391,21 @@
       "default_hp": 5,
       "max_hp": 5
     },
+    "protective_heat": {
+      "default_hp": 5,
+      "max_hp": 5,
+      "aura_diameter_multiplier": 4.2,
+      "heat_threshold": 8,
+      "cooling_per_second": 0.45,
+      "nearby_speed_heat_factor": 0.035,
+      "projectile_heat_per_second": 6,
+      "contact_heat_per_second": 2.5,
+      "link_strength": 8,
+      "burst_slow_factor": 0.55,
+      "burst_cooldown_seconds": 3,
+      "grenade_reward": 1,
+      "self_heal_on_burst": 1
+    },
     "magnet_field": {
       "_description": "Paramètres de la balle violette: diamètre du gabarit transparent, force d'attraction, boost déclenché par projectile et amortissement du contact sans rebond.",
       "field_diameter_multiplier": 3,
@@ -423,6 +443,7 @@
           "yellow",
           "black",
           "red",
+          "pink",
           "purple"
         ],
         "_allow_colors_comment": "Couleurs que le lanceur orange peut faire entrer dans l'arène. Le gris est volontairement exclu : c'est une couleur dédiée au joueur (file de tir / projectiles)."
@@ -477,6 +498,14 @@
       }
     },
     "red": {
+      "spawn": {
+        "condition": "launched_by_orange"
+      },
+      "despawn": {
+        "condition": "killed_at_zero_hp"
+      }
+    },
+    "pink": {
       "spawn": {
         "condition": "launched_by_orange"
       },
@@ -757,6 +786,17 @@
         },
         "timer_seconds": 65,
         "ammo_count": 50
+      },
+      {
+        "id": 12,
+        "name": "Niveau 12 — Chaleur rose",
+        "description": "60% de balles roses et 40% de rouges. La chaleur protectrice se charge dans le chaos, regroupe les menaces et peut offrir une grenade de secours.",
+        "launch_color_weights": {
+          "pink": 0.6,
+          "red": 0.4
+        },
+        "timer_seconds": 65,
+        "ammo_count": 52
       }
     ],
     "boss_intro_overlay_seconds": 1.5,
@@ -787,6 +827,7 @@
     ]
   },
   "release_notes": [
+    "Chaleur protectrice rose ajoutée",
     "Random Add valide directement les prompts sans ouvrir Evolution",
     "Random profond ajoute éléments MTC et hormones avant validation directe",
     "Add Random propose des types de features validables directement",
@@ -805,11 +846,7 @@
     "Difficulté Medium sélectionnée par défaut",
     "Règles du jeu rapprochées du terrain",
     "Menus niveaux scrollables et balles ajoutables",
-    "Auto-fire restauré après merge",
-    "Build et retry stabilisés",
-    "Téléchargement APK depuis le menu",
-    "Menu Evolution scrollable et simplifié",
-    "Evolution ouvre une issue suivie"
+    "Auto-fire restauré après merge"
   ],
   "debug": {
     "show_velocities": false,

@@ -45,7 +45,8 @@ export type BallRule =
   | "blink_hp_bouncer"
   | "red_split_bouncer"
   | "player_projectile"
-  | "magnet_field";
+  | "magnet_field"
+  | "protective_heat";
 
 // ---- Bounce Condition Enum ----
 export enum BounceCondition {
@@ -363,6 +364,21 @@ export interface GameConfig {
     red_split_bouncer?: {
       default_hp: number;
       max_hp: number;
+    };
+    protective_heat?: {
+      default_hp: number;
+      max_hp: number;
+      aura_diameter_multiplier: number;
+      heat_threshold: number;
+      cooling_per_second: number;
+      nearby_speed_heat_factor: number;
+      projectile_heat_per_second: number;
+      contact_heat_per_second: number;
+      link_strength: number;
+      burst_slow_factor: number;
+      burst_cooldown_seconds: number;
+      grenade_reward: number;
+      self_heal_on_burst?: number;
     };
     player_projectile?: {
       max_lifetime_seconds: number;

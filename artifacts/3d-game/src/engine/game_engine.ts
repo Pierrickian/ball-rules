@@ -39,6 +39,22 @@ interface MagnetFieldParams {
   contact_velocity_damping?: number;
 }
 
+interface ProtectiveHeatParams {
+  default_hp: number;
+  max_hp: number;
+  aura_diameter_multiplier: number;
+  heat_threshold: number;
+  cooling_per_second: number;
+  nearby_speed_heat_factor: number;
+  projectile_heat_per_second: number;
+  contact_heat_per_second: number;
+  link_strength: number;
+  burst_slow_factor: number;
+  burst_cooldown_seconds: number;
+  grenade_reward: number;
+  self_heal_on_burst?: number;
+}
+
 interface RuleContext {
   allBalls: Ball[];
   config: GameConfig;
@@ -146,6 +162,7 @@ export class GameEngine {
     this.registerRuleHandler("red_split_bouncer", this.handleRedSplitBouncer.bind(this));
     this.registerRuleHandler("player_projectile", this.handlePlayerProjectile.bind(this));
     this.registerRuleHandler("magnet_field",      this.handleMagnetField.bind(this));
+    this.registerRuleHandler("protective_heat",   this.handleProtectiveHeat.bind(this));
   }
 
   registerRuleHandler(rule: BallRule, handler: RuleHandler): void {
@@ -687,6 +704,10 @@ export class GameEngine {
       const p = this.config.rule_parameters.red_split_bouncer;
       hp = p?.default_hp ?? 5;
       maxHp = p?.max_hp ?? 5;
+    } else if (rule === "protective_heat") {
+      const p = this.config.rule_parameters.protective_heat;
+      hp = p?.default_hp ?? 5;
+      maxHp = p?.max_hp ?? 5;
     }
 
     if (options?.bypassHpBonuses !== true) {
@@ -791,6 +812,24 @@ export class GameEngine {
       boost_speed_multiplier: 2,
       boost_duration_seconds: 0.5,
       contact_velocity_damping: 0,
+    };
+  }
+
+  private getProtectiveHeatParams(config: GameConfig): ProtectiveHeatParams {
+    return config.rule_parameters.protective_heat ?? {
+      default_hp: 5,
+      max_hp: 5,
+      aura_diameter_multiplier: 4.2,
+      heat_threshold: 8,
+      cooling_per_second: 0.45,
+      nearby_speed_heat_factor: 0.035,
+      projectile_heat_per_second: 6,
+      contact_heat_per_second: 2.5,
+      link_strength: 8,
+      burst_slow_factor: 0.55,
+      burst_cooldown_seconds: 3,
+      grenade_reward: 1,
+      self_heal_on_burst: 1,
     };
   }
 
@@ -1254,6 +1293,87 @@ export class GameEngine {
     }
 
     ball.metadata.projectilesInsideField = currentProjectilesInside;
+    if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
+  }
+
+  /** PINK — protective heat (Feu + Ocytocine).
+   * Combat intensity inside the aura charges warmth. At full heat the ball
+   * releases a protective burst: nearby threats are linked/slowed and the
+   * player receives a rescue grenade. */
+  private handleProtectiveHeat(ball: Ball, delta: number, ctx: RuleContext): void {
+    const p = this.getProtectiveHeatParams(ctx.config);
+    const auraDiameter = ball.diameter * Math.max(1, p.aura_diameter_multiplier);
+    const auraRadius = auraDiameter / 2;
+    ball.metadata.heatAuraDiameter = auraDiameter;
+
+    const cooldown = Math.max(0, Number(ball.metadata.heatCooldown ?? 0) - delta);
+    ball.metadata.heatCooldown = cooldown;
+
+    this.applyMovement(ball, delta, ctx.arena);
+
+    let heat = Math.max(0, Number(ball.metadata.heatLevel ?? 0) - Math.max(0, p.cooling_per_second) * delta);
+    const linkedIds = new Set<string>();
+
+    for (const other of ctx.allBalls) {
+      if (other.id === ball.id || !other.isAlive || other.color === "orange") continue;
+
+      const distance = ball.distanceTo(other);
+      const insideAura = distance <= auraRadius + other.diameter / 2;
+      if (!insideAura) continue;
+
+      if (other.isProjectile()) {
+        heat += Math.max(0, p.projectile_heat_per_second) * delta;
+        continue;
+      }
+
+      linkedIds.add(other.id);
+      const speed = this.getSpeed(other.velocity);
+      heat += speed * Math.max(0, p.nearby_speed_heat_factor) * delta;
+      if (ball.isCollidingWith(other)) heat += Math.max(0, p.contact_heat_per_second) * delta;
+
+      if (distance > 0.001 && p.link_strength > 0) {
+        const dir = normalize({ x: ball.position.x - other.position.x, y: ball.position.y - other.position.y });
+        other.velocity.x += dir.x * p.link_strength * delta;
+        other.velocity.y += dir.y * p.link_strength * delta;
+      }
+    }
+
+    const threshold = Math.max(0.001, p.heat_threshold);
+    if (cooldown <= 0 && heat >= threshold) {
+      const slowFactor = Math.max(0, Math.min(1, p.burst_slow_factor));
+      for (const other of ctx.allBalls) {
+        if (other.id === ball.id || !other.isAlive || other.isProjectile() || other.color === "orange") continue;
+        const distance = ball.distanceTo(other);
+        if (distance <= auraRadius + other.diameter / 2) {
+          other.velocity.x *= slowFactor;
+          other.velocity.y *= slowFactor;
+        }
+      }
+
+      this.awardGrenades(p.grenade_reward, "protective_heat");
+
+      const selfHeal = Math.max(0, p.self_heal_on_burst ?? 0);
+      if (selfHeal > 0) {
+        const healed = ball.heal(selfHeal);
+        if (healed > 0) {
+          ctx.events.push({
+            type: "ball_healed",
+            ballId: ball.id,
+            amount: healed,
+            remainingHp: ball.hp,
+            position: { ...ball.position },
+          });
+        }
+      }
+
+      heat = 0;
+      ball.metadata.heatCooldown = Math.max(0, p.burst_cooldown_seconds);
+    }
+
+    ball.metadata.heatLevel = Math.min(threshold, heat);
+    ball.metadata.heatRatio = Math.max(0, Math.min(1, heat / threshold));
+    ball.metadata.linkedHeatIds = Array.from(linkedIds);
+
     if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
   }
 
