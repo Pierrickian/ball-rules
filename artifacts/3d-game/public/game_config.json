@@ -787,6 +787,7 @@
     ]
   },
   "release_notes": [
+    "Instant cible mieux les formulaires",
     "Panneau Instant ajouté au menu",
     "Random Add valide directement les prompts sans ouvrir Evolution",
     "Random profond ajoute éléments MTC et hormones avant validation directe",
@@ -805,8 +806,7 @@
     "Curseur PV synchronisé avec la difficulté",
     "Difficulté Medium sélectionnée par défaut",
     "Règles du jeu rapprochées du terrain",
-    "Menus niveaux scrollables et balles ajoutables",
-    "Auto-fire restauré après merge"
+    "Menus niveaux scrollables et balles ajoutables"
   ],
   "debug": {
     "show_velocities": false,
