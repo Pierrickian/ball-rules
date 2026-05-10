@@ -787,6 +787,8 @@
     ]
   },
   "release_notes": [
+    "Random Add avec chargement",
+    "Portail créatif Add Feature",
     "Bouton ajout vers Evolution guidée",
     "Retry boss et grenades mieux guidés",
     "Boss niveau 1 vulnérable aux grenades",
@@ -804,9 +806,7 @@
     "Auto-fire restauré après merge",
     "Build et retry stabilisés",
     "Téléchargement APK depuis le menu",
-    "Menu Evolution scrollable et simplifié",
-    "Evolution ouvre une issue suivie",
-    "Evolution paramétrable depuis menu"
+    "Menu Evolution scrollable et simplifié"
   ],
   "debug": {
     "show_velocities": false,
