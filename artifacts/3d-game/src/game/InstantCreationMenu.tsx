@@ -119,21 +119,22 @@ export function InstantCreationMenu({ config }: { config: GameConfig }) {
 
   const intent = useMemo<FeatureIntent>(() => {
     if (!selectedCapability) {
-      return { category, requestedProperties: {} };
+      return { category, context: {}, requestedProperties: {} };
     }
+
+    const isBehaviorCapability = selectedCapability.key.startsWith("behavior.");
 
     return {
       category,
       title: selectedCapability.label,
       description: `Instant request for ${selectedCapability.label}`,
-      requestedProperties: {
-        [selectedCapability.key]: value,
+      context: {
         ...(targetFields.includes("level") ? { levelId } : {}),
         ...(targetFields.includes("ball") ? { color: ballColor } : {}),
+        ...(targetFields.includes("boss") ? { scope: "boss" } : {}),
       },
-      requestedBehaviors: selectedCapability.key.startsWith("behavior.")
-        ? [selectedCapability.key]
-        : [],
+      requestedProperties: isBehaviorCapability ? {} : { [selectedCapability.key]: value },
+      requestedBehaviors: isBehaviorCapability ? [selectedCapability.key] : [],
     };
   }, [ballColor, category, levelId, selectedCapability, targetFields, value]);
 

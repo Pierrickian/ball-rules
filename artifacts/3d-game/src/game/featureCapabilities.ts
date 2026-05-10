@@ -51,6 +51,8 @@ export interface FeatureIntent {
   category: FeatureCategory;
   title?: string;
   description?: string;
+  /** Form-level targeting data (level, ball, scope, etc.) that should not be evaluated as capabilities. */
+  context?: Record<string, unknown>;
   requestedProperties?: Record<string, unknown>;
   requestedBehaviors?: string[];
 }
@@ -353,6 +355,7 @@ function buildIssueBody(intent: FeatureIntent, unsupported: CapabilityMatch[]): 
       category: intent.category,
       title: intent.title,
       description: intent.description,
+      context: intent.context ?? {},
       requestedProperties: intent.requestedProperties ?? {},
       requestedBehaviors: intent.requestedBehaviors ?? []
     },
