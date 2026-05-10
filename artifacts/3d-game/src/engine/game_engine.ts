@@ -28,6 +28,55 @@ import type {
   Vec2,
 } from "./types";
 import { BallSize, BounceCondition } from "./types";
+import {
+  applyMagnetBoostTimer,
+  applyMovement,
+  detectWallHit,
+  getArena,
+  getBounceCondition,
+  getMagnetFieldParams,
+  getSpeed,
+  isOutOfBounds,
+  isTemporarilyUntouchable,
+  resolveBallCollisions,
+  rescaleVelocity,
+  resolveMagnetContact,
+  resolveWallBounce,
+  triggerMagnetBoost,
+  triggerMagnetFieldsForProjectile,
+} from "./collisionSystem";
+import { maybeSpawnLevelBoss } from "./bossSystem";
+import {
+  performOrangeLaunch,
+  spawnOrangeLauncher,
+  updateOrangeSpawn,
+  updatePendingLaunches,
+} from "./launchSystem";
+import {
+  finalizePlayerProjectileCombo,
+  getProjectileHitImmunitySeconds,
+  handlePlayerProjectile,
+  reflectProjectileOff,
+  trySplitRedAfterNonLethalHit,
+} from "./projectileSystem";
+import {
+  handleAbsorb,
+  handleAccelerate,
+  handleAttract,
+  handleBlinkHpBouncer,
+  handleBounce,
+  handleDestroyOnContact,
+  handleFreezeNearby,
+  handleGravitySink,
+  handleHpGrowBouncer,
+  handleLauncher,
+  handleMagnetField,
+  handleNeutral,
+  handleRedSplitBouncer,
+  handleSlowNearby,
+  handleSplit,
+  handleTransferRule,
+} from "./ruleHandlers";
 
 type RuleHandler = (ball: Ball, delta: number, context: RuleContext) => void;
 
@@ -64,17 +113,6 @@ interface Arena2D {
 type PendingCommand =
   | { type: "launch_grenade"; direction: Vec2; effect: string }
   | { type: "detonate_active_grenade" };
-
-// ---- Math helpers ----
-function normalize(v: Vec2): Vec2 {
-  const len = Math.sqrt(v.x * v.x + v.y * v.y);
-  if (len === 0) return { x: 1, y: 0 };
-  return { x: v.x / len, y: v.y / len };
-}
-
-function randomInRange(min: number, max: number): number {
-  return min + Math.random() * (max - min);
-}
 
 export class GameEngine {
   private balls = new Map<string, Ball>();
@@ -124,6 +162,52 @@ export class GameEngine {
     this.configureHospitalForCurrentLevel();
     this.registerAllHandlers();
   }
+
+  private getBounceCondition = getBounceCondition;
+  private getArena = getArena;
+  private applyMovement = applyMovement;
+  private resolveWallBounce = resolveWallBounce;
+  private detectWallHit = detectWallHit;
+  private isOutOfBounds = isOutOfBounds;
+  private isTemporarilyUntouchable = isTemporarilyUntouchable;
+  private getMagnetFieldParams = getMagnetFieldParams;
+  private getSpeed = getSpeed;
+  private rescaleVelocity = rescaleVelocity;
+  private triggerMagnetBoost = triggerMagnetBoost;
+  private applyMagnetBoostTimer = applyMagnetBoostTimer;
+  private triggerMagnetFieldsForProjectile = triggerMagnetFieldsForProjectile;
+  private resolveMagnetContact = resolveMagnetContact;
+  private resolveBallCollisions = resolveBallCollisions;
+  private maybeSpawnLevelBoss = maybeSpawnLevelBoss;
+  private updateOrangeSpawn = updateOrangeSpawn;
+  private spawnOrangeLauncher = spawnOrangeLauncher;
+  private updatePendingLaunches = updatePendingLaunches;
+  private performOrangeLaunch = performOrangeLaunch;
+  private handlePlayerProjectile = handlePlayerProjectile;
+  private finalizePlayerProjectileCombo = finalizePlayerProjectileCombo;
+  private trySplitRedAfterNonLethalHit = trySplitRedAfterNonLethalHit;
+  private getProjectileHitImmunitySeconds = getProjectileHitImmunitySeconds;
+  private reflectProjectileOff = reflectProjectileOff;
+  private handleBounce = handleBounce;
+  private handleAccelerate = handleAccelerate;
+  private handleLauncher = handleLauncher;
+  private handleDestroyOnContact = handleDestroyOnContact;
+  private handleSlowNearby = handleSlowNearby;
+  private handleAttract = handleAttract;
+  private handleMagnetField = handleMagnetField;
+  private handleSplit = handleSplit;
+  private handleFreezeNearby = handleFreezeNearby;
+  private handleTransferRule = handleTransferRule;
+  private handleGravitySink = handleGravitySink;
+  private handleNeutral = handleNeutral;
+  private handleAbsorb = handleAbsorb;
+  private handleHpGrowBouncer = handleHpGrowBouncer;
+  private handleBlinkHpBouncer = handleBlinkHpBouncer;
+  private handleRedSplitBouncer = handleRedSplitBouncer;
+
+  // Hospital, damage, and spawn helpers remain in GameEngine because they
+  // directly mutate session state, emit events, and are shared by several
+  // systems. Narrowing those contracts is the next safe extraction step.
 
   // --------------------------------------------------------
   // Handler Registration
@@ -722,997 +806,4 @@ export class GameEngine {
     return ball.baseDiameter * Math.max(0.4, factor);
   }
 
-  private getBounceCondition(color: BallColor): BounceCondition {
-    const raw = this.config.bounce_conditions?.ball_bounce_conditions?.[color];
-    if (raw && Object.values(BounceCondition).includes(raw as BounceCondition)) {
-      return raw as BounceCondition;
-    }
-    return BounceCondition.AGAINST_WALL;
-  }
-
-  private getArena(): Arena2D {
-    return {
-      halfW: this.config.graphics.arena.width / 2,
-      halfH: this.config.graphics.arena.height / 2,
-    };
-  }
-
-  // --------------------------------------------------------
-  // Physics Helpers
-  // --------------------------------------------------------
-
-  private applyMovement(ball: Ball, delta: number, arena: Arena2D): boolean {
-    ball.position.x += ball.velocity.x * delta;
-    ball.position.y += ball.velocity.y * delta;
-    return this.resolveWallBounce(ball, arena);
-  }
-
-  private resolveWallBounce(ball: Ball, arena: Arena2D): boolean {
-    const canBounceWall =
-      ball.bounceCondition === BounceCondition.AGAINST_WALL ||
-      ball.bounceCondition === BounceCondition.AGAINST_ALL;
-    if (!canBounceWall) return false;
-
-    const r = ball.diameter / 2;
-    let hit = false;
-    if (ball.position.x - r < -arena.halfW) { ball.position.x = -arena.halfW + r; ball.velocity.x = Math.abs(ball.velocity.x); hit = true; }
-    if (ball.position.x + r > arena.halfW)  { ball.position.x = arena.halfW - r;  ball.velocity.x = -Math.abs(ball.velocity.x); hit = true; }
-    if (ball.position.y - r < -arena.halfH) { ball.position.y = -arena.halfH + r; ball.velocity.y = Math.abs(ball.velocity.y); hit = true; }
-    if (ball.position.y + r > arena.halfH)  { ball.position.y = arena.halfH - r;  ball.velocity.y = -Math.abs(ball.velocity.y); hit = true; }
-    return hit;
-  }
-
-  /** Check which wall (if any) the ball is currently outside; returns axis of impact for projectiles. */
-  private detectWallHit(ball: Ball, arena: Arena2D): "x" | "y" | null {
-    const r = ball.diameter / 2;
-    if (ball.position.x - r < -arena.halfW || ball.position.x + r > arena.halfW) return "x";
-    if (ball.position.y - r < -arena.halfH || ball.position.y + r > arena.halfH) return "y";
-    return null;
-  }
-
-  private isOutOfBounds(ball: Ball, arena: Arena2D): boolean {
-    const r = ball.diameter / 2;
-    return (
-      ball.position.x + r < -arena.halfW ||
-      ball.position.x - r > arena.halfW ||
-      ball.position.y + r < -arena.halfH ||
-      ball.position.y - r > arena.halfH
-    );
-  }
-
-  private isTemporarilyUntouchable(ball: Ball): boolean {
-    return ball.color === "yellow" && Number(ball.metadata.visibilityAlpha ?? 1) <= 0;
-  }
-
-  private getMagnetFieldParams(config: GameConfig): MagnetFieldParams {
-    return config.rule_parameters.magnet_field ?? {
-      field_diameter_multiplier: 3,
-      attraction_strength: 18,
-      boost_speed_multiplier: 2,
-      boost_duration_seconds: 0.5,
-      contact_velocity_damping: 0,
-    };
-  }
-
-  private getSpeed(v: Vec2): number {
-    return Math.sqrt(v.x * v.x + v.y * v.y);
-  }
-
-  private rescaleVelocity(ball: Ball, targetSpeed: number): void {
-    const speed = this.getSpeed(ball.velocity);
-    if (speed <= 0.001 || targetSpeed <= 0) return;
-    const scale = targetSpeed / speed;
-    ball.velocity.x *= scale;
-    ball.velocity.y *= scale;
-  }
-
-  private triggerMagnetBoost(ball: Ball, p: MagnetFieldParams): void {
-    const currentSpeed = this.getSpeed(ball.velocity);
-    if (currentSpeed <= 0.001) return;
-    if (typeof ball.metadata.magnetBaseSpeed !== "number" || Number(ball.metadata.magnetBoostTimer ?? 0) <= 0) {
-      ball.metadata.magnetBaseSpeed = currentSpeed;
-    }
-    this.rescaleVelocity(ball, currentSpeed * Math.max(1, p.boost_speed_multiplier));
-    ball.metadata.magnetBoostTimer = Math.max(0, p.boost_duration_seconds);
-  }
-
-  private applyMagnetBoostTimer(ball: Ball, delta: number): void {
-    const timer = Number(ball.metadata.magnetBoostTimer ?? 0);
-    if (timer <= 0) return;
-    const nextTimer = timer - delta;
-    if (nextTimer > 0) {
-      ball.metadata.magnetBoostTimer = nextTimer;
-      return;
-    }
-
-    const baseSpeed = typeof ball.metadata.magnetBaseSpeed === "number"
-      ? Math.max(0, ball.metadata.magnetBaseSpeed)
-      : null;
-    if (baseSpeed !== null) this.rescaleVelocity(ball, baseSpeed);
-    ball.metadata.magnetBoostTimer = 0;
-    delete ball.metadata.magnetBaseSpeed;
-  }
-
-
-  private triggerMagnetFieldsForProjectile(projectile: Ball, ctx: RuleContext): void {
-    for (const magnet of ctx.allBalls) {
-      if (!magnet.isAlive || magnet.id === projectile.id || magnet.rule !== "magnet_field") continue;
-      const p = this.getMagnetFieldParams(ctx.config);
-      const fieldRadius = (magnet.diameter * p.field_diameter_multiplier) / 2;
-      if (magnet.distanceTo(projectile) > fieldRadius + projectile.diameter / 2) continue;
-
-      const projectilesInside = magnet.metadata.projectilesInsideField instanceof Set
-        ? magnet.metadata.projectilesInsideField as Set<string>
-        : new Set<string>();
-      if (!projectilesInside.has(projectile.id)) this.triggerMagnetBoost(magnet, p);
-      projectilesInside.add(projectile.id);
-      magnet.metadata.projectilesInsideField = projectilesInside;
-    }
-  }
-
-  private resolveMagnetContact(magnet: Ball, other: Ball, p: MagnetFieldParams): void {
-    const dx = other.position.x - magnet.position.x;
-    const dy = other.position.y - magnet.position.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    const minDist = (magnet.diameter + other.diameter) / 2;
-    if (dist >= minDist || dist <= 0.001) return;
-
-    const nx = dx / dist;
-    const ny = dy / dist;
-    const overlap = minDist - dist;
-    other.position.x += nx * (overlap + 0.01);
-    other.position.y += ny * (overlap + 0.01);
-
-    const inwardVelocity = other.velocity.x * nx + other.velocity.y * ny;
-    if (inwardVelocity < 0) {
-      const damping = Math.max(0, Math.min(1, p.contact_velocity_damping ?? 0));
-      other.velocity.x -= inwardVelocity * (1 - damping) * nx;
-      other.velocity.y -= inwardVelocity * (1 - damping) * ny;
-    }
-  }
-
-  /** Global ball-to-ball elastic collision pass — projectiles excluded. */
-  private resolveBallCollisions(balls: Ball[], _arena: Arena2D): void {
-    const restitution = this.config.rule_parameters.ball_collision?.restitution ?? 0.95;
-
-    for (let i = 0; i < balls.length; i++) {
-      for (let j = i + 1; j < balls.length; j++) {
-        const a = balls[i];
-        const b = balls[j];
-        if (!a.isAlive || !b.isAlive) continue;
-        if (this.isTemporarilyUntouchable(a) || this.isTemporarilyUntouchable(b)) continue;
-        if (a.isProjectile() || b.isProjectile()) continue; // projectiles handle their own
-        if (a.isFrozen && b.isFrozen) continue;
-
-        if (a.rule === "magnet_field" || b.rule === "magnet_field") {
-          const magnet = a.rule === "magnet_field" ? a : b;
-          const other = magnet === a ? b : a;
-          if (!magnet.isFrozen) this.resolveMagnetContact(magnet, other, this.getMagnetFieldParams(this.config));
-          continue;
-        }
-
-        // A bouncy_surface color (e.g. blue) acts as a bumper: any ball
-        // that touches it ricochets off, regardless of its own bounce
-        // condition. So we force both sides to bounce when at least one
-        // of them is a bouncy surface.
-        const aBouncy = !!this.config.ball_colors[a.color]?.bouncy_surface;
-        const bBouncy = !!this.config.ball_colors[b.color]?.bouncy_surface;
-        let aBouncesBalls =
-          aBouncy ||
-          a.bounceCondition === BounceCondition.AGAINST_BALL ||
-          a.bounceCondition === BounceCondition.AGAINST_ALL;
-        let bBouncesBalls =
-          bBouncy ||
-          b.bounceCondition === BounceCondition.AGAINST_BALL ||
-          b.bounceCondition === BounceCondition.AGAINST_ALL;
-        if (aBouncy || bBouncy) {
-          aBouncesBalls = true;
-          bBouncesBalls = true;
-        }
-
-        if (!aBouncesBalls && !bBouncesBalls) continue;
-
-        const dist = a.distanceTo(b);
-        const minDist = (a.diameter + b.diameter) / 2;
-        if (dist >= minDist || dist < 0.001) continue;
-
-        const nx = (b.position.x - a.position.x) / dist;
-        const ny = (b.position.y - a.position.y) / dist;
-        const overlap = minDist - dist;
-        const correction = overlap / 2;
-
-        if (aBouncesBalls && !a.isFrozen) { a.position.x -= nx * correction; a.position.y -= ny * correction; }
-        if (bBouncesBalls && !b.isFrozen) { b.position.x += nx * correction; b.position.y += ny * correction; }
-
-        const dvx = a.velocity.x - b.velocity.x;
-        const dvy = a.velocity.y - b.velocity.y;
-        const dot = dvx * nx + dvy * ny;
-        if (dot <= 0) continue;
-
-        const impulse = dot * restitution;
-        if (aBouncesBalls && !a.isFrozen) { a.velocity.x -= impulse * nx; a.velocity.y -= impulse * ny; }
-        if (bBouncesBalls && !b.isFrozen) { b.velocity.x += impulse * nx; b.velocity.y += impulse * ny; }
-
-        this.pendingEvents.push({ type: "collision", ballAId: a.id, ballBId: b.id });
-      }
-    }
-  }
-
-
-  private maybeSpawnLevelBoss(arena: Arena2D, delta: number): void {
-    if (this.bossSpawned) return;
-    const lvl = this.getCurrentLevel();
-    const boss = lvl?.boss;
-    if (!boss) return;
-    const max = this.config.game_session?.max_balls_spawned ?? 20;
-    if (this.launchedCount < max) return;
-    if (this.getEnemyBallCount() > 0) return;
-
-    if (this.bossIntroRemaining <= 0) {
-      this.bossIntroRemaining = boss.intro_overlay_seconds ?? this.config.levels?.boss_intro_overlay_seconds ?? 1.4;
-      return;
-    }
-
-    this.bossIntroRemaining = Math.max(0, this.bossIntroRemaining - delta);
-    if (this.bossIntroRemaining > 0) return;
-
-    const spawnPos = {
-      x: boss.spawn_position?.x ?? 0,
-      y: boss.spawn_position?.y ?? (arena.halfH - 0.05),
-    };
-    const launcher = this.spawnBall("orange", boss.launcher_size ?? BallSize.LARGE, { ...spawnPos }, { x: 0, y: 0 });
-    const launcherMul = boss.launcher_diameter_multiplier ?? 2;
-    if (launcherMul > 0) {
-      launcher.baseDiameter *= launcherMul;
-      launcher.diameter *= launcherMul;
-    }
-
-    const requestedHp = boss.hp;
-    const requestedMaxHp = boss.maxHp ?? boss.hp;
-    const spawnCount = Math.max(1, Math.floor(boss.spawn_count ?? 1));
-    const spawnSpacingX = boss.spawn_spacing_x ?? 1.6;
-    const spawnedIds: string[] = [];
-    const baseVelocity = { x: boss.horizontal_speed ?? 8, y: -24 };
-    const fanStepDeg = 70;
-    for (let i = 0; i < spawnCount; i += 1) {
-      const spreadIdx = i - (spawnCount - 1) / 2;
-      const spreadX = spawnCount === 1 ? 0 : (spreadIdx * spawnSpacingX);
-      const angle = (spreadIdx * fanStepDeg * Math.PI) / 180;
-      const cos = Math.cos(angle);
-      const sin = Math.sin(angle);
-      const velocity = {
-        x: baseVelocity.x * cos - baseVelocity.y * sin,
-        y: baseVelocity.x * sin + baseVelocity.y * cos,
-      };
-      const spawnedBoss = this.spawnBall(boss.color, boss.size ?? BallSize.LARGE, { x: launcher.position.x + spreadX, y: launcher.position.y }, velocity, undefined, { hp: requestedHp, maxHp: requestedMaxHp }, { isBoss: true });
-      const bossHealBonus = boss.dark_green_heal_bonus_percent ?? lvl?.dark_green_heal_bonus_percent;
-      if (typeof bossHealBonus === "number" && spawnedBoss.color === "dark_green") {
-        spawnedBoss.metadata.hpGrowHealMultiplier = Math.max(0, 1 + bossHealBonus / 100);
-      }
-      if (boss.defeat_rule) spawnedBoss.metadata.defeatRule = boss.defeat_rule;
-      if (typeof boss.non_matching_kill_recharge_hp === "number") {
-        spawnedBoss.metadata.nonMatchingKillRechargeHp = boss.non_matching_kill_recharge_hp;
-      }
-      const bossMul = boss.diameter_multiplier ?? 1;
-      if (bossMul > 0) {
-        spawnedBoss.baseDiameter *= bossMul;
-      }
-      this.syncBossDiameterWithHp(spawnedBoss);
-      spawnedIds.push(spawnedBoss.id);
-    }
-    this.bossSpawned = true;
-    this.awardGrenades(boss.reward_grenades_on_spawn ?? 0, "boss_spawn");
-    if (boss.defeat_hint_message) {
-      this.bossHintMessage = boss.defeat_hint_message;
-      this.bossHintRemaining = Math.max(0, boss.defeat_hint_seconds ?? 2);
-    }
-
-    launcher.isAlive = false;
-    this.pendingEvents.push({ type: "orange_launched", launcherId: launcher.id, launchedId: spawnedIds[0] });
-    this.pendingEvents.push({ type: "ball_despawned", ballId: launcher.id, reason: "after_launch" });
-  }
-
-  /** Pick a color from a weights map. Ignores zero/negative weights and
-   *  unknown colors. Returns null if no valid entry remains. */
-  private weightedPickColor(
-    weights: Partial<Record<BallColor, number>>
-  ): BallColor | null {
-    const entries: Array<[BallColor, number]> = [];
-    let total = 0;
-    for (const [k, v] of Object.entries(weights)) {
-      const color = k as BallColor;
-      const weight = typeof v === "number" ? v : 0;
-      if (weight > 0 && this.config.ball_colors[color]) {
-        entries.push([color, weight]);
-        total += weight;
-      }
-    }
-    if (entries.length === 0 || total <= 0) return null;
-    let r = Math.random() * total;
-    for (const [color, weight] of entries) {
-      r -= weight;
-      if (r <= 0) return color;
-    }
-    return entries[entries.length - 1][0];
-  }
-
-  // --------------------------------------------------------
-  // Orange Launcher Spawn Logic
-  // --------------------------------------------------------
-  private updateOrangeSpawn(delta: number, arena: Arena2D): void {
-    const max = this.config.game_session?.max_balls_spawned ?? 20;
-    if (this.launchedCount >= max) return; // hard cap
-
-    const interval = this.config.gameplay.orange.spawn.interval_seconds;
-    this.orangeSpawnTimer += delta;
-    if (this.orangeSpawnTimer >= interval) {
-      this.orangeSpawnTimer = 0;
-      this.spawnOrangeLauncher(arena);
-    }
-  }
-
-  private spawnOrangeLauncher(arena: Arena2D): void {
-    const edge = Math.floor(Math.random() * 4);
-    const pad = 0.05;
-    let pos: Vec2;
-    switch (edge) {
-      case 0: pos = { x: randomInRange(-arena.halfW + pad, arena.halfW - pad), y: arena.halfH - pad }; break;
-      case 1: pos = { x: randomInRange(-arena.halfW + pad, arena.halfW - pad), y: -arena.halfH + pad }; break;
-      case 2: pos = { x: -arena.halfW + pad, y: randomInRange(-arena.halfH + pad, arena.halfH - pad) }; break;
-      default: pos = { x: arena.halfW - pad, y: randomInRange(-arena.halfH + pad, arena.halfH - pad) }; break;
-    }
-    const launcher = this.spawnBall("orange", BallSize.MEDIUM, pos, { x: 0, y: 0 });
-    const delay = this.config.gameplay.orange.launch_delay_seconds ?? 0;
-    if (delay <= 0) {
-      // Legacy behaviour : launch right away.
-      this.performOrangeLaunch(launcher, arena);
-    } else {
-      // Keep the orange visible at its spawn position for `delay` seconds
-      // (charging phase) then trigger the launch in the update loop.
-      this.pendingLaunches.push({ launcherId: launcher.id, remaining: delay });
-    }
-  }
-
-  /** Tick down delayed orange launches and fire those whose timer has reached 0. */
-  private updatePendingLaunches(delta: number, arena: Arena2D): void {
-    if (this.pendingLaunches.length === 0) return;
-    const stillPending: Array<{ launcherId: string; remaining: number }> = [];
-    for (const entry of this.pendingLaunches) {
-      const launcher = this.balls.get(entry.launcherId);
-      // Drop orphaned entries (e.g. launcher killed by a player projectile mid-charge).
-      if (!launcher || !launcher.isAlive) continue;
-      entry.remaining -= delta;
-      if (entry.remaining <= 0) {
-        this.performOrangeLaunch(launcher, arena);
-      } else {
-        stillPending.push(entry);
-      }
-    }
-    this.pendingLaunches = stillPending;
-  }
-
-  private performOrangeLaunch(launcher: Ball, arena: Arena2D): void {
-    const launchCfg = this.config.gameplay.orange.launch_config;
-
-    // Color pick — priority order:
-    //   1. Active level's launch_color_weights (if `levels.list` is non-empty)
-    //   2. launch_config.color === "random" → uniform pick from allow_colors
-    //   3. Otherwise → fixed color from launch_config.color
-    let color: BallColor;
-    const lvl = this.getCurrentLevel();
-    const weights = lvl?.launch_color_weights;
-    if (weights && Object.keys(weights).length > 0) {
-      color = this.weightedPickColor(weights) ?? "white";
-    } else if (launchCfg.color === "random") {
-      const allowed = launchCfg.allow_colors ?? (Object.keys(this.config.ball_colors) as BallColor[]);
-      color = allowed[Math.floor(Math.random() * allowed.length)];
-    } else {
-      color = launchCfg.color as BallColor;
-    }
-
-    const levelOverride = lvl?.launch_overrides?.[color];
-    const size = (levelOverride?.size as BallSize) ?? (launchCfg.size as BallSize) ?? BallSize.SMALL;
-    const speed = launchCfg.speed ?? 4.5;
-    const toCenter = normalize({ x: -launcher.position.x, y: -launcher.position.y });
-    const randomAngle = (Math.random() - 0.5) * Math.PI * 0.8;
-    const cos = Math.cos(randomAngle);
-    const sin = Math.sin(randomAngle);
-    const perpX = -toCenter.y;
-    const perpY = toCenter.x;
-    const dir: Vec2 = { x: toCenter.x * cos + perpX * sin, y: toCenter.y * cos + perpY * sin };
-
-    void arena;
-    const overrideHp =
-      typeof levelOverride?.hp === "number" || typeof levelOverride?.maxHp === "number"
-        ? { hp: levelOverride?.hp ?? levelOverride?.maxHp ?? 1, maxHp: levelOverride?.maxHp ?? levelOverride?.hp ?? 1 }
-        : undefined;
-
-    const launched = this.spawnBall(color, size, { ...launcher.position }, { x: dir.x * speed, y: dir.y * speed }, undefined, overrideHp);
-    if (levelOverride?.diameter_multiplier && levelOverride.diameter_multiplier > 0) {
-      launched.baseDiameter *= levelOverride.diameter_multiplier;
-      launched.diameter *= levelOverride.diameter_multiplier;
-    }
-    this.launchedCount++;
-    this.pendingEvents.push({ type: "orange_launched", launcherId: launcher.id, launchedId: launched.id });
-
-    launcher.isAlive = false;
-    this.pendingEvents.push({ type: "ball_despawned", ballId: launcher.id, reason: "after_launch" });
-  }
-
-  // --------------------------------------------------------
-  // Rule Handlers
-  // --------------------------------------------------------
-
-  /** WHITE — bounce */
-  private handleBounce(ball: Ball, delta: number, ctx: RuleContext): void {
-    this.applyMovement(ball, delta, ctx.arena);
-    if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
-  }
-
-  /** YELLOW — accelerate */
-  private handleAccelerate(ball: Ball, delta: number, ctx: RuleContext): void {
-    const accel = ctx.config.rule_parameters.accelerate?.acceleration_per_second ?? 0.4;
-    const speed = Math.sqrt(ball.velocity.x ** 2 + ball.velocity.y ** 2);
-    if (speed > 0.01) {
-      ball.velocity.x += (ball.velocity.x / speed) * accel * delta;
-      ball.velocity.y += (ball.velocity.y / speed) * accel * delta;
-    }
-    this.applyMovement(ball, delta, ctx.arena);
-    if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
-  }
-
-  /** ORANGE — launcher (no-op rule).
-   *  The orange's lifecycle is fully driven by `spawnOrangeLauncher` →
-   *  `updatePendingLaunches` → `performOrangeLaunch`, which sets
-   *  `isAlive = false` itself. The rule handler must NOT despawn the ball
-   *  here, otherwise the visibility delay (`launch_delay_seconds`) would
-   *  be cut short on the very next tick. The ball stands still at its
-   *  spawn position while charging. */
-  private handleLauncher(_ball: Ball, _delta: number, _ctx: RuleContext): void {
-    // intentionally empty
-  }
-
-  /** RED — destroy_on_contact */
-  private handleDestroyOnContact(ball: Ball, delta: number, ctx: RuleContext): void {
-    this.applyMovement(ball, delta, ctx.arena);
-    for (const other of ctx.allBalls) {
-      if (other.id === ball.id || !other.isAlive || other.color === "orange" || other.isProjectile()) continue;
-      if (this.isTemporarilyUntouchable(other)) continue;
-      if (ball.isCollidingWith(other)) {
-        ctx.events.push({ type: "collision", ballAId: ball.id, ballBId: other.id });
-        ctx.despawnBall(other, "destroyed_by_red");
-        ctx.despawnBall(ball, "destroys_self_after_contact");
-        return;
-      }
-    }
-    if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
-  }
-
-  /** LIGHT_GREEN — slow_nearby */
-  private handleSlowNearby(ball: Ball, delta: number, ctx: RuleContext): void {
-    this.applyMovement(ball, delta, ctx.arena);
-    const p = ctx.config.rule_parameters.slow_nearby ?? { radius: 2.0, slow_factor: 0.5 };
-    for (const other of ctx.allBalls) {
-      if (other.id === ball.id || !other.isAlive || other.isProjectile()) continue;
-      if (ball.distanceTo(other) < p.radius) {
-        const drag = 1 - (1 - p.slow_factor) * delta;
-        other.velocity.x *= drag;
-        other.velocity.y *= drag;
-      }
-    }
-    if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
-  }
-
-  /** Old DARK_GREEN attract handler (kept for backward compatibility / runtime swaps). */
-  private handleAttract(ball: Ball, delta: number, ctx: RuleContext): void {
-    this.applyMovement(ball, delta, ctx.arena);
-    const p = ctx.config.rule_parameters.attract ?? { radius: 3.0, strength: 0.8 };
-    for (const other of ctx.allBalls) {
-      if (other.id === ball.id || !other.isAlive || other.isProjectile()) continue;
-      const d = ball.distanceTo(other);
-      if (d < p.radius && d > 0.01) {
-        const dir = normalize({ x: ball.position.x - other.position.x, y: ball.position.y - other.position.y });
-        other.velocity.x += dir.x * p.strength * delta;
-        other.velocity.y += dir.y * p.strength * delta;
-      }
-    }
-    if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
-  }
-
-  /** PURPLE — transparent magnetic field. */
-  private handleMagnetField(ball: Ball, delta: number, ctx: RuleContext): void {
-    const p = this.getMagnetFieldParams(ctx.config);
-    ball.metadata.magnetFieldDiameter = ball.diameter * p.field_diameter_multiplier;
-
-    this.applyMagnetBoostTimer(ball, delta);
-    this.applyMovement(ball, delta, ctx.arena);
-
-    const fieldRadius = (ball.diameter * p.field_diameter_multiplier) / 2;
-    const projectilesInside = ball.metadata.projectilesInsideField instanceof Set
-      ? ball.metadata.projectilesInsideField as Set<string>
-      : new Set<string>();
-    const currentProjectilesInside = new Set<string>();
-
-    for (const other of ctx.allBalls) {
-      if (other.id === ball.id || !other.isAlive || other.color === "orange") continue;
-      const distance = ball.distanceTo(other);
-      const enteredField = distance <= fieldRadius + other.diameter / 2;
-
-      if (other.isProjectile()) {
-        if (enteredField) {
-          currentProjectilesInside.add(other.id);
-          if (!projectilesInside.has(other.id)) this.triggerMagnetBoost(ball, p);
-        }
-        continue;
-      }
-
-      if (!enteredField || distance <= 0.001) continue;
-      const dir = normalize({ x: ball.position.x - other.position.x, y: ball.position.y - other.position.y });
-      other.velocity.x += dir.x * p.attraction_strength * delta;
-      other.velocity.y += dir.y * p.attraction_strength * delta;
-      this.resolveMagnetContact(ball, other, p);
-    }
-
-    ball.metadata.projectilesInsideField = currentProjectilesInside;
-    if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
-  }
-
-
-  /** TURQUOISE — split */
-  private handleSplit(ball: Ball, delta: number, ctx: RuleContext): void {
-    ball.position.x += ball.velocity.x * delta;
-    ball.position.y += ball.velocity.y * delta;
-    const hitWall = this.resolveWallBounce(ball, ctx.arena);
-
-    if (hitWall && ball.size !== BallSize.SMALL) {
-      const smallerSize = ball.size === BallSize.LARGE ? BallSize.MEDIUM : BallSize.SMALL;
-      const speed = Math.sqrt(ball.velocity.x ** 2 + ball.velocity.y ** 2);
-      const perp = normalize({ x: -ball.velocity.y, y: ball.velocity.x });
-      const b1 = ctx.spawnBall("turquoise", smallerSize, { ...ball.position }, {
-        x: ball.velocity.x * 0.8 + perp.x * speed * 0.5,
-        y: ball.velocity.y * 0.8 + perp.y * speed * 0.5,
-      });
-      const b2 = ctx.spawnBall("turquoise", smallerSize, { ...ball.position }, {
-        x: ball.velocity.x * 0.8 - perp.x * speed * 0.5,
-        y: ball.velocity.y * 0.8 - perp.y * speed * 0.5,
-      });
-      ctx.events.push({ type: "ball_split", originalId: ball.id, newIds: [b1.id, b2.id] });
-      ctx.despawnBall(ball, "split_completed");
-    }
-    if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
-  }
-
-  /** CYAN — freeze_nearby */
-  private handleFreezeNearby(ball: Ball, delta: number, ctx: RuleContext): void {
-    this.applyMovement(ball, delta, ctx.arena);
-    const p = ctx.config.rule_parameters.freeze_nearby ?? { radius: 2.5, freeze_duration_seconds: 1.5 };
-    for (const other of ctx.allBalls) {
-      if (other.id === ball.id || !other.isAlive || other.isProjectile()) continue;
-      if (ball.distanceTo(other) < p.radius && !other.isFrozen) {
-        other.freeze(p.freeze_duration_seconds);
-      }
-    }
-    if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
-  }
-
-  /** BLUE — transfer_rule */
-  private handleTransferRule(ball: Ball, delta: number, ctx: RuleContext): void {
-    this.applyMovement(ball, delta, ctx.arena);
-    if (ball.ruleTransferred) {
-      if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
-      return;
-    }
-    for (const other of ctx.allBalls) {
-      if (other.id === ball.id || !other.isAlive || other.color === "orange" || other.isProjectile()) continue;
-      if (this.isTemporarilyUntouchable(other)) continue;
-      if (ball.isCollidingWith(other)) {
-        const transferred = other.rule;
-        ball.passRuleTo(other, this.logEnabled);
-        ctx.events.push({ type: "rule_transferred", fromId: ball.id, toId: other.id, rule: transferred });
-        ball.ruleTransferred = true;
-        ctx.despawnBall(ball, "rule_transferred");
-        return;
-      }
-    }
-    if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
-  }
-
-  /** DARK_BLUE — gravity_sink */
-  private handleGravitySink(ball: Ball, delta: number, ctx: RuleContext): void {
-    this.applyMovement(ball, delta, ctx.arena);
-    const p = ctx.config.rule_parameters.gravity_sink ?? { strength: 0.6 };
-    for (const other of ctx.allBalls) {
-      if (other.id === ball.id || !other.isAlive || other.isProjectile()) continue;
-      const toCenter = normalize({ x: -other.position.x, y: -other.position.y });
-      other.velocity.x += toCenter.x * p.strength * delta;
-      other.velocity.y += toCenter.y * p.strength * delta;
-    }
-    if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
-  }
-
-  /** GRAY — neutral */
-  private handleNeutral(ball: Ball, delta: number, ctx: RuleContext): void {
-    this.applyMovement(ball, delta, ctx.arena);
-    if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
-  }
-
-  /** BLACK — absorb */
-  private handleAbsorb(ball: Ball, delta: number, ctx: RuleContext): void {
-    this.applyMovement(ball, delta, ctx.arena);
-    const p = ctx.config.rule_parameters.absorb ?? { max_diameter_multiplier: 3.0 };
-    const maxDiam = ball.baseDiameter * p.max_diameter_multiplier;
-    for (const other of ctx.allBalls) {
-      if (other.id === ball.id || !other.isAlive || other.color === "black" || other.isProjectile()) continue;
-      if (this.isTemporarilyUntouchable(other)) continue;
-      if (ball.isCollidingWith(other)) {
-        ctx.events.push({ type: "collision", ballAId: ball.id, ballBId: other.id });
-        ctx.despawnBall(other, "absorbed_by_black");
-        if (ball.diameter < maxDiam) {
-          ball.diameter = Math.min(ball.diameter + other.diameter * 0.3, maxDiam);
-        } else {
-          ctx.despawnBall(ball, "max_size_reached");
-          return;
-        }
-      }
-    }
-    if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
-  }
-
-  /**
-   * DARK_GREEN / BLUE — hp_grow_bouncer.
-   * Bounces on walls. On entering overlap with another (non-projectile, non-orange) ball:
-   *   - +HP (capped at max_hp): dark_green uses hp_gained_per_traversal,
-   *     blue uses blue_hp_gained_per_contact.
-   *   - diameter recomputed from current HP
-   * Tracks "touched" set in metadata to avoid double-counting per overlap event.
-   */
-  private handleHpGrowBouncer(ball: Ball, delta: number, ctx: RuleContext): void {
-    this.applyMovement(ball, delta, ctx.arena);
-    const p = ctx.config.rule_parameters.hp_grow_bouncer;
-    if (!p) return;
-
-    if (!(ball.metadata.touched instanceof Set)) ball.metadata.touched = new Set<string>();
-    const touched = ball.metadata.touched as Set<string>;
-
-    for (const other of ctx.allBalls) {
-      if (other.id === ball.id || !other.isAlive) continue;
-      if (other.color === "orange" || other.isProjectile()) continue;
-      if (this.isTemporarilyUntouchable(other)) continue;
-      const overlapping = ball.isCollidingWith(other);
-      if (overlapping && !touched.has(other.id)) {
-        touched.add(other.id);
-        if (ball.hp < ball.maxHp) {
-          const baseHealAmount = ball.color === "blue"
-            ? (p.blue_hp_gained_per_contact ?? 2)
-            : (p.hp_gained_per_traversal ?? 1);
-          const healMultiplier = typeof ball.metadata.hpGrowHealMultiplier === "number"
-            ? Number(ball.metadata.hpGrowHealMultiplier)
-            : 1;
-          const healAmount = baseHealAmount * Math.max(0, healMultiplier);
-          const healed = ball.heal(healAmount);
-          if (healed > 0) {
-            ball.diameter = this.computeHpGrowDiameter(ball);
-            ctx.events.push({
-              type: "ball_healed",
-              ballId: ball.id,
-              amount: healed,
-              remainingHp: ball.hp,
-              position: { ...ball.position },
-            });
-          }
-        }
-      } else if (!overlapping && touched.has(other.id)) {
-        touched.delete(other.id);
-      }
-    }
-
-    // Clean up touched IDs that no longer exist
-    for (const id of Array.from(touched)) {
-      const exists = ctx.allBalls.find((b) => b.id === id && b.isAlive);
-      if (!exists) touched.delete(id);
-    }
-
-    // Out of bounds shouldn't really happen (against_wall), but safety
-    if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
-  }
-
-
-  /**
-   * YELLOW — blink_hp_bouncer.
-   * - Fixed HP pool (configured), despawns at 0 HP
-   * - Periodically toggles visibility: invisible for X seconds every cycle.
-   */
-  private handleBlinkHpBouncer(ball: Ball, delta: number, ctx: RuleContext): void {
-    const p = ctx.config.rule_parameters.yellow_blinker ?? { default_hp: 4, max_hp: 4, invisible_duration_seconds: 0.5, cycle_seconds: 1.0 };
-    const age = Number(ball.metadata.ageSeconds ?? 0) + delta;
-    ball.metadata.ageSeconds = age;
-
-    const baseCycle = Math.max(0.01, p.cycle_seconds ?? 1.0);
-    const invis = Math.max(0, Math.min(baseCycle, p.invisible_duration_seconds ?? 0.5));
-    const visible = Math.max(0.01, baseCycle - invis);
-    const cycle = invis + visible * 1.15;
-    const phase = age % cycle;
-    const isInvisible = phase < invis;
-    ball.metadata.visibilityAlpha = isInvisible ? 0.0 : 1.0;
-    this.applyMovement(ball, delta, ctx.arena);
-
-    if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
-  }
-
-  private handleRedSplitBouncer(ball: Ball, delta: number, ctx: RuleContext): void {
-    this.applyMovement(ball, delta, ctx.arena);
-    if (this.isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
-  }
-
-  /**
-   * PLAYER PROJECTILE — straight-line shot fired by player click.
-   * Behavior driven by metadata (set in playerShoot):
-   *   shotKind, damage, passesThroughBalls, remainingWallBounces, lifetime, damagedIds
-   * - light: stops on first ball OR first wall
-   * - heavy: passes balls, stops on wall
-   * - mega:  passes balls, bounces N times on walls then despawns
-   */
-  private handlePlayerProjectile(ball: Ball, delta: number, ctx: RuleContext): void {
-    const metaAny = ball.metadata as Record<string, unknown>;
-    if (metaAny.isGrenade === true) {
-      const stuckToId = typeof metaAny.stuckToId === "string" ? metaAny.stuckToId : null;
-      if (stuckToId) {
-        const carrier = ctx.allBalls.find((b) => b.id === stuckToId && b.isAlive);
-        if (carrier) {
-          const offset = (metaAny.stuckOffset as Vec2 | undefined) ?? { x: 0, y: 0 };
-          ball.position.x = carrier.position.x + offset.x;
-          ball.position.y = carrier.position.y + offset.y;
-          ball.velocity.x = carrier.velocity.x;
-          ball.velocity.y = carrier.velocity.y;
-        } else {
-          delete metaAny.stuckToId;
-          delete metaAny.stuckOffset;
-        }
-      } else {
-        ball.position.x += ball.velocity.x * delta;
-        ball.position.y += ball.velocity.y * delta;
-        for (const other of ctx.allBalls) {
-          if (other.id === ball.id || !other.isAlive || other.isProjectile() || other.color === "orange") continue;
-          if (ball.isCollidingWith(other)) {
-            ball.metadata.stuckToId = other.id;
-            ball.metadata.stuckOffset = { x: ball.position.x - other.position.x, y: ball.position.y - other.position.y };
-            ball.velocity.x = other.velocity.x;
-            ball.velocity.y = other.velocity.y;
-            break;
-          }
-        }
-      }
-      if (this.isOutOfBounds(ball, ctx.arena)) {
-        ctx.despawnBall(ball, "grenade_out_of_bounds");
-        this.activeGrenadeId = null;
-        return;
-      }
-      // Grenade is sticky to all non-projectile balls on its path.
-      for (const other of ctx.allBalls) {
-        if (other.id === ball.id || !other.isAlive || other.isProjectile() || other.color === "orange") continue;
-        if (ball.isCollidingWith(other)) {
-          metaAny.touchedTarget = true;
-          const sticky = other.metadata.stuckGrenades instanceof Set ? other.metadata.stuckGrenades : new Set<string>();
-          sticky.add(ball.id);
-          other.metadata.stuckGrenades = sticky;
-        }
-      }
-      return;
-    }
-
-    const meta = ball.metadata as {
-      damage: number;
-      passesThroughBalls: boolean;
-      remainingWallBounces: number;
-      lifetime: number;
-      damagedIds: Map<string, number>;
-      hitCount?: number;
-      killCount?: number;
-      comboPositionSum?: Vec2;
-      comboFinalized?: boolean;
-    };
-
-    // Lifetime safety
-    meta.lifetime += delta;
-    const maxLife = ctx.config.rule_parameters.player_projectile?.max_lifetime_seconds ?? 4.0;
-    if (meta.lifetime > maxLife) {
-      this.finalizePlayerProjectileCombo(ball, ctx);
-      ctx.despawnBall(ball, "projectile_expired");
-      return;
-    }
-
-    // Move
-    ball.position.x += ball.velocity.x * delta;
-    ball.position.y += ball.velocity.y * delta;
-
-    this.triggerMagnetFieldsForProjectile(ball, ctx);
-
-    // --- Wall handling ---
-    const wallAxis = this.detectWallHit(ball, ctx.arena);
-    if (wallAxis) {
-      if (meta.remainingWallBounces > 0) {
-        // Bounce: clamp position back inside, flip velocity
-        const r = ball.diameter / 2;
-        if (wallAxis === "x") {
-          if (ball.position.x - r < -ctx.arena.halfW) ball.position.x = -ctx.arena.halfW + r;
-          if (ball.position.x + r >  ctx.arena.halfW) ball.position.x =  ctx.arena.halfW - r;
-          ball.velocity.x = -ball.velocity.x;
-        } else {
-          if (ball.position.y - r < -ctx.arena.halfH) ball.position.y = -ctx.arena.halfH + r;
-          if (ball.position.y + r >  ctx.arena.halfH) ball.position.y =  ctx.arena.halfH - r;
-          ball.velocity.y = -ball.velocity.y;
-        }
-        meta.remainingWallBounces--;
-      } else {
-        // No bounces left → stop / despawn
-        this.finalizePlayerProjectileCombo(ball, ctx);
-        ctx.despawnBall(ball, "projectile_hit_wall");
-        return;
-      }
-    }
-
-    // --- Ball collisions ---
-    for (const other of ctx.allBalls) {
-      if (other.id === ball.id || !other.isAlive) continue;
-      if (other.color === "orange" || other.isProjectile()) continue;
-      if (this.isTemporarilyUntouchable(other)) continue;
-      const immunityUntil = meta.damagedIds.get(other.id) ?? 0;
-      if (immunityUntil > this.elapsedTime) continue;
-
-      const ignoreProjectileId = typeof other.metadata?.ignoreProjectileId === "string" ? other.metadata.ignoreProjectileId : null;
-      const ignoreUntil = typeof other.metadata?.ignoreProjectileUntil === "number" ? other.metadata.ignoreProjectileUntil : 0;
-      if (ignoreProjectileId === ball.id && ignoreUntil > this.elapsedTime) continue;
-
-      if (ball.isCollidingWith(other)) {
-        const hpBeforeHit = other.hp;
-        const hitImmunitySeconds = this.getProjectileHitImmunitySeconds(ctx.config);
-        meta.damagedIds.set(other.id, this.elapsedTime + hitImmunitySeconds);
-        ctx.events.push({ type: "collision", ballAId: ball.id, ballBId: other.id });
-        const killed = ctx.damageBall(other, meta.damage, "killed_by_player");
-        meta.hitCount = (meta.hitCount ?? 0) + 1;
-        meta.killCount = (meta.killCount ?? 0) + (killed ? 1 : 0);
-        const comboPositionSum = meta.comboPositionSum ?? { x: 0, y: 0 };
-        comboPositionSum.x += other.position.x;
-        comboPositionSum.y += other.position.y;
-        meta.comboPositionSum = comboPositionSum;
-        this.trySplitRedAfterNonLethalHit(other, hpBeforeHit, ball.id, ctx);
-
-        // Bouncy_surface targets (e.g. blue) act as bumpers for ALL three
-        // shot kinds: the projectile ricochets off them and keeps flying
-        // (the damage is still applied above). If the hit kills the target,
-        // we fall through to the normal pass-through / despawn behaviour
-        // since the bumper no longer exists.
-        const isBouncy = !!ctx.config.ball_colors[other.color]?.bouncy_surface;
-        if (isBouncy && other.isAlive) {
-          this.reflectProjectileOff(ball, other);
-          continue;
-        }
-
-        if (!meta.passesThroughBalls) {
-          // Light shot: stop after first ball contact (non-bouncy target).
-          this.finalizePlayerProjectileCombo(ball, ctx);
-          ctx.despawnBall(ball, "projectile_hit_ball");
-          return;
-        }
-      }
-    }
-
-    if (this.isOutOfBounds(ball, ctx.arena)) {
-      this.finalizePlayerProjectileCombo(ball, ctx);
-      ctx.despawnBall(ball, "projectile_out_of_bounds");
-    }
-  }
-
-  private finalizePlayerProjectileCombo(ball: Ball, ctx: RuleContext): void {
-    const meta = ball.metadata as {
-      hitCount?: number;
-      killCount?: number;
-      comboPositionSum?: Vec2;
-      comboFinalized?: boolean;
-    };
-    if (meta.comboFinalized) return;
-    meta.comboFinalized = true;
-
-    const hitCount = meta.hitCount ?? 0;
-    const killCount = meta.killCount ?? 0;
-    let comboType: string | null = null;
-    let label: string | null = null;
-    let tier = 0;
-
-    if (killCount >= 5) {
-      comboType = "kill_5_plus";
-      label = "god is playing!";
-      tier = 5;
-    } else if (killCount === 4) {
-      comboType = "kill_4";
-      label = "awesome";
-      tier = 4;
-    } else if (killCount === 3) {
-      comboType = "kill_3";
-      label = "impressive";
-      tier = 3;
-    } else if (killCount === 2) {
-      comboType = "kill_2";
-      label = "amazing";
-      tier = 2;
-    } else if (hitCount >= 4) {
-      comboType = "hit_4_plus";
-      label = "great";
-      tier = 1;
-    }
-
-    if (!comboType || !label) {
-      this.comboStreak = 0;
-      return;
-    }
-
-    this.comboStreak += 1;
-
-    ctx.events.push({
-      type: "combo_popup",
-      projectileId: ball.id,
-      label,
-      streak: this.comboStreak,
-      tier,
-      position: { x: 0, y: 0 },
-    });
-  }
-
-  private trySplitRedAfterNonLethalHit(target: Ball, hpBeforeHit: number, sourceProjectileId: string, ctx: RuleContext): void {
-    if (target.color !== "red" || !target.isAlive) return;
-    const redCap = target.isBoss ? 25 : 8;
-    target.maxHp = Math.min(redCap, target.maxHp);
-    target.hp = Math.min(target.hp, target.maxHp);
-    if (target.hp >= hpBeforeHit) return;
-    const childHp = Math.max(1, Math.min(redCap, target.hp - 1));
-    const speed = Math.sqrt(target.velocity.x ** 2 + target.velocity.y ** 2);
-    const dir = speed > 0.01 ? normalize(target.velocity) : { x: 1, y: 0 };
-    const perp = normalize({ x: -dir.y, y: dir.x });
-    const childSpeed = Math.max(speed, 12);
-    const b1 = ctx.spawnBall("red", target.size, { ...target.position }, {
-      x: dir.x * childSpeed * 0.75 + perp.x * childSpeed * 0.55,
-      y: dir.y * childSpeed * 0.75 + perp.y * childSpeed * 0.55,
-    }, "red_split_bouncer", { hp: childHp, maxHp: childHp });
-    const b2 = ctx.spawnBall("red", target.size, { ...target.position }, {
-      x: dir.x * childSpeed * 0.75 - perp.x * childSpeed * 0.55,
-      y: dir.y * childSpeed * 0.75 - perp.y * childSpeed * 0.55,
-    }, "red_split_bouncer", { hp: childHp, maxHp: childHp });
-    b1.maxHp = childHp; b1.hp = childHp; b1.isBoss = target.isBoss;
-    b2.maxHp = childHp; b2.hp = childHp; b2.isBoss = target.isBoss;
-    const ignoreUntil = this.elapsedTime + this.getProjectileHitImmunitySeconds(ctx.config);
-    b1.metadata.ignoreProjectileId = sourceProjectileId;
-    b1.metadata.ignoreProjectileUntil = ignoreUntil;
-    b2.metadata.ignoreProjectileId = sourceProjectileId;
-    b2.metadata.ignoreProjectileUntil = ignoreUntil;
-    ctx.events.push({ type: "ball_split", originalId: target.id, newIds: [b1.id, b2.id] });
-    ctx.despawnBall(target, "red_split_after_hit");
-  }
-
-
-  private getProjectileHitImmunitySeconds(config: GameConfig): number {
-    const ms = config.rule_parameters.player_projectile?.hit_immunity_ms ?? 200;
-    return Math.max(0, ms) / 1000;
-  }
-  /** Reflect a projectile's velocity off a target ball treated as a bumper.
-   *  Also pushes the projectile out of overlap so it doesn't immediately
-   *  re-collide on the next frame. */
-  private reflectProjectileOff(projectile: Ball, target: Ball): void {
-    const dx = projectile.position.x - target.position.x;
-    const dy = projectile.position.y - target.position.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist < 0.001) return;
-    const nx = dx / dist;
-    const ny = dy / dist;
-    const vDotN = projectile.velocity.x * nx + projectile.velocity.y * ny;
-    if (vDotN < 0) {
-      projectile.velocity.x -= 2 * vDotN * nx;
-      projectile.velocity.y -= 2 * vDotN * ny;
-    }
-    const minDist = (projectile.diameter + target.diameter) / 2;
-    const push = minDist - dist + 0.01;
-    if (push > 0) {
-      projectile.position.x += nx * push;
-      projectile.position.y += ny * push;
-    }
-  }
 }

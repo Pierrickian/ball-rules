@@ -787,6 +787,7 @@
     ]
   },
   "release_notes": [
+    "Game engine découpé en modules",
     "Refonte interne des menus",
     "Instant cible mieux les formulaires",
     "Panneau Instant ajouté au menu",
@@ -805,8 +806,7 @@
     "Formulaire Evolution simplifié sans préfixe technique",
     "Difficulté réglable depuis le menu",
     "Curseur PV synchronisé avec la difficulté",
-    "Difficulté Medium sélectionnée par défaut",
-    "Règles du jeu rapprochées du terrain"
+    "Difficulté Medium sélectionnée par défaut"
   ],
   "debug": {
     "show_velocities": false,
