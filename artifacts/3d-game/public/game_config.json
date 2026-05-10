@@ -787,6 +787,7 @@
     ]
   },
   "release_notes": [
+    "Instant contrôle les spawns ennemis",
     "Instant devient un graphe aléatoire",
     "Instant devient un wizard visuel",
     "Instructions agent architecture ajoutées",
@@ -805,8 +806,7 @@
     "Niveau violet magnétique ajouté",
     "Combos centrés et multiplicateur continu",
     "Popups de combos pour tirs remarquables",
-    "Retry propose rejouer ou passer",
-    "Difficulté Medium passe à +3 PV"
+    "Retry propose rejouer ou passer"
   ],
   "debug": {
     "show_velocities": false,

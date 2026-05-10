@@ -10,7 +10,7 @@ export function maybeSpawnLevelBoss(this: any, arena: Arena2D, delta: number): v
   const lvl = this.getCurrentLevel();
   const boss = lvl?.boss;
   if (!boss) return;
-  const max = this.config.game_session?.max_balls_spawned ?? 20;
+  const max = lvl?.max_balls_spawned ?? this.config.game_session?.max_balls_spawned ?? 20;
   if (this.launchedCount < max) return;
   if (this.getEnemyBallCount() > 0) return;
 
