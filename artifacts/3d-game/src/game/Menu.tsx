@@ -1641,6 +1641,10 @@ export function Menu({
 }: MenuProps) {
   const [view, setView] = useState<MenuView>(evolutionInitialText ? "evolution" : "main");
 
+  useEffect(() => {
+    if (evolutionInitialText) setView("evolution");
+  }, [evolutionInitialText]);
+
   return (
     <div style={OVERLAY} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <DownloadApkButton />
