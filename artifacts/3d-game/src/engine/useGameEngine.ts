@@ -21,6 +21,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { GameEngine } from "./game_engine";
 import { addGrenadeZones, createGrenadeZoneStore, updateGrenadeZones } from "./grenade_lingering";
 import type { BallColor, GameConfig, GameEvent, GameState, ShotKind, Vec2 } from "./types";
+import { DEFAULT_DIFFICULTY, DEFAULT_LEVEL_AMMO_COUNT, DEFAULT_LEVEL_TIMER_SECONDS, DEFAULT_STATE, FALLBACK_DIFFICULTY_HP_PRESETS, buildQueue, clampDifficultyHpValue, getDefaultDifficulty, getDifficultyHpValue } from "./useGameEngineHelpers";
 
 export interface UseGameEngineResult {
   gameState: GameState | null;
@@ -48,59 +49,6 @@ export interface UseGameEngineResult {
   difficulty: "easy" | "medium" | "hard";
   setHpAdjustment: (adjustment: number) => void;
   hpAdjustment: number;
-}
-
-const DEFAULT_STATE: GameState = {
-  balls: new Map(),
-  events: [],
-  time: 0,
-  orangeSpawnTimer: 0,
-  score: 0,
-  launchedCount: 0,
-  maxBallsSpawned: 20,
-  sessionCleared: false,
-  currentLevelIndex: 0,
-  currentLevelId: 0,
-  currentLevelName: "",
-  timerSecondsRemaining: 60,
-  ammoRemaining: 50,
-  retryReason: null,
-  isBossPhase: false,
-};
-
-function pickRandom<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-
-const DEFAULT_LEVEL_TIMER_SECONDS = 60;
-const DEFAULT_LEVEL_AMMO_COUNT = 50;
-const DEFAULT_DIFFICULTY: "easy" | "medium" | "hard" = "medium";
-const FALLBACK_DIFFICULTY_HP_PRESETS: Record<"easy" | "medium" | "hard", number> = { easy: 0, medium: 3, hard: 6 };
-
-function getDifficultyHpValue(config: GameConfig | null, difficulty: "easy" | "medium" | "hard"): number {
-  return config?.gameplay_controls.difficulty_hp?.presets[difficulty] ?? FALLBACK_DIFFICULTY_HP_PRESETS[difficulty];
-}
-
-function getDefaultDifficulty(config: GameConfig | null): "easy" | "medium" | "hard" {
-  return config?.gameplay_controls.difficulty_hp?.default ?? DEFAULT_DIFFICULTY;
-}
-
-function clampDifficultyHpValue(config: GameConfig | null, value: number): number {
-  const min = config?.gameplay_controls.difficulty_hp?.min ?? -10;
-  const max = config?.gameplay_controls.difficulty_hp?.max ?? 10;
-  return Math.max(min, Math.min(max, Math.round(value)));
-}
-
-function buildQueue(size: number, distribution: Record<ShotKind, number>): ShotKind[] {
-  const weighted: ShotKind[] = [];
-  (["light", "heavy", "mega"] as ShotKind[]).forEach((k) => {
-    const n = Math.max(0, Math.round((distribution[k] ?? 0) * 100));
-    for (let i = 0; i < n; i++) weighted.push(k);
-  });
-  if (weighted.length === 0) weighted.push("light");
-  const out: ShotKind[] = [];
-  for (let i = 0; i < size; i++) out.push(pickRandom(weighted));
-  return out;
 }
 
 export function useGameEngine(): UseGameEngineResult {
