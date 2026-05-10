@@ -340,6 +340,11 @@ html, body, #root {
   align-items: stretch;
 }
 
+.add-feature-proposal-stage--five {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 16px;
+}
+
 .add-feature-proposal-button {
   position: relative;
   overflow: hidden;
@@ -377,6 +382,7 @@ html, body, #root {
 }
 
 .add-feature-proposal-button:active { transform: translateY(-5px) scale(0.975); }
+.add-feature-proposal-button--compact { min-height: 215px; padding: 24px; }
 .add-feature-proposal-button.is-selected { box-shadow: 0 0 0 2px var(--af-primary), 0 44px 120px rgba(0,0,0,0.5), 0 0 86px var(--af-glow); }
 .add-feature-proposal-button.is-dissolving { animation: addFeatureDissolve 1000ms ease forwards; pointer-events: none; }
 .add-feature-proposal-button:disabled { cursor: wait; }
@@ -390,13 +396,16 @@ html, body, #root {
 }
 
 .add-feature-proposal-title,
-.add-feature-proposal-subtitle {
+.add-feature-proposal-subtitle,
+.add-feature-choice-icon {
   position: relative;
   z-index: 1;
   display: block;
 }
 
+.add-feature-choice-icon { font-size: 38px; margin-bottom: 16px; filter: drop-shadow(0 0 18px var(--af-glow)); }
 .add-feature-proposal-title { font-size: clamp(27px, 3.4vw, 46px); font-weight: 950; line-height: 1.02; }
+.add-feature-proposal-button--compact .add-feature-proposal-title { font-size: clamp(21px, 2vw, 33px); }
 .add-feature-proposal-subtitle { margin-top: 18px; color: #d8e8ff; font-size: clamp(15px, 1.5vw, 19px); line-height: 1.45; }
 
 .add-feature-loading {
@@ -459,6 +468,7 @@ html, body, #root {
   .add-feature-portal { overflow-y: auto; }
   .add-feature-content { justify-content: flex-start; padding-top: 72px; }
   .add-feature-category-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  .add-feature-proposal-stage.add-feature-proposal-stage--five { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .add-feature-category-card { min-height: 156px; border-radius: 22px; padding: 18px; }
   .add-feature-proposal-stage { grid-template-columns: 1fr; padding-bottom: 92px; }
   .add-feature-proposal-button { min-height: 150px; border-radius: 24px; }
@@ -468,7 +478,8 @@ html, body, #root {
 
 @media (max-width: 520px) {
   .add-feature-content { width: min(100vw - 20px, 420px); }
-  .add-feature-category-grid { grid-template-columns: 1fr; }
+  .add-feature-category-grid,
+  .add-feature-proposal-stage.add-feature-proposal-stage--five { grid-template-columns: 1fr; }
   .add-feature-heading { margin-bottom: 18px; }
   .add-feature-kicker { letter-spacing: 0.22em; }
 }
