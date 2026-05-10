@@ -439,6 +439,24 @@ html, body, #root {
   animation: addFeatureLoadingSpin 700ms linear infinite;
 }
 
+.add-feature-submit-error {
+  position: absolute;
+  left: 50%;
+  bottom: max(102px, calc(env(safe-area-inset-bottom) + 102px));
+  z-index: 6;
+  width: min(520px, calc(100vw - 40px));
+  transform: translateX(-50%);
+  border: 1px solid rgba(255,77,122,0.68);
+  border-radius: 16px;
+  padding: 12px 16px;
+  background: rgba(80, 0, 20, 0.82);
+  color: #ffd0dc;
+  box-shadow: 0 18px 70px rgba(0,0,0,0.42);
+  font-size: 13px;
+  font-weight: 800;
+  text-align: center;
+}
+
 .add-feature-cta {
   position: absolute;
   right: max(20px, env(safe-area-inset-right));
@@ -473,6 +491,7 @@ html, body, #root {
   .add-feature-proposal-stage { grid-template-columns: 1fr; padding-bottom: 92px; }
   .add-feature-proposal-button { min-height: 150px; border-radius: 24px; }
   .add-feature-loading { position: fixed; left: 50%; bottom: 104px; width: max-content; max-width: calc(100vw - 40px); }
+  .add-feature-submit-error { position: fixed; bottom: 104px; }
   .add-feature-cta { position: fixed; left: 20px; right: 20px; width: auto; min-width: 0; }
 }
 

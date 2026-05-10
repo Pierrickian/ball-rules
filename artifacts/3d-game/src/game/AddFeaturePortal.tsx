@@ -11,6 +11,7 @@ export type AddFeaturePhase =
   | "element_transition"
   | "hormone_select"
   | "hormone_transition"
+  | "random_submitting"
   | "ready_to_send";
 
 export type ProposalAction = {
@@ -249,16 +250,19 @@ export function AddFeaturePortal({
   open,
   onClose,
   onSendIdea,
+  onSubmitRandomIdea,
 }: {
   open: boolean;
   onClose: () => void;
   onSendIdea: (prefillText: string) => void;
+  onSubmitRandomIdea: (prefillText: string) => Promise<void>;
 }) {
   const [phase, setPhase] = useState<AddFeaturePhase>("closed");
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [selectedProposalIndex, setSelectedProposalIndex] = useState<number | null>(null);
   const [selectedRandomElementId, setSelectedRandomElementId] = useState<RandomElementId | null>(null);
   const [selectedRandomHormoneId, setSelectedRandomHormoneId] = useState<RandomHormoneId | null>(null);
+  const [randomSubmitError, setRandomSubmitError] = useState<string | null>(null);
   const [burstCategoryId, setBurstCategoryId] = useState<string | null>(null);
   const transitionTimerRef = useRef<number | null>(null);
 
@@ -269,6 +273,7 @@ export function AddFeaturePortal({
       setSelectedProposalIndex(null);
       setSelectedRandomElementId(null);
       setSelectedRandomHormoneId(null);
+      setRandomSubmitError(null);
       setBurstCategoryId(null);
       if (transitionTimerRef.current !== null) {
         window.clearTimeout(transitionTimerRef.current);
@@ -303,6 +308,7 @@ export function AddFeaturePortal({
     setSelectedProposalIndex(null);
     setSelectedRandomElementId(null);
     setSelectedRandomHormoneId(null);
+    setRandomSubmitError(null);
     setBurstCategoryId(category.id);
     setPhase("category_transition");
     if (transitionTimerRef.current !== null) window.clearTimeout(transitionTimerRef.current);
@@ -313,11 +319,23 @@ export function AddFeaturePortal({
     }, 1000);
   };
 
+  const submitRandomPrompt = async (prefillText: string, fallbackPhase: AddFeaturePhase) => {
+    setRandomSubmitError(null);
+    setPhase("random_submitting");
+    try {
+      await onSubmitRandomIdea(prefillText);
+    } catch (error) {
+      setRandomSubmitError(`Création impossible : ${error instanceof Error ? error.message : "erreur inconnue"}`);
+      setPhase(fallbackPhase);
+    }
+  };
+
   const chooseProposal = (index: number) => {
     if (!selectedCategory) return;
     setSelectedProposalIndex(index);
     setSelectedRandomElementId(null);
     setSelectedRandomHormoneId(null);
+    setRandomSubmitError(null);
     setPhase("proposal_transition");
     if (transitionTimerRef.current !== null) window.clearTimeout(transitionTimerRef.current);
     transitionTimerRef.current = window.setTimeout(() => {
@@ -326,7 +344,7 @@ export function AddFeaturePortal({
         if (proposal.featureType === RANDOM_DEEP_DIVE_PROPOSAL) {
           setPhase("element_select");
         } else {
-          onSendIdea(buildAddFeaturePrefill(selectedCategory, proposal));
+          void submitRandomPrompt(buildAddFeaturePrefill(selectedCategory, proposal), "proposal_select");
         }
       } else {
         setPhase("ready_to_send");
@@ -352,7 +370,10 @@ export function AddFeaturePortal({
     setPhase("hormone_transition");
     if (transitionTimerRef.current !== null) window.clearTimeout(transitionTimerRef.current);
     transitionTimerRef.current = window.setTimeout(() => {
-      onSendIdea(buildAddFeaturePrefill(selectedCategory, selectedProposal, { elementId: selectedRandomElementId, hormoneId }));
+      void submitRandomPrompt(
+        buildAddFeaturePrefill(selectedCategory, selectedProposal, { elementId: selectedRandomElementId, hormoneId }),
+        "hormone_select"
+      );
       transitionTimerRef.current = null;
     }, 1000);
   };
@@ -373,6 +394,7 @@ export function AddFeaturePortal({
   const headingTitle = (() => {
     if (phase === "element_select" || phase === "element_transition") return "Choisis ton élément MTC";
     if (phase === "hormone_select" || phase === "hormone_transition") return "Choisis l'hormone à favoriser";
+    if (phase === "random_submitting") return "Validation directe";
     return "Choose what you want to create";
   })();
 
@@ -512,10 +534,16 @@ export function AddFeaturePortal({
         )}
       </main>
 
-      {(phase === "category_transition" || phase === "proposal_transition" || phase === "element_transition" || phase === "hormone_transition") && (
+      {(phase === "category_transition" || phase === "proposal_transition" || phase === "element_transition" || phase === "hormone_transition" || phase === "random_submitting") && (
         <div className="add-feature-loading" role="status" aria-live="polite">
           <span className="add-feature-loading-orb" aria-hidden="true" />
-          <span>L'IA mélange les idées…</span>
+          <span>{phase === "random_submitting" ? "L'IA valide la demande…" : "L'IA mélange les idées…"}</span>
+        </div>
+      )}
+
+      {randomSubmitError && (
+        <div className="add-feature-submit-error" role="alert">
+          {randomSubmitError}
         </div>
       )}
 

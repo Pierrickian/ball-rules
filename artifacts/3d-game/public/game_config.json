@@ -787,8 +787,9 @@
     ]
   },
   "release_notes": [
-    "Random profond ajoute éléments MTC et hormones avant Evolution",
-    "Add Random propose des types de features guidés vers Evolution",
+    "Random Add valide directement les prompts sans ouvrir Evolution",
+    "Random profond ajoute éléments MTC et hormones avant validation directe",
+    "Add Random propose des types de features validables directement",
     "Portail créatif Add Feature",
     "Bouton ajout vers Evolution guidée",
     "Retry boss et grenades mieux guidés",
