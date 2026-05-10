@@ -13,6 +13,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { ExplosionSprite } from "../scenes/ExplosionSprite";
 import type { BallColor, EvolutionRequestConfig, GameConfig } from "../engine/types";
+import { submitEvolutionRequest, type EvolutionSubmitStatus } from "./evolutionRequest";
 
 type MenuView = "main" | "evolution" | "rules" | "balls" | "terrain" | "player_colors" | "how_to_ask" | "release_notes" | "levels" | "boss" | "effects" | "difficulty";
 
@@ -29,19 +30,6 @@ function difficultyHpSettings(config: GameConfig) {
     default: "medium" as Difficulty,
   };
 }
-type EvolutionSubmitStatus =
-  | { phase: "idle" }
-  | { phase: "submitting"; message: string }
-  | { phase: "success"; message: string; url?: string }
-  | { phase: "error"; message: string };
-
-const DEFAULT_EVOLUTION_REQUEST: EvolutionRequestConfig = {
-  repo: "Pierrickian/ball-rules",
-  mode: "issue",
-  endpoint: "",
-  default_title: "Demande d'évolution depuis le jeu",
-};
-
 interface MenuProps {
   config: GameConfig;
   onClose: () => void;
@@ -721,33 +709,6 @@ function EvolutionMenu({
   const [voiceActive, setVoiceActive] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<EvolutionSubmitStatus>({ phase: "idle" });
   useEffect(() => { setRequestText(initialText); }, [initialText]);
-  const requestConfig = { ...DEFAULT_EVOLUTION_REQUEST, ...evolutionRequest };
-
-  const requestTitle = () => {
-    const firstLine = requestText.trim().split("\n").find((line) => line.trim().length > 0)?.trim();
-    if (!firstLine) return requestConfig.default_title;
-    return firstLine.length > 72 ? `${firstLine.slice(0, 69)}…` : firstLine;
-  };
-
-  const buildEvolutionPrompt = () => {
-    const trimmed = requestText.trim() || "<demande du joueur>";
-    return [
-      "Demande joueur depuis le menu Evolution :",
-      "",
-      "Contexte :",
-      "- Repo : Pierrickian/ball-rules",
-      "- App : WebGL / Capacitor",
-      "- Respecter replit.md",
-      "- Mettre à jour release_notes",
-      "- Ne pas casser les tirs, grenades, menus",
-      "",
-      "Demande :",
-      trimmed,
-      "",
-      "Livrable : modifier le jeu, tester, ouvrir une PR.",
-    ].join("\n");
-  };
-
   const startVoiceInput = () => {
     const SpeechRecognitionCtor = (window as unknown as { SpeechRecognition?: any; webkitSpeechRecognition?: any }).SpeechRecognition
       ?? (window as unknown as { webkitSpeechRecognition?: any }).webkitSpeechRecognition;
@@ -768,26 +729,21 @@ function EvolutionMenu({
     recognition.start();
   };
 
-  const submitEvolutionRequest = async () => {
-    const title = requestTitle();
-    const body = buildEvolutionPrompt();
-    const endpoint = requestConfig.endpoint?.trim();
+  const sendEvolutionRequest = async () => {
     setSubmitStatus({ phase: "submitting", message: "Envoi en cours…" });
     try {
-      if (endpoint) {
-        const response = await fetch(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ repo: requestConfig.repo, type: requestConfig.mode, title, body, params: { level: currentLevelNumber, difficulty, hpAdjustment } }),
-        });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const created = await response.json() as { number?: number; title?: string; url?: string };
-        setSubmitStatus({ phase: "success", message: `Demande${typeof created.number === "number" ? ` #${created.number}` : ""} créée : ${created.title ?? title}`, url: created.url });
-        return;
-      }
-      const issueUrl = `https://github.com/${requestConfig.repo}/issues/new?${new URLSearchParams({ title, body }).toString()}`;
-      window.open(issueUrl, "_blank", "noopener,noreferrer");
-      setSubmitStatus({ phase: "success", message: `Formulaire GitHub ouvert : ${title}`, url: issueUrl });
+      const result = await submitEvolutionRequest({
+        evolutionRequest,
+        requestText,
+        currentLevelNumber,
+        difficulty,
+        hpAdjustment,
+      });
+      setSubmitStatus({
+        phase: "success",
+        message: `Demande${typeof result.number === "number" ? ` #${result.number}` : ""} créée : ${result.title}`,
+        url: result.url,
+      });
     } catch (error) {
       setSubmitStatus({ phase: "error", message: `Création impossible : ${error instanceof Error ? error.message : "erreur inconnue"}` });
     }
@@ -811,7 +767,7 @@ function EvolutionMenu({
       />
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <button onClick={startVoiceInput} disabled={submitStatus.phase === "submitting"} style={{ ...CLOSE_BTN, flex: 1, color: "#ffe6f0", borderColor: "rgba(255,255,255,0.28)", background: voiceActive ? "rgba(255,77,122,0.34)" : "rgba(0,0,0,0.25)" }}>{voiceActive ? "🎙️ écoute…" : "🎙️ Vocal"}</button>
-        <button onClick={() => void submitEvolutionRequest()} disabled={submitStatus.phase === "submitting"} style={{ ...CLOSE_BTN, flex: 1, color: "#061122", background: "#1e90ff", borderColor: "#1e90ff", fontWeight: 900 }}>{submitStatus.phase === "submitting" ? "En cours" : "Envoyer"}</button>
+        <button onClick={() => void sendEvolutionRequest()} disabled={submitStatus.phase === "submitting"} style={{ ...CLOSE_BTN, flex: 1, color: "#061122", background: "#1e90ff", borderColor: "#1e90ff", fontWeight: 900 }}>{submitStatus.phase === "submitting" ? "En cours" : "Envoyer"}</button>
       </div>
       {submitStatus.phase !== "idle" && (
         <div style={{ border: `1px solid ${submitStatus.phase === "error" ? "rgba(255,77,122,0.65)" : "rgba(102,255,187,0.45)"}`, background: submitStatus.phase === "error" ? "rgba(80,0,20,0.38)" : "rgba(0,60,42,0.34)", color: submitStatus.phase === "error" ? "#ffd0dc" : "#c8ffe7", borderRadius: 8, padding: "8px 10px", fontSize: 12, lineHeight: 1.4 }}>

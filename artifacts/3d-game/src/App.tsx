@@ -17,6 +17,7 @@ import { HUD } from "./game/HUD";
 import { Menu } from "./game/Menu";
 import { RetryOverlay } from "./game/RetryOverlay";
 import { AddFeaturePortal } from "./game/AddFeaturePortal";
+import { submitEvolutionRequest } from "./game/evolutionRequest";
 import type { GameConfig, GameState, ShotKind, Vec2 } from "./engine/types";
 
 function App() {
@@ -91,6 +92,18 @@ function App() {
     setAddFeaturePortalOpen(false);
     pause();
     setMenuOpen(true);
+  };
+  const submitRandomIdeaFromAdd = async (prompt: string) => {
+    if (!config || !gameState) throw new Error("configuration du jeu indisponible");
+    await submitEvolutionRequest({
+      evolutionRequest: config.evolution_request,
+      requestText: prompt,
+      currentLevelNumber: gameState.currentLevelId || gameState.currentLevelIndex + 1,
+      difficulty,
+      hpAdjustment,
+    });
+    setAddFeaturePortalOpen(false);
+    resume();
   };
 
   const getDisplayMax = (): number => {
@@ -457,6 +470,7 @@ function App() {
         open={addFeaturePortalOpen}
         onClose={handleAddFeatureClose}
         onSendIdea={openEvolutionFromAdd}
+        onSubmitRandomIdea={submitRandomIdeaFromAdd}
       />
       <HUD
         gameState={gameState}
