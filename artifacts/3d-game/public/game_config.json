@@ -787,6 +787,7 @@
     ]
   },
   "release_notes": [
+    "Panneau Instant ajouté au menu",
     "Random Add valide directement les prompts sans ouvrir Evolution",
     "Random profond ajoute éléments MTC et hormones avant validation directe",
     "Add Random propose des types de features validables directement",
@@ -805,11 +806,7 @@
     "Difficulté Medium sélectionnée par défaut",
     "Règles du jeu rapprochées du terrain",
     "Menus niveaux scrollables et balles ajoutables",
-    "Auto-fire restauré après merge",
-    "Build et retry stabilisés",
-    "Téléchargement APK depuis le menu",
-    "Menu Evolution scrollable et simplifié",
-    "Evolution ouvre une issue suivie"
+    "Auto-fire restauré après merge"
   ],
   "debug": {
     "show_velocities": false,

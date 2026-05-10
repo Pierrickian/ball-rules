@@ -14,6 +14,7 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { ExplosionSprite } from "../scenes/ExplosionSprite";
 import type { BallColor, EvolutionRequestConfig, GameConfig } from "../engine/types";
 import { submitEvolutionRequest, type EvolutionSubmitStatus } from "./evolutionRequest";
+import { InstantCreationMenu } from "./InstantCreationMenu";
 
 type MenuView = "main" | "evolution" | "rules" | "balls" | "terrain" | "player_colors" | "how_to_ask" | "release_notes" | "levels" | "boss" | "effects" | "difficulty";
 
@@ -594,8 +595,9 @@ function PlayerColorsMenu({
 // Main Menu
 // ============================================================
 function MainMenu({
-  onEvolution, onDifficulty, onRules, onLevels, onBoss, onBalls, onTerrain, onPlayerColors, onHowToAsk, onReleaseNotes, onEffects, onClose,
+  config, onEvolution, onDifficulty, onRules, onLevels, onBoss, onBalls, onTerrain, onPlayerColors, onHowToAsk, onReleaseNotes, onEffects, onClose,
 }: {
+  config:           GameConfig;
   onEvolution:      () => void;
   onDifficulty:     () => void;
   onRules:          () => void;
@@ -622,6 +624,7 @@ function MainMenu({
           <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Demander une amélioration depuis le jeu</div>
         </div>
       </button>
+      <InstantCreationMenu config={config} />
       <button style={MENU_BTN} onClick={onDifficulty}>
         <div>🎚️</div><div><div style={{ fontWeight: "bold" }}>Difficulté</div><div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Retry rapide et ajustement PV</div></div>
       </button>
@@ -1606,6 +1609,7 @@ export function Menu({
       <DownloadApkButton />
       {view === "main" && (
         <MainMenu
+          config={config}
           onEvolution={() => setView("evolution")}
           onRules={() => setView("rules")}
           onLevels={() => setView("levels")}

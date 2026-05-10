@@ -199,7 +199,7 @@ export function InstantCreationMenu({ config }: { config: GameConfig }) {
                   style={{
                     ...CHIP,
                     background: active ? "rgba(255,210,80,0.26)" : CHIP.background,
-                    borderColor: active ? "rgba(255,225,120,0.72)" : CHIP.border,
+                    borderColor: active ? "rgba(255,225,120,0.72)" : "rgba(255,225,120,0.24)",
                     color: active ? "#fff7cf" : CHIP.color,
                     flexShrink: 0,
                   }}
