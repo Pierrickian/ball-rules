@@ -24,6 +24,7 @@ export interface MenuProps {
   onLevelSelect: (index: number) => void;
   onLevelWeightsChange: (index: number, weights: Record<BallColor, number>) => void;
   onPlayBossRush: (levelIds: number[]) => void;
+  onApplyInstantConfig: (nextConfig: GameConfig, options?: { reset?: boolean; playtestTarget?: unknown }) => void;
   onDifficultyChange: (difficulty: Difficulty) => void;
   difficulty: Difficulty;
   hpAdjustment: number;

@@ -25,7 +25,7 @@ function App() {
   const {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
-    shoot, setCustomTerrainDistribution, setActiveLevel, setLevelWeights, openRetryMenu, goToBoss, playBossRush, classifyHold, toggleGrenade, grenadesLeft, setDifficulty, difficulty, setHpAdjustment, hpAdjustment,
+    shoot, setCustomTerrainDistribution, setActiveLevel, setLevelWeights, applyRuntimeConfig, openRetryMenu, goToBoss, playBossRush, classifyHold, toggleGrenade, grenadesLeft, setDifficulty, difficulty, setHpAdjustment, hpAdjustment,
   } = useGameEngine();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -85,6 +85,12 @@ function App() {
   useEffect(() => { homingOnRef.current = homingOn; }, [homingOn]);
 
   const handleMenuOpen = () => { setEvolutionInitialText(""); setAddFeaturePortalOpen(false); pause(); setMenuOpen(true); };
+  const handleApplyInstantConfig = (nextConfig: GameConfig, options?: { reset?: boolean; playtestTarget?: unknown }) => {
+    applyRuntimeConfig(nextConfig, options);
+    setMenuOpen(false);
+    resume();
+  };
+
   const handleMenuClose = () => { setMenuOpen(false); setEvolutionInitialText(""); resume(); };
   const handleAddFeatureOpen = () => { pause(); setAddFeaturePortalOpen(true); };
   const handleAddFeatureClose = () => { setAddFeaturePortalOpen(false); resume(); };
@@ -514,6 +520,7 @@ function App() {
           onLevelSelect={setActiveLevel}
           onLevelWeightsChange={setLevelWeights}
           onPlayBossRush={playBossRush}
+          onApplyInstantConfig={handleApplyInstantConfig}
           onDifficultyChange={setDifficulty}
           difficulty={difficulty}
           hpAdjustment={hpAdjustment}

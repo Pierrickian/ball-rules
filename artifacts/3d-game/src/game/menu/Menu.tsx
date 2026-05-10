@@ -30,6 +30,7 @@ export function Menu({
   onLevelSelect,
   onLevelWeightsChange,
   onPlayBossRush,
+  onApplyInstantConfig,
   onDifficultyChange,
   difficulty,
   hpAdjustment,
@@ -67,6 +68,7 @@ export function Menu({
           onHowToAsk={() => setView("how_to_ask")}
           onReleaseNotes={() => setView("release_notes")}
           onEffects={() => setView("effects")}
+          onApplyInstantConfig={onApplyInstantConfig}
           onDifficulty={() => setView("difficulty")}
           onClose={onClose}
         />

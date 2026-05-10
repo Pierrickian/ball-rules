@@ -8,6 +8,7 @@
 // ============================================================
 
 import { useMemo, useState } from "react";
+import { buildInstantConfigPatch, SUPPORTED_INSTANT_CONFIG_CAPABILITIES } from "./instantConfigPatches";
 import type { BallColor, GameConfig } from "../engine/types";
 import {
   evaluateFeatureIntent,
@@ -82,7 +83,7 @@ function realColorKeys(config: GameConfig): BallColor[] {
 function instantCapabilities(category: FeatureCategory): CapabilityDefinition[] {
   return FEATURE_CAPABILITY_REGISTRY.categories
     .find((entry) => entry.key === category)
-    ?.capabilities.filter((capability) => capability.status === "instant") ?? [];
+    ?.capabilities.filter((capability) => capability.status === "instant" && SUPPORTED_INSTANT_CONFIG_CAPABILITIES.has(capability.key)) ?? [];
 }
 
 function defaultValueForCapability(capability: CapabilityDefinition, config: GameConfig): unknown {
@@ -102,18 +103,29 @@ function capabilityTargetFields(capability: CapabilityDefinition): Array<"level"
   return Array.from(new Set(fields));
 }
 
-export function InstantCreationMenu({ config }: { config: GameConfig }) {
+export function InstantCreationMenu({
+  config,
+  onApplyInstantConfig,
+}: {
+  config: GameConfig;
+  onApplyInstantConfig: (
+    nextConfig: GameConfig,
+    options?: { reset?: boolean; playtestTarget?: unknown }
+  ) => void;
+}) {
   const categories = FEATURE_CAPABILITY_REGISTRY.categories.filter((category) =>
-    category.capabilities.some((capability) => capability.status === "instant")
+    instantCapabilities(category.key).length > 0
   );
+  const defaultCategory = categories[0]?.key ?? "level";
   const [isOpen, setIsOpen] = useState(false);
-  const [category, setCategory] = useState<FeatureCategory>("ball");
+  const [category, setCategory] = useState<FeatureCategory>(defaultCategory);
   const capabilities = instantCapabilities(category);
   const [capabilityKey, setCapabilityKey] = useState(capabilities[0]?.key ?? "");
   const selectedCapability = capabilities.find((capability) => capability.key === capabilityKey) ?? capabilities[0];
   const [levelId, setLevelId] = useState(config.levels?.list[0]?.id ?? 1);
   const [ballColor, setBallColor] = useState<BallColor>(realColorKeys(config)[0] ?? "white");
   const [value, setValue] = useState<unknown>(() => selectedCapability ? defaultValueForCapability(selectedCapability, config) : "");
+  const [message, setMessage] = useState<{ kind: "success" | "error"; text: string } | null>(null);
 
   const targetFields = selectedCapability ? capabilityTargetFields(selectedCapability) : [];
 
@@ -140,18 +152,30 @@ export function InstantCreationMenu({ config }: { config: GameConfig }) {
 
   const evaluation = useMemo(() => evaluateFeatureIntent(intent), [intent]);
 
+  const handleApplyInstantly = () => {
+    try {
+      const patch = buildInstantConfigPatch(config, intent);
+      onApplyInstantConfig(patch.nextConfig, { reset: patch.requiresReset, playtestTarget: patch.playtestTarget });
+      setMessage({ kind: "success", text: patch.summary || "Applied for this session" });
+    } catch (error) {
+      setMessage({ kind: "error", text: error instanceof Error ? error.message : "Could not apply this instant change." });
+    }
+  };
+
   const changeCategory = (next: FeatureCategory) => {
     const nextCapabilities = instantCapabilities(next);
     const nextCapability = nextCapabilities[0];
     setCategory(next);
     setCapabilityKey(nextCapability?.key ?? "");
     setValue(nextCapability ? defaultValueForCapability(nextCapability, config) : "");
+    setMessage(null);
   };
 
   const changeCapability = (key: string) => {
     const nextCapability = capabilities.find((capability) => capability.key === key);
     setCapabilityKey(key);
     setValue(nextCapability ? defaultValueForCapability(nextCapability, config) : "");
+    setMessage(null);
   };
 
   return (
@@ -281,8 +305,9 @@ export function InstantCreationMenu({ config }: { config: GameConfig }) {
           </div>
 
           <button
+            onClick={handleApplyInstantly}
             disabled={evaluation.status !== "instant"}
-            title={evaluation.status === "instant" ? "Next step: apply generated JSON patch" : "This request is not fully instant yet"}
+            title={evaluation.status === "instant" ? "Apply a runtime config patch and start a playtest" : "This request is not fully instant yet"}
             style={{
               border: "1px solid rgba(102,255,187,0.55)",
               background: evaluation.status === "instant" ? "rgba(0,80,54,0.92)" : "rgba(30,30,30,0.55)",
@@ -296,6 +321,21 @@ export function InstantCreationMenu({ config }: { config: GameConfig }) {
           >
             ⚡ Apply Instantly
           </button>
+
+          {message && (
+            <div style={{
+              border: `1px solid ${message.kind === "success" ? "rgba(102,255,187,0.45)" : "rgba(255,120,120,0.45)"}`,
+              background: message.kind === "success" ? "rgba(0,80,54,0.35)" : "rgba(90,20,20,0.35)",
+              color: message.kind === "success" ? "#c8ffe7" : "#ffd0d0",
+              borderRadius: 10,
+              padding: "8px 10px",
+              fontSize: 12,
+              fontWeight: 800,
+            }}>
+              {message.kind === "success" ? "✅ Applied for this session" : "⚠️ Instant apply failed"}
+              <div style={{ fontSize: 11, fontWeight: 500, marginTop: 3 }}>{message.text}</div>
+            </div>
+          )}
         </div>
       )}
     </div>
