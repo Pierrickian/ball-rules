@@ -899,6 +899,10 @@ function BallCard({ colorKey, config }: { colorKey: string; config: GameConfig }
     if (p) hpInfo = `${p.default_hp} PV (max ${p.max_hp}) · +${p.hp_gained_per_traversal} PV par traversée`;
   }
 
+  const protectiveHeatInfo = ruleEntry?.rule === "protective_heat"
+    ? config.rule_parameters.protective_heat
+    : null;
+
   return (
     <div
       style={{
@@ -992,6 +996,31 @@ function BallCard({ colorKey, config }: { colorKey: string; config: GameConfig }
             <div>
               <div style={TITLE}>Points de vie</div>
               <div style={{ fontSize: 12, color: "#88dd88" }}>{hpInfo}</div>
+            </div>
+          )}
+
+          {protectiveHeatInfo && (
+            <div
+              style={{
+                background: "rgba(255,102,180,0.12)",
+                border: "1px solid rgba(255,138,203,0.38)",
+                borderRadius: 10,
+                padding: "10px 12px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 7,
+              }}
+            >
+              <div style={TITLE}>Comment lire la chaleur rose</div>
+              <div style={{ fontSize: 12, color: "#ffd3ea", lineHeight: 1.55 }}>
+                🔥 La jauge visible sous la balle monte quand un tir, un contact ou une balle rapide passe dans son aura.
+              </div>
+              <div style={{ fontSize: 12, color: "#ffd3ea", lineHeight: 1.55 }}>
+                🛡 À 100%, elle affiche BOUCLIER: les menaces proches sont ralenties et le joueur gagne +{protectiveHeatInfo.grenade_reward} grenade.
+              </div>
+              <div style={{ fontSize: 11, color: "#d8a7c4", lineHeight: 1.45 }}>
+                Aura ×{protectiveHeatInfo.aura_diameter_multiplier} · seuil {protectiveHeatInfo.heat_threshold} · recharge {protectiveHeatInfo.burst_cooldown_seconds}s
+              </div>
             </div>
           )}
 

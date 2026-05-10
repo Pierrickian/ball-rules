@@ -306,7 +306,7 @@
     },
     "pink": {
       "rule": "protective_heat",
-      "_description": "Chaleur protectrice Feu + Ocytocine: son aura rose se charge quand le combat s'intensifie autour d'elle. À pleine chaleur, elle relie les menaces proches, les ralentit et offre une grenade de secours au joueur."
+      "_description": "Chaleur protectrice Feu + Ocytocine: une jauge 🔥 visible sous la balle se remplit quand tirs, contacts ou balles rapides traversent son aura rose. À 100%, elle affiche 🛡 BOUCLIER, ralentit les menaces proches et offre une grenade de secours au joueur."
     },
     "purple": {
       "rule": "magnet_field",
@@ -827,6 +827,7 @@
     ]
   },
   "release_notes": [
+    "Lecture de la chaleur rose clarifiée",
     "Chaleur protectrice rose ajoutée",
     "Random Add valide directement les prompts sans ouvrir Evolution",
     "Random profond ajoute éléments MTC et hormones avant validation directe",
@@ -845,8 +846,7 @@
     "Curseur PV synchronisé avec la difficulté",
     "Difficulté Medium sélectionnée par défaut",
     "Règles du jeu rapprochées du terrain",
-    "Menus niveaux scrollables et balles ajoutables",
-    "Auto-fire restauré après merge"
+    "Menus niveaux scrollables et balles ajoutables"
   ],
   "debug": {
     "show_velocities": false,

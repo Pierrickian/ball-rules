@@ -51,6 +51,11 @@ export function BallMesh({ ball, config, showBlackHpLabel = false }: BallMeshPro
   const heatRatio = typeof ball.metadata?.heatRatio === "number"
     ? Math.max(0, Math.min(1, ball.metadata.heatRatio as number))
     : 0;
+  const heatCooldown = typeof ball.metadata?.heatCooldown === "number"
+    ? Math.max(0, ball.metadata.heatCooldown as number)
+    : 0;
+  const showHeatLabel = !isProjectile && ball.rule === "protective_heat" && heatAuraDiameter > 0;
+  const heatLabel = heatCooldown > 0 ? "🛡 BOUCLIER" : `🔥 ${Math.round(heatRatio * 100)}%`;
 
   useFrame((_, delta) => {
     if (!meshRef.current) return;
@@ -205,6 +210,35 @@ export function BallMesh({ ball, config, showBlackHpLabel = false }: BallMeshPro
             }}
           >
             {ball.hp}
+          </div>
+        </Html>
+      )}
+
+      {/* Pink protective heat gauge, visible during play so the rule is understandable. */}
+      {showHeatLabel && (
+        <Html
+          position={[ball.position.x, hpLabelY + 1.15, hpLabelZ]}
+          center
+          zIndexRange={[21, 0]}
+          style={{ pointerEvents: "none" }}
+        >
+          <div
+            style={{
+              fontFamily: "'Courier New', monospace",
+              fontWeight: 900,
+              fontSize: heatCooldown > 0 ? 12 : 11,
+              lineHeight: 1,
+              color: heatCooldown > 0 ? "#fff6a8" : "#ffd3ea",
+              background: "rgba(36, 0, 24, 0.72)",
+              border: "1px solid rgba(255, 138, 203, 0.72)",
+              borderRadius: 999,
+              padding: "3px 6px",
+              textShadow: "0 0 5px #000, 0 0 8px rgba(255,102,180,0.9)",
+              whiteSpace: "nowrap",
+              userSelect: "none",
+            }}
+          >
+            {heatLabel}
           </div>
         </Html>
       )}
