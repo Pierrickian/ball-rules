@@ -9,10 +9,10 @@ interface Arena2D {
 }
 
 export function updateOrangeSpawn(this: any, delta: number, arena: Arena2D): void {
-  const max = this.config.game_session?.max_balls_spawned ?? 20;
+  const max = this.getCurrentLevel()?.max_balls_spawned ?? this.config.game_session?.max_balls_spawned ?? 20;
   if (this.launchedCount >= max) return; // hard cap
 
-  const interval = this.config.gameplay.orange.spawn.interval_seconds;
+  const interval = this.getCurrentLevel()?.spawn_interval_seconds ?? this.config.gameplay.orange.spawn.interval_seconds;
   this.orangeSpawnTimer += delta;
   if (this.orangeSpawnTimer >= interval) {
     this.orangeSpawnTimer = 0;

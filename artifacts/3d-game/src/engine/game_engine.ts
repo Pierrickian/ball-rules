@@ -199,7 +199,7 @@ export class GameEngine {
       orangeSpawnTimer: this.orangeSpawnTimer,
       score: 0,
       launchedCount: this.launchedCount,
-      maxBallsSpawned: this.config.game_session?.max_balls_spawned ?? 20,
+      maxBallsSpawned: lvl?.max_balls_spawned ?? this.config.game_session?.max_balls_spawned ?? 20,
       sessionCleared: this.sessionCleared,
       currentLevelIndex: this.currentLevelIndex,
       currentLevelId: lvl?.id ?? 0,
@@ -282,7 +282,7 @@ export class GameEngine {
 
   /** Has the session reached its spawn cap AND is now cleared? */
   isSessionFinished(): boolean {
-    const max = this.config.game_session?.max_balls_spawned ?? 20;
+    const max = this.getCurrentLevel()?.max_balls_spawned ?? this.config.game_session?.max_balls_spawned ?? 20;
     if (this.launchedCount < max) return false;
     const bossConfigured = !!this.getCurrentLevel()?.boss;
     if (!bossConfigured) return this.getEnemyBallCount() === 0;

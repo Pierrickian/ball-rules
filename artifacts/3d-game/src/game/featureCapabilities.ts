@@ -115,6 +115,8 @@ export const FEATURE_CAPABILITY_REGISTRY: FeatureCapabilityRegistry = {
         { key: "launch_color_weights", label: "Ball color weights", status: "instant", valueType: "weights" },
         { key: "timer_seconds", label: "Timer duration", status: "instant", valueType: "number", min: 5, max: 600 },
         { key: "ammo_count", label: "Ammo count", status: "instant", valueType: "number", min: 1, max: 999 },
+        { key: "max_balls_spawned", label: "Enemy spawn count", status: "instant", valueType: "number", min: 1, max: 999 },
+        { key: "spawn_interval_seconds", label: "Spawn cadence", status: "instant", valueType: "number", min: 0.05, max: 10 },
         { key: "hospital", label: "Hospital object", status: "instant", valueType: "object" },
         { key: "boss", label: "Existing boss phase config", status: "instant", valueType: "object" },
         {
