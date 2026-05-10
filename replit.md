@@ -4,6 +4,10 @@
 
 Monorepo pnpm TypeScript. Chaque package gère ses propres dépendances.
 
+## Instructions agent
+
+For architecture, refactor, engine split, menu split, capability or runtime patch tasks, read and apply `skills/agent-architecture/SKILL.md` before coding.
+
 ## Stack
 
 - **Monorepo**: pnpm workspaces — **Node.js**: 24 — **TypeScript**: 5.9
