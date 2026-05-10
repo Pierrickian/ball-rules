@@ -1,4 +1,46 @@
-import type { BallColor, GameConfig, Vec2 } from "./types";
+import type { Ball } from "./Ball";
+import type { BallColor, BallRule, GameConfig, GameEvent, Vec2 } from "./types";
+import { BallSize } from "./types";
+
+export type PendingCommand =
+  | { type: "launch_grenade"; direction: Vec2; effect: string }
+  | { type: "detonate_active_grenade" };
+
+export interface Arena2D {
+  halfW: number;
+  halfH: number;
+}
+
+export interface MagnetFieldParams {
+  field_diameter_multiplier: number;
+  attraction_strength: number;
+  boost_speed_multiplier: number;
+  boost_duration_seconds: number;
+  contact_velocity_damping?: number;
+}
+
+export interface RuleContext {
+  allBalls: Ball[];
+  config: GameConfig;
+  events: GameEvent[];
+  arena: Arena2D;
+  elapsedTime: number;
+  logEnabled: boolean;
+  spawnBall: (
+    color: BallColor,
+    size: BallSize,
+    position: Vec2,
+    velocity: Vec2,
+    overrideRule?: BallRule,
+    overrideHp?: { hp: number; maxHp: number }
+  ) => Ball;
+  despawnBall: (ball: Ball, reason: string) => void;
+  damageBall: (ball: Ball, amount: number, reason?: string) => boolean;
+  computeHpGrowDiameter: (ball: Ball) => number;
+  getComboStreak: () => number;
+  setComboStreak: (streak: number) => void;
+  clearActiveGrenade: (grenadeId: string) => void;
+}
 
 export function normalize(v: Vec2): Vec2 {
   const len = Math.sqrt(v.x * v.x + v.y * v.y);

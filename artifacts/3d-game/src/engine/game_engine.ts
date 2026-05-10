@@ -28,22 +28,12 @@ import type {
   Vec2,
 } from "./types";
 import { BallSize, BounceCondition } from "./types";
+import type { Arena2D, PendingCommand, RuleContext } from "./engineMath";
 import {
-  applyMagnetBoostTimer,
   applyMovement,
-  detectWallHit,
   getArena,
   getBounceCondition,
-  getMagnetFieldParams,
-  getSpeed,
-  isOutOfBounds,
-  isTemporarilyUntouchable,
   resolveBallCollisions,
-  rescaleVelocity,
-  resolveMagnetContact,
-  resolveWallBounce,
-  triggerMagnetBoost,
-  triggerMagnetFieldsForProjectile,
 } from "./collisionSystem";
 import { maybeSpawnLevelBoss } from "./bossSystem";
 import {
@@ -53,11 +43,11 @@ import {
   updatePendingLaunches,
 } from "./launchSystem";
 import {
-  finalizePlayerProjectileCombo,
-  getProjectileHitImmunitySeconds,
+  getPlayerBaseDiameter,
+  getShotConfig,
   handlePlayerProjectile,
-  reflectProjectileOff,
-  trySplitRedAfterNonLethalHit,
+  playerShoot as shootPlayerProjectile,
+  processPendingCommands as processProjectileCommands,
 } from "./projectileSystem";
 import {
   handleAbsorb,
@@ -80,39 +70,6 @@ import {
 
 type RuleHandler = (ball: Ball, delta: number, context: RuleContext) => void;
 
-interface MagnetFieldParams {
-  field_diameter_multiplier: number;
-  attraction_strength: number;
-  boost_speed_multiplier: number;
-  boost_duration_seconds: number;
-  contact_velocity_damping?: number;
-}
-
-interface RuleContext {
-  allBalls: Ball[];
-  config: GameConfig;
-  events: GameEvent[];
-  arena: Arena2D;
-  spawnBall: (
-    color: BallColor,
-    size: BallSize,
-    position: Vec2,
-    velocity: Vec2,
-    overrideRule?: BallRule,
-    overrideHp?: { hp: number; maxHp: number }
-  ) => Ball;
-  despawnBall: (ball: Ball, reason: string) => void;
-  damageBall: (ball: Ball, amount: number, reason?: string) => boolean;
-}
-
-interface Arena2D {
-  halfW: number;
-  halfH: number;
-}
-
-type PendingCommand =
-  | { type: "launch_grenade"; direction: Vec2; effect: string }
-  | { type: "detonate_active_grenade" };
 
 export class GameEngine {
   private balls = new Map<string, Ball>();
@@ -163,31 +120,22 @@ export class GameEngine {
     this.registerAllHandlers();
   }
 
-  private getBounceCondition = getBounceCondition;
-  private getArena = getArena;
+  private getBounceCondition(color: BallColor): BounceCondition {
+    return getBounceCondition.call({ config: this.config, pendingEvents: this.pendingEvents }, color);
+  }
+  private getArena(): Arena2D {
+    return getArena.call({ config: this.config, pendingEvents: this.pendingEvents });
+  }
   private applyMovement = applyMovement;
-  private resolveWallBounce = resolveWallBounce;
-  private detectWallHit = detectWallHit;
-  private isOutOfBounds = isOutOfBounds;
-  private isTemporarilyUntouchable = isTemporarilyUntouchable;
-  private getMagnetFieldParams = getMagnetFieldParams;
-  private getSpeed = getSpeed;
-  private rescaleVelocity = rescaleVelocity;
-  private triggerMagnetBoost = triggerMagnetBoost;
-  private applyMagnetBoostTimer = applyMagnetBoostTimer;
-  private triggerMagnetFieldsForProjectile = triggerMagnetFieldsForProjectile;
-  private resolveMagnetContact = resolveMagnetContact;
-  private resolveBallCollisions = resolveBallCollisions;
+  private resolveBallCollisions(balls: Ball[], arena: Arena2D): void {
+    resolveBallCollisions.call({ config: this.config, pendingEvents: this.pendingEvents }, balls, arena);
+  }
   private maybeSpawnLevelBoss = maybeSpawnLevelBoss;
   private updateOrangeSpawn = updateOrangeSpawn;
   private spawnOrangeLauncher = spawnOrangeLauncher;
   private updatePendingLaunches = updatePendingLaunches;
   private performOrangeLaunch = performOrangeLaunch;
   private handlePlayerProjectile = handlePlayerProjectile;
-  private finalizePlayerProjectileCombo = finalizePlayerProjectileCombo;
-  private trySplitRedAfterNonLethalHit = trySplitRedAfterNonLethalHit;
-  private getProjectileHitImmunitySeconds = getProjectileHitImmunitySeconds;
-  private reflectProjectileOff = reflectProjectileOff;
   private handleBounce = handleBounce;
   private handleAccelerate = handleAccelerate;
   private handleLauncher = handleLauncher;
@@ -213,23 +161,23 @@ export class GameEngine {
   // Handler Registration
   // --------------------------------------------------------
   private registerAllHandlers(): void {
-    this.registerRuleHandler("bounce",            this.handleBounce.bind(this));
-    this.registerRuleHandler("accelerate",        this.handleAccelerate.bind(this));
-    this.registerRuleHandler("launcher",          this.handleLauncher.bind(this));
-    this.registerRuleHandler("destroy_on_contact",this.handleDestroyOnContact.bind(this));
-    this.registerRuleHandler("slow_nearby",       this.handleSlowNearby.bind(this));
-    this.registerRuleHandler("attract",           this.handleAttract.bind(this));
-    this.registerRuleHandler("split",             this.handleSplit.bind(this));
-    this.registerRuleHandler("freeze_nearby",     this.handleFreezeNearby.bind(this));
-    this.registerRuleHandler("transfer_rule",     this.handleTransferRule.bind(this));
-    this.registerRuleHandler("gravity_sink",      this.handleGravitySink.bind(this));
-    this.registerRuleHandler("neutral",           this.handleNeutral.bind(this));
-    this.registerRuleHandler("absorb",            this.handleAbsorb.bind(this));
-    this.registerRuleHandler("hp_grow_bouncer",   this.handleHpGrowBouncer.bind(this));
-    this.registerRuleHandler("blink_hp_bouncer",  this.handleBlinkHpBouncer.bind(this));
-    this.registerRuleHandler("red_split_bouncer", this.handleRedSplitBouncer.bind(this));
-    this.registerRuleHandler("player_projectile", this.handlePlayerProjectile.bind(this));
-    this.registerRuleHandler("magnet_field",      this.handleMagnetField.bind(this));
+    this.registerRuleHandler("bounce",            this.handleBounce);
+    this.registerRuleHandler("accelerate",        this.handleAccelerate);
+    this.registerRuleHandler("launcher",          this.handleLauncher);
+    this.registerRuleHandler("destroy_on_contact",this.handleDestroyOnContact);
+    this.registerRuleHandler("slow_nearby",       this.handleSlowNearby);
+    this.registerRuleHandler("attract",           this.handleAttract);
+    this.registerRuleHandler("split",             this.handleSplit);
+    this.registerRuleHandler("freeze_nearby",     this.handleFreezeNearby);
+    this.registerRuleHandler("transfer_rule",     this.handleTransferRule);
+    this.registerRuleHandler("gravity_sink",      this.handleGravitySink);
+    this.registerRuleHandler("neutral",           this.handleNeutral);
+    this.registerRuleHandler("absorb",            this.handleAbsorb);
+    this.registerRuleHandler("hp_grow_bouncer",   this.handleHpGrowBouncer);
+    this.registerRuleHandler("blink_hp_bouncer",  this.handleBlinkHpBouncer);
+    this.registerRuleHandler("red_split_bouncer", this.handleRedSplitBouncer);
+    this.registerRuleHandler("player_projectile", this.handlePlayerProjectile);
+    this.registerRuleHandler("magnet_field",      this.handleMagnetField);
   }
 
   registerRuleHandler(rule: BallRule, handler: RuleHandler): void {
@@ -355,56 +303,7 @@ export class GameEngine {
    * color is the next ball from the player's queue.
    */
   playerShoot(targetX: number, targetY: number, holdSeconds: number, color: BallColor): Ball | null {
-    const controls = this.config.gameplay_controls;
-    if (!controls) return null;
-    const shotKind = this.classifyShot(holdSeconds);
-    const shotCfg = controls.shot_types[shotKind];
-    if (!shotCfg) return null;
-
-    const arena = this.getArena();
-    const inset = (controls.shot_origin?.inset_factor ?? 0.04) * arena.halfH * 2;
-    const origin: Vec2 = { x: 0, y: -arena.halfH + inset };
-
-    const dx = targetX - origin.x;
-    const dy = targetY - origin.y;
-    const len = Math.sqrt(dx * dx + dy * dy);
-    if (len < 0.001) return null;
-    const dir: Vec2 = { x: dx / len, y: dy / len };
-
-    const baseSize = controls.queue_ball_size ?? BallSize.SMALL;
-    const baseDiameter = this.config.graphics.ball_sizes[baseSize]?.diameter ?? 1.0;
-    const projectileDiameter = baseDiameter * shotCfg.diameter_multiplier;
-    const speed = shotCfg.speed;
-
-    const projectile = new Ball(
-      color,
-      baseSize,
-      origin,
-      { x: dir.x * speed, y: dir.y * speed },
-      projectileDiameter,
-      "player_projectile",
-      BounceCondition.AGAINST_OBSTACLE,
-      999, 999
-    );
-    projectile.metadata = {
-      isProjectile: true,
-      shotKind,
-      damage: shotCfg.damage,
-      passesThroughBalls: shotCfg.passes_through_balls,
-      remainingWallBounces: shotCfg.wall_bounces,
-      lifetime: 0,
-      damagedIds: new Map<string, number>(),
-      hitCount: 0,
-      killCount: 0,
-      comboPositionSum: { x: 0, y: 0 },
-      comboFinalized: false,
-      colorTint: shotCfg.color_tint ?? null,
-      effect: shotKind === 'mega' ? 'nova' : shotKind === 'heavy' ? 'shock' : 'pulse',
-    };
-    this.balls.set(projectile.id, projectile);
-    this.emitEvent({ type: "ball_spawned", ball: projectile.getState() }, "external");
-    this.emitEvent({ type: "player_shot", projectileId: projectile.id, shotKind }, "external");
-    return projectile;
+    return shootPlayerProjectile(this.projectileApiContext(), targetX, targetY, holdSeconds, color);
   }
 
   classifyShot(holdSeconds: number): ShotKind {
@@ -417,7 +316,7 @@ export class GameEngine {
   }
 
   getShotConfig(kind: ShotKind): ShotTypeConfig | null {
-    return this.config.gameplay_controls?.shot_types?.[kind] ?? null;
+    return getShotConfig(this.config, kind);
   }
 
   getGrenadesLeft(): number { return this.grenadesLeft; }
@@ -431,9 +330,20 @@ export class GameEngine {
   }
 
   private getPlayerBaseDiameter(): number {
-    const controls = this.config.gameplay_controls;
-    const baseSize = controls?.queue_ball_size ?? BallSize.SMALL;
-    return this.config.graphics.ball_sizes[baseSize]?.diameter ?? 1.0;
+    return getPlayerBaseDiameter(this.config);
+  }
+
+  private projectileApiContext() {
+    return {
+      balls: this.balls,
+      config: this.config,
+      pendingCommands: this.pendingCommands,
+      activeGrenadeId: this.activeGrenadeId,
+      getArena: () => this.getArena(),
+      classifyShot: (holdSeconds: number) => this.classifyShot(holdSeconds),
+      damageBall: (ball: Ball, amount: number, reason?: string) => this.damageBall(ball, amount, reason),
+      emitEvent: (event: GameEvent, source: "update" | "external") => this.emitEvent(event, source),
+    };
   }
 
   // ARCHITECTURE NOTE: any gameplay mutation that must produce visual effects
@@ -450,52 +360,9 @@ export class GameEngine {
   }
 
   private processPendingCommands(): void {
-    if (this.pendingCommands.length === 0) return;
-    const commands = this.pendingCommands;
-    this.pendingCommands = [];
-
-    for (const command of commands) {
-      if (command.type === "launch_grenade") {
-        const arena = this.getArena();
-        const origin: Vec2 = { x: 0, y: -arena.halfH + 2 };
-        const len = Math.sqrt(command.direction.x*command.direction.x + command.direction.y*command.direction.y);
-        const dir = len > 0.001 ? {x: command.direction.x/len, y: command.direction.y/len} : {x: 0, y: 1};
-        const baseDiameter = this.getPlayerBaseDiameter();
-        const baseSpeed = this.config.gameplay_controls?.shot_types?.light?.speed ?? 9;
-        const grenade = new Ball('gray', BallSize.SMALL, origin, {x: dir.x * baseSpeed * 4, y: dir.y * baseSpeed * 4}, baseDiameter * 2, 'player_projectile', BounceCondition.AGAINST_OBSTACLE, 999, 999);
-        grenade.metadata = {isProjectile: true, isGrenade: true, lifetime: 0, damagedIds: new Map<string, number>(), colorTint: '#6b7a8f', effect: command.effect};
-        this.balls.set(grenade.id, grenade);
-        this.emitEvent({ type: 'ball_spawned', ball: grenade.getState() }, "update");
-        this.activeGrenadeId = grenade.id;
-        continue;
-      }
-
-      if (command.type === "detonate_active_grenade") {
-        const grenadeId = this.activeGrenadeId;
-        this.activeGrenadeId = null;
-        if (!grenadeId) continue;
-        const grenade = this.balls.get(grenadeId);
-        if (!grenade || !grenade.isAlive) continue;
-
-        if (grenade.metadata.touchedTarget === true) this.explodeGrenade(grenade);
-        else {
-          grenade.isAlive = false;
-          this.emitEvent({ type: 'ball_despawned', ballId: grenade.id, reason: 'grenade_fizzled', position: { ...grenade.position }, velocity: { ...grenade.velocity }, effect: String(grenade.metadata?.effect ?? 'ring') }, "update");
-        }
-      }
-    }
-  }
-
-  private explodeGrenade(grenade: Ball): void {
-    const radius = this.getPlayerBaseDiameter() * 3;
-    for (const other of this.balls.values()) {
-      if (!other.isAlive || other.id===grenade.id || other.isProjectile() || other.color==='orange') continue;
-      const dx = other.position.x - grenade.position.x; const dy = other.position.y - grenade.position.y;
-      const reach = radius + other.diameter / 2;
-      if (Math.sqrt(dx*dx+dy*dy) <= reach) this.damageBall(other, 10, 'killed_by_grenade');
-    }
-    grenade.isAlive = false;
-    this.emitEvent({ type: 'ball_despawned', ballId: grenade.id, reason: 'grenade_exploded', position: { ...grenade.position }, velocity: { ...grenade.velocity }, effect: String(grenade.metadata?.effect ?? 'ring') }, "update");
+    const ctx = this.projectileApiContext();
+    processProjectileCommands(ctx);
+    this.activeGrenadeId = ctx.activeGrenadeId;
   }
 
   // --------------------------------------------------------
@@ -542,6 +409,12 @@ export class GameEngine {
         this.pendingEvents.push({ type: "ball_despawned", ballId: ball.id, reason, position: { ...ball.position }, velocity: { ...ball.velocity }, effect: String(ball.metadata?.effect ?? "") });
       },
       damageBall: (ball, amount, reason = "damaged") => this.damageBall(ball, amount, reason),
+      elapsedTime: this.elapsedTime,
+      logEnabled: this.logEnabled,
+      computeHpGrowDiameter: (ball) => this.computeHpGrowDiameter(ball),
+      getComboStreak: () => this.comboStreak,
+      setComboStreak: (streak) => { this.comboStreak = streak; },
+      clearActiveGrenade: (grenadeId) => { if (this.activeGrenadeId === grenadeId) this.activeGrenadeId = null; },
     };
 
     // Step 1: Apply rule handlers

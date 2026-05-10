@@ -787,6 +787,7 @@
     ]
   },
   "release_notes": [
+    "Moteur plus typé et allégé",
     "Game engine découpé en modules",
     "Refonte interne des menus",
     "Instant cible mieux les formulaires",
@@ -805,8 +806,7 @@
     "Difficulté Medium passe à +3 PV",
     "Formulaire Evolution simplifié sans préfixe technique",
     "Difficulté réglable depuis le menu",
-    "Curseur PV synchronisé avec la difficulté",
-    "Difficulté Medium sélectionnée par défaut"
+    "Curseur PV synchronisé avec la difficulté"
   ],
   "debug": {
     "show_velocities": false,
