@@ -1,9 +1,11 @@
 import { useState } from "react";
 import type { GameConfig } from "../../engine/types";
 import { CLOSE_BTN, PANEL, TITLE } from "./menuStyles";
+import { useI18n } from "../i18n";
 import { terrainColors } from "./colorHelpers";
 
 export function BallCard({ colorKey, config }: { colorKey: string; config: GameConfig }) {
+  const { t } = useI18n();
   const colorEntry = config.ball_colors[colorKey as keyof typeof config.ball_colors];
   const ruleEntry  = config.ball_rules[colorKey  as keyof typeof config.ball_rules];
   const hasRule = !!ruleEntry;
@@ -77,11 +79,11 @@ export function BallCard({ colorKey, config }: { colorKey: string; config: GameC
           }}
         >
           <div style={{ fontWeight: "bold", letterSpacing: 1, fontSize: 11, color: "#9fc8ff" }}>
-            ⚙️ RÔLE SYSTÈME — {colorEntry.system_role.toUpperCase()}
+            {t("balls.systemRole", { role: colorEntry.system_role.toUpperCase() })}
           </div>
           <div style={{ color: "#bcd6f4" }}>
             {colorEntry._system_role_description ??
-              "Mécanisme système du terrain. Pas de règle classique : son comportement est codé dans le moteur."}
+              t("balls.systemFallback")}
           </div>
         </div>
       ) : !hasRule ? (
@@ -100,31 +102,29 @@ export function BallCard({ colorKey, config }: { colorKey: string; config: GameC
           }}
         >
           <div style={{ fontWeight: "bold", letterSpacing: 1, fontSize: 11, color: "#f0d896" }}>
-            ⏳ EN ATTENTE DE RÈGLE
+            {t("balls.pending")}
           </div>
           <div style={{ color: "#cbb98a" }}>
-            Cette couleur fait partie de la palette mais n'a pas encore de comportement défini en
-            jeu. Tu peux demander à l'agent d'en créer un (voir le menu « Comment demander »,
-            tutoriels « Ajouter une nouvelle couleur » et « Éditer / créer les règles d'une couleur »).
+            {t("balls.pendingHelp")}
           </div>
         </div>
       ) : (
         <>
           <div>
-            <div style={TITLE}>Règle</div>
+            <div style={TITLE}>{t("balls.rule")}</div>
             <div style={{ fontSize: 13, color: "#7a9fcc", fontStyle: "italic", marginBottom: 3 }}>{ruleEntry?.rule}</div>
             <div style={{ fontSize: 12, color: "#99b0d4", lineHeight: 1.6 }}>{ruleEntry?._description}</div>
           </div>
 
           {hpInfo && (
             <div>
-              <div style={TITLE}>Points de vie</div>
+              <div style={TITLE}>{t("balls.hp")}</div>
               <div style={{ fontSize: 12, color: "#88dd88" }}>{hpInfo}</div>
             </div>
           )}
 
           <div>
-            <div style={TITLE}>Condition de rebond</div>
+            <div style={TITLE}>{t("balls.bounce")}</div>
             <div style={{
               fontSize: 12, color: "#66aacc",
               background: "rgba(30,90,180,0.12)", borderRadius: 6,
@@ -140,11 +140,11 @@ export function BallCard({ colorKey, config }: { colorKey: string; config: GameC
 
           <div style={{ display: "flex", gap: 10 }}>
             <div style={{ flex: 1 }}>
-              <div style={TITLE}>Apparition</div>
+              <div style={TITLE}>{t("balls.spawn")}</div>
               <div style={{ fontSize: 11, color: "#6faa88" }}>{spawnCond}</div>
             </div>
             <div style={{ flex: 1 }}>
-              <div style={TITLE}>Disparition</div>
+              <div style={TITLE}>{t("balls.despawn")}</div>
               <div style={{ fontSize: 11, color: "#aa6f6f" }}>{despawnCond}</div>
             </div>
           </div>
@@ -158,6 +158,7 @@ export function BallCard({ colorKey, config }: { colorKey: string; config: GameC
 // Balls Carousel
 // ============================================================
 export function BallsMenu({ config, onBack }: { config: GameConfig; onBack: () => void }) {
+  const { t } = useI18n();
   // Show every terrain-side color (the `for_terrain` flag in game_config.json).
   // Includes system mechanics like orange — they get a "Rôle système" badge
   // instead of "En attente de règle". Player-only colors (like gray) are
@@ -172,13 +173,13 @@ export function BallsMenu({ config, onBack }: { config: GameConfig; onBack: () =
   return (
     <div style={PANEL}>
       <div>
-        <div style={TITLE}>Détail des balles</div>
+        <div style={TITLE}>{t("menu.balls")}</div>
         <div style={{ fontSize: 16, fontWeight: "bold", color: "#1e90ff" }}>{index + 1} / {colors.length}</div>
       </div>
       <BallCard colorKey={colorKey} config={config} />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
         <button onClick={prev} style={{ ...CLOSE_BTN, flex: 1, textAlign: "center", color: "#aac8f0", borderColor: "rgba(30,144,255,0.4)" }}>
-          ← Précédente
+          {t("common.previousFem")}
         </button>
         <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
           {colors.map((c, i) => {
@@ -200,10 +201,10 @@ export function BallsMenu({ config, onBack }: { config: GameConfig; onBack: () =
           })}
         </div>
         <button onClick={next} style={{ ...CLOSE_BTN, flex: 1, textAlign: "center", color: "#aac8f0", borderColor: "rgba(30,144,255,0.4)" }}>
-          Suivante →
+          {t("common.nextFem")}
         </button>
       </div>
-      <button style={CLOSE_BTN} onClick={onBack}>← Retour</button>
+      <button style={CLOSE_BTN} onClick={onBack}>{t("menu.back")}</button>
     </div>
   );
 }

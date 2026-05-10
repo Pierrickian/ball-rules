@@ -1,4 +1,5 @@
 import type { GameConfig, GameState, ShotKind } from "./engine/types";
+import { useI18n } from "./game/i18n";
 
 export function IncomingBallsOverlay({ queue }: { queue: ShotKind[] }) {
   if (queue.length === 0) return null;
@@ -50,6 +51,7 @@ export function IncomingBallsOverlay({ queue }: { queue: ShotKind[] }) {
 // PlayerQueue — strip showing next balls (left = next to shoot)
 // ============================================================
 export function PlayerQueue({ queue, config }: { queue: ShotKind[]; config: GameConfig }) {
+  const { t } = useI18n();
   if (queue.length === 0) return null;
 
   const readyKind = queue[0];
@@ -106,7 +108,7 @@ export function PlayerQueue({ queue, config }: { queue: ShotKind[]; config: Game
                   fontSize: 9, color: "#1e90ff", letterSpacing: 2,
                   fontFamily: "'Courier New', monospace", textTransform: "uppercase",
                 }}>
-                  ▲ tirer
+                  {t("hud.shoot")}
                 </div>
                 <div
                   style={{
@@ -196,6 +198,7 @@ export function SessionClearOverlay({
   config: GameConfig;
   gameState: GameState;
 }) {
+  const { t } = useI18n();
   const delay = config.game_session?.reboot_delay_seconds ?? 1.5;
   const advance = config.game_session?.advance_level_on_clear !== false;
   const levels = config.levels?.list ?? [];
@@ -203,7 +206,7 @@ export function SessionClearOverlay({
   if (advance && levels.length > 0) {
     const nextIdx = (gameState.currentLevelIndex + 1) % levels.length;
     const next = levels[nextIdx];
-    if (next) nextLabel = `Niveau ${next.id} — ${next.name.replace(/^Niveau\s*\d+\s*[—-]\s*/i, "")}`;
+    if (next) nextLabel = t("overlay.clear.nextLevel", { id: next.id, name: next.name.replace(/^Niveau\s*\d+\s*[—-]\s*/i, "") });
   }
   return (
     <div
@@ -220,7 +223,7 @@ export function SessionClearOverlay({
       }}
     >
       <div style={{ fontSize: 28, color: "#1e90ff", letterSpacing: 4, textShadow: "0 0 14px #1e90ff" }}>
-        TERRAIN NETTOYÉ
+        {t("overlay.clear.title")}
       </div>
       {nextLabel && (
         <div style={{ fontSize: 16, color: "#dfecff", letterSpacing: 1.5, marginTop: 4 }}>
@@ -228,7 +231,7 @@ export function SessionClearOverlay({
         </div>
       )}
       <div style={{ fontSize: 12, color: "#88aaff", letterSpacing: 2 }}>
-        {nextLabel ? `Démarrage dans ${delay.toFixed(1)}s…` : `Nouvelle partie dans ${delay.toFixed(1)}s…`}
+        {nextLabel ? t("overlay.clear.startIn", { delay: delay.toFixed(1) }) : t("overlay.clear.newGameIn", { delay: delay.toFixed(1) })}
       </div>
     </div>
   );

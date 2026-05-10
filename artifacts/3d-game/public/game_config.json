@@ -787,6 +787,7 @@
     ]
   },
   "release_notes": [
+    "Interface bilingue français anglais",
     "Instant contrôle les spawns ennemis",
     "Instant devient un graphe aléatoire",
     "Instant devient un wizard visuel",
@@ -805,8 +806,7 @@
     "Boss niveau 1 vulnérable aux grenades",
     "Niveau violet magnétique ajouté",
     "Combos centrés et multiplicateur continu",
-    "Popups de combos pour tirs remarquables",
-    "Retry propose rejouer ou passer"
+    "Popups de combos pour tirs remarquables"
   ],
   "debug": {
     "show_velocities": false,

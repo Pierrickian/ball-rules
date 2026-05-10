@@ -143,6 +143,13 @@ Pour ajouter / éditer un niveau :
 - Pas de date, pas de numéro de version, pas de lien — juste un titre lisible par un joueur non-développeur.
 - Si le commit est purement interne (refacto sans impact joueur), ajouter quand même une ligne neutre du type « Refonte interne du moteur » plutôt que de sauter la mise à jour.
 
+### Localisation UI
+
+- Toute nouvelle chaîne visible par les joueurs DOIT être ajoutée au système de localisation `artifacts/3d-game/src/game/i18n.tsx` avec une clé explicite et une valeur française + anglaise.
+- La langue par défaut est le français ; ne pas écrire la langue sélectionnée dans `public/game_config.json`.
+- Utiliser `useI18n().t("clé")` pour les libellés, boutons, tooltips, messages de succès/erreur, overlays et textes de menus.
+- Si un texte visible inclut une valeur dynamique, utiliser l'interpolation de `t(key, params)` plutôt qu'une chaîne codée en dur.
+
 ### Règles développeur
 
 - **Tout changement de règle → `ball.changeRule()` ou `ball.passRuleTo()`** (Ball.ts)

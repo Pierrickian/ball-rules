@@ -20,8 +20,11 @@ import { AddFeaturePortal } from "./game/AddFeaturePortal";
 import { submitEvolutionRequest } from "./game/evolutionRequest";
 import type { GameConfig, GameState, ShotKind, Vec2 } from "./engine/types";
 import { ChargeBar, IncomingBallsOverlay, PlayerQueue, SessionClearOverlay } from "./AppOverlays";
+import { I18nProvider, readStoredLanguage, useI18n, type Language } from "./game/i18n";
+import { LanguageToggle } from "./game/LanguageToggle";
 
-function App() {
+function AppContent() {
+  const { t } = useI18n();
   const {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
@@ -101,7 +104,7 @@ function App() {
     setMenuOpen(true);
   };
   const submitRandomIdeaFromAdd = async (prompt: string) => {
-    if (!config || !gameState) throw new Error("configuration du jeu indisponible");
+    if (!config || !gameState) throw new Error(t("app.error.configUnavailable"));
     await submitEvolutionRequest({
       evolutionRequest: config.evolution_request,
       requestText: prompt,
@@ -339,7 +342,7 @@ function App() {
         }}
       >
         <div style={{ fontSize: 32 }}>◉</div>
-        <div style={{ fontSize: 14, color: "#4466aa" }}>Chargement du moteur de jeu…</div>
+        <div style={{ fontSize: 14, color: "#4466aa" }}>{t("app.loading")}</div>
       </div>
     );
   }
@@ -391,7 +394,7 @@ function App() {
 
       {gameState.bossIntroActive && (
         <div style={{ position:"absolute", inset:0, display:"grid", placeItems:"center", pointerEvents:"none", zIndex:11 }}>
-          <div style={{ fontSize:64, fontWeight:900, letterSpacing:8, color:"#fff", textShadow:"0 0 24px #ff3b3b, 0 0 8px #000" }}>BOSS</div>
+          <div style={{ fontSize:64, fontWeight:900, letterSpacing:8, color:"#fff", textShadow:"0 0 24px #ff3b3b, 0 0 8px #000" }}>{t("app.boss")}</div>
         </div>
       )}
 
@@ -435,44 +438,45 @@ function App() {
           onClick={() => setLockOn((v) => !v)}
           style={{ border:"1px solid #1e90ff", background: lockOn ? "#1e90ff" : "rgba(0,0,0,.55)", color:"#fff", borderRadius:8, padding:"6px 12px", minWidth: 106, whiteSpace: "nowrap" }}
         >
-          {lockOn ? "🔒 Lock" : "🔓 Lock"}
+          {lockOn ? t("app.lock.on") : t("app.lock.off")}
         </button>
         <button
           onClick={() => { if (lockOn) setHomingOn((v) => !v); }}
           disabled={!lockOn}
           style={{ border:"1px solid #00d4aa", background: !lockOn ? "rgba(180,180,180,.55)" : homingOn ? "#00d4aa" : "rgba(0,0,0,.55)", color: !lockOn ? "#1a1a1a" : "#001e1a", borderRadius:8, padding:"6px 12px", fontWeight:700, minWidth: 106, whiteSpace: "nowrap" }}
         >
-          {homingOn ? "Homing ON" : "Homing"}
+          {homingOn ? t("app.homing.on") : t("app.homing.off")}
         </button>
         <button
           onClick={() => setAutoFire((v) => !v)}
           style={{ border:"1px solid #ff9f1c", background: autoFire ? "#ff9f1c" : "rgba(0,0,0,.55)", color: autoFire ? "#2d1400" : "#ffe8c2", borderRadius:8, padding:"6px 12px", fontWeight:700, minWidth: 106, whiteSpace: "nowrap" }}
         >
-          {autoFire ? "Auto Fire ON" : "Auto Fire"}
+          {autoFire ? t("app.autoFire.on") : t("app.autoFire.off")}
         </button>
       </div>
 
       <button
         onClick={handleMenuOpen}
         style={{ position: "absolute", top: 12, right: 12, zIndex: 95, pointerEvents: "all", background: "rgba(10,20,50,0.92)", color: "#c0d8ff", border: "1px solid rgba(30,144,255,0.5)", borderRadius: 8, padding: "6px 14px", fontSize: 16, cursor: "pointer" }}
-        title="Menu"
+        title={t("app.title.menu")}
       >
         ☰
       </button>
       <button
         onClick={openRetryMenu}
         style={{ position: "absolute", top: 54, right: 12, width: 42, height: 42, zIndex: 95, pointerEvents: "all", background: "rgba(20,10,35,0.92)", color: "#ffe6f0", border: "1px solid rgba(255,77,122,0.55)", borderRadius: 10, fontSize: 20, cursor: "pointer", display:"grid", placeItems:"center" }}
-        title="Retry"
+        title={t("app.title.retry")}
       >
         ↻
       </button>
       <button
         onClick={handleAddFeatureOpen}
         style={{ position: "absolute", top: 102, right: 12, width: 42, height: 42, zIndex: 95, pointerEvents: "all", background: "rgba(10,35,28,0.92)", color: "#d7ffec", border: "1px solid rgba(102,255,187,0.55)", borderRadius: 10, fontSize: 24, fontWeight: 900, cursor: "pointer", display:"grid", placeItems:"center" }}
-        title="Add"
+        title={t("app.title.add")}
       >
         +
       </button>
+      <LanguageToggle />
       <AddFeaturePortal
         open={addFeaturePortalOpen}
         onClose={handleAddFeatureClose}
@@ -492,7 +496,7 @@ function App() {
 
       {gameState.bossMasteredActive && (
         <div style={{ position:"absolute", inset:0, display:"grid", placeItems:"center", pointerEvents:"none", zIndex:12 }}>
-          <div style={{ fontSize:42, fontWeight:900, letterSpacing:4, color:"#ffe8a3", textShadow:"0 0 24px #ff9f1c, 0 0 10px #000", textTransform:"uppercase" }}>Boss Mastered</div>
+          <div style={{ fontSize:42, fontWeight:900, letterSpacing:4, color:"#ffe8a3", textShadow:"0 0 24px #ff9f1c, 0 0 10px #000", textTransform:"uppercase" }}>{t("app.bossMastered")}</div>
         </div>
       )}
 
@@ -538,6 +542,20 @@ function App() {
         />
       )}
     </div>
+  );
+}
+
+function App() {
+  const [language, setLanguageState] = useState<Language>(() => readStoredLanguage());
+  const setLanguage = (nextLanguage: Language) => {
+    setLanguageState(nextLanguage);
+    localStorage.setItem("ball_game_language", nextLanguage);
+  };
+
+  return (
+    <I18nProvider language={language} setLanguage={setLanguage}>
+      <AppContent />
+    </I18nProvider>
   );
 }
 

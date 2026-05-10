@@ -1,7 +1,9 @@
 import type { GameConfig } from "../../engine/types";
 import { CLOSE_BTN, PANEL, TITLE } from "./menuStyles";
+import { useI18n } from "../i18n";
 
 export function ReleaseNotesMenu({ config, onBack }: { config: GameConfig; onBack: () => void }) {
+  const { t } = useI18n();
   const notes = config.release_notes ?? [];
   const MAX_NOTES = 20;
   const visible = notes.slice(0, MAX_NOTES);
@@ -9,17 +11,17 @@ export function ReleaseNotesMenu({ config, onBack }: { config: GameConfig; onBac
   return (
     <div style={PANEL}>
       <div>
-        <div style={TITLE}>Notes de version</div>
+        <div style={TITLE}>{t("release.title")}</div>
         <div style={{ fontSize: 18, fontWeight: "bold", color: "#1e90ff", marginBottom: 6 }}>
-          Dernières évolutions
+          {t("release.heading")}
         </div>
         <div style={{ fontSize: 12, color: "#7a8fa8", marginBottom: 14, lineHeight: 1.5 }}>
-          Les {MAX_NOTES} évolutions les plus récentes du jeu, de la plus récente à la plus ancienne.
+          {t("release.description", { count: MAX_NOTES })}
         </div>
 
         {visible.length === 0 ? (
           <div style={{ fontSize: 13, color: "#778", fontStyle: "italic" }}>
-            Aucune note de version pour l'instant.
+            {t("release.empty")}
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -56,7 +58,7 @@ export function ReleaseNotesMenu({ config, onBack }: { config: GameConfig; onBac
         )}
       </div>
 
-      <button style={CLOSE_BTN} onClick={onBack}>← Retour</button>
+      <button style={CLOSE_BTN} onClick={onBack}>{t("menu.back")}</button>
     </div>
   );
 }
