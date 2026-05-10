@@ -22,7 +22,7 @@ function App() {
   const {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
-    shoot, setCustomTerrainDistribution, setActiveLevel, setLevelWeights, playBossRush, classifyHold, toggleGrenade, grenadesLeft, setDifficulty, difficulty, setHpAdjustment, hpAdjustment,
+    shoot, setCustomTerrainDistribution, setActiveLevel, setLevelWeights, openRetryMenu, goToBoss, playBossRush, classifyHold, toggleGrenade, grenadesLeft, setDifficulty, difficulty, setHpAdjustment, hpAdjustment,
   } = useGameEngine();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -43,9 +43,27 @@ function App() {
   const [grenadeEffect, setGrenadeEffect] = useState(() => localStorage.getItem("bg_effect_grenade") ?? "spark");
   const [debugExplosionTexture, setDebugExplosionTexture] = useState(() => localStorage.getItem("bg_debug_explosion_texture") === "1");
   const [autoFire, setAutoFire] = useState(false);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [evolutionInitialText, setEvolutionInitialText] = useState("");
+  const [grenadeAwardPopups, setGrenadeAwardPopups] = useState<Array<{ id: number; amount: number }>>([]);
+  const [grenadeFlashKey, setGrenadeFlashKey] = useState(0);
   useEffect(() => { localStorage.setItem("bg_effect_ball", ballEffect); }, [ballEffect]);
   useEffect(() => { localStorage.setItem("bg_effect_grenade", grenadeEffect); }, [grenadeEffect]);
   useEffect(() => { localStorage.setItem("bg_debug_explosion_texture", debugExplosionTexture ? "1" : "0"); }, [debugExplosionTexture]);
+  useEffect(() => {
+    for (const event of lastEvents) {
+      if (event.type === "grenade_awarded") {
+        const id = Date.now() + Math.random();
+        setGrenadeAwardPopups((prev) => [...prev, { id, amount: event.amount }]);
+        window.setTimeout(() => {
+          setGrenadeAwardPopups((prev) => prev.filter((popup) => popup.id !== id));
+        }, 900);
+      }
+      if (event.type === "grenade_helper_flash") {
+        setGrenadeFlashKey((prev) => prev + 1);
+      }
+    }
+  }, [lastEvents]);
   // Refs that mirror UI state so window-level listeners (installed once at
   // mount) always read the latest values without re-subscribing.
   const menuOpenRef = useRef(menuOpen);
@@ -63,8 +81,14 @@ function App() {
   useEffect(() => { lockedBallIdRef.current = lockedBallId; }, [lockedBallId]);
   useEffect(() => { homingOnRef.current = homingOn; }, [homingOn]);
 
-  const handleMenuOpen = () => { pause(); setMenuOpen(true); };
-  const handleMenuClose = () => { setMenuOpen(false); resume(); };
+  const handleMenuOpen = () => { setEvolutionInitialText(""); setAddMenuOpen(false); pause(); setMenuOpen(true); };
+  const handleMenuClose = () => { setMenuOpen(false); setEvolutionInitialText(""); resume(); };
+  const openEvolutionFromAdd = (prompt: string) => {
+    setEvolutionInitialText(prompt);
+    setAddMenuOpen(false);
+    pause();
+    setMenuOpen(true);
+  };
 
   const getDisplayMax = (): number => {
     if (!config) return 1.2;
@@ -348,13 +372,41 @@ function App() {
         </div>
       )}
 
+      {gameState.bossHintActive && gameState.bossHintMessage && (
+        <div style={{ position:"absolute", inset:0, display:"grid", placeItems:"center", pointerEvents:"none", zIndex:11 }}>
+          <div style={{ marginTop:118, fontSize:24, fontWeight:800, letterSpacing:1.5, color:"#ffe8a3", textShadow:"0 0 16px #000, 0 0 10px #ff8c00", textTransform:"uppercase" }}>
+            {gameState.bossHintMessage}
+          </div>
+        </div>
+      )}
+
       {/* HUD */}
+      <style>{`
+        @keyframes grenade-helper-flash {
+          0%, 100% { transform: scale(1); box-shadow: 0 0 0 rgba(255, 214, 102, 0); }
+          50% { transform: scale(1.16); box-shadow: 0 0 24px rgba(255, 214, 102, 0.95), 0 0 42px rgba(255, 122, 0, 0.8); }
+        }
+        @keyframes grenade-award-float {
+          0% { opacity: 0; transform: translateY(8px) scale(0.8); }
+          20% { opacity: 1; transform: translateY(0) scale(1.05); }
+          100% { opacity: 0; transform: translateY(-34px) scale(1); }
+        }
+      `}</style>
       <button
+        key={`grenade-${grenadeFlashKey}`}
         onClick={() => toggleGrenade(lastDirectionRef.current, grenadeEffect)}
-        style={{position:"absolute", right:16, bottom:140, width:56, height:56, borderRadius:"50%", border:"2px solid #ffcc66", background:"radial-gradient(circle at 30% 30%, #667, #223)", color:"#fff", zIndex:12, fontWeight:"bold"}}
+        style={{position:"absolute", right:16, bottom:140, width:56, height:56, borderRadius:"50%", border:"2px solid #ffcc66", background:"radial-gradient(circle at 30% 30%, #667, #223)", color:"#fff", zIndex:12, fontWeight:"bold", animation: grenadeFlashKey > 0 ? "grenade-helper-flash 0.35s ease-in-out 4" : undefined}}
       >
         💣 {grenadesLeft}
       </button>
+      {grenadeAwardPopups.map((popup, index) => (
+        <div
+          key={popup.id}
+          style={{ position:"absolute", right:28, bottom:200 + index * 18, zIndex:13, pointerEvents:"none", color:"#ffed9a", fontWeight:900, fontSize:22, textShadow:"0 0 10px #000, 0 0 12px #ff9f1c", animation:"grenade-award-float 0.9s ease-out forwards" }}
+        >
+          +{popup.amount}
+        </div>
+      ))}
       <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", bottom: 52, display: "flex", gap: 8, zIndex: 12 }}>
         <button
           onClick={() => setLockOn((v) => !v)}
@@ -384,6 +436,44 @@ function App() {
       >
         ☰
       </button>
+      <button
+        onClick={openRetryMenu}
+        style={{ position: "absolute", top: 54, right: 12, width: 42, height: 42, zIndex: 95, pointerEvents: "all", background: "rgba(20,10,35,0.92)", color: "#ffe6f0", border: "1px solid rgba(255,77,122,0.55)", borderRadius: 10, fontSize: 20, cursor: "pointer", display:"grid", placeItems:"center" }}
+        title="Retry"
+      >
+        ↻
+      </button>
+      <button
+        onClick={() => setAddMenuOpen((open) => !open)}
+        style={{ position: "absolute", top: 102, right: 12, width: 42, height: 42, zIndex: 95, pointerEvents: "all", background: "rgba(10,35,28,0.92)", color: "#d7ffec", border: "1px solid rgba(102,255,187,0.55)", borderRadius: 10, fontSize: 24, fontWeight: 900, cursor: "pointer", display:"grid", placeItems:"center" }}
+        title="Add"
+      >
+        +
+      </button>
+      {addMenuOpen && (
+        <div style={{ position:"absolute", top:102, right:62, zIndex:96, width:250, display:"flex", flexDirection:"column", gap:6, padding:8, borderRadius:12, border:"1px solid rgba(102,255,187,0.35)", background:"rgba(2,12,18,0.94)", boxShadow:"0 12px 28px rgba(0,0,0,0.45)", pointerEvents:"all" }}>
+          {[
+            ["New boss", "Create a new boss with a defeat condition"],
+            ["New ball", "Create a new ball color and its behavior"],
+            ["New level", "Create a new level with the balls you want"],
+            ["New weapon", "Create a new weapon and its damages"],
+            ["New ability", "Create a new power or skill you can use"],
+            ["New object", "Create a new object to add to a level"],
+            ["Other", "In this game, I want to..."],
+            ["New Game", "In another game, I would like to..."],
+          ].map(([label, tooltip]) => (
+            <button
+              key={label}
+              title={tooltip}
+              onClick={() => openEvolutionFromAdd(tooltip)}
+              style={{ textAlign:"left", border:"1px solid rgba(255,255,255,0.12)", borderRadius:8, background:"rgba(255,255,255,0.06)", color:"#eafff5", padding:"8px 10px", cursor:"pointer" }}
+            >
+              <div style={{ fontWeight:900 }}>{label}</div>
+              <div style={{ fontSize:11, color:"#98dcbf", marginTop:2 }}>{tooltip}</div>
+            </button>
+          ))}
+        </div>
+      )}
       <HUD
         gameState={gameState}
         config={config}
@@ -395,6 +485,12 @@ function App() {
         onReset={reset}
       />
 
+      {gameState.bossMasteredActive && (
+        <div style={{ position:"absolute", inset:0, display:"grid", placeItems:"center", pointerEvents:"none", zIndex:12 }}>
+          <div style={{ fontSize:42, fontWeight:900, letterSpacing:4, color:"#ffe8a3", textShadow:"0 0 24px #ff9f1c, 0 0 10px #000", textTransform:"uppercase" }}>Boss Mastered</div>
+        </div>
+      )}
+
       {/* Game-over flash */}
       {gameState.sessionCleared && (
         <SessionClearOverlay config={config} gameState={gameState} />
@@ -404,6 +500,7 @@ function App() {
           reason={retryReason}
           levelNumber={gameState.currentLevelId || gameState.currentLevelIndex + 1}
           onRetry={reset}
+          onGoToBoss={goToBoss}
           onSkipLevel={() => setActiveLevel(gameState.currentLevelIndex + 1)}
         />
       )}
@@ -423,6 +520,7 @@ function App() {
           hpAdjustment={hpAdjustment}
           onHpAdjustmentChange={setHpAdjustment}
           evolutionRequest={config.evolution_request}
+          evolutionInitialText={evolutionInitialText}
           currentLevelNumber={gameState.currentLevelId || gameState.currentLevelIndex + 1}
           currentLevelIndex={gameState.currentLevelIndex}
           ballEffect={ballEffect}

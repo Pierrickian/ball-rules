@@ -601,7 +601,12 @@
           "launcher_size": "large",
           "launcher_diameter_multiplier": 2.2,
           "intro_overlay_seconds": 1.6,
-          "horizontal_speed": 10
+          "horizontal_speed": 10,
+          "defeat_hint_message": "Defeat with grenade",
+          "defeat_hint_seconds": 2,
+          "defeat_rule": "grenade_last_hit",
+          "non_matching_kill_recharge_hp": 10,
+          "reward_grenades_on_spawn": 1
         }
       },
       {
@@ -755,7 +760,8 @@
       }
     ],
     "boss_intro_overlay_seconds": 1.5,
-    "_limit_note": "Chaque niveau peut définir timer_seconds et ammo_count. Sans override, le runtime applique 60 secondes et 50 munitions; Retry recharge ces mêmes valeurs pour le niveau courant."
+    "_limit_note": "Chaque niveau peut définir timer_seconds et ammo_count. Sans override, le runtime applique 60 secondes et 50 munitions; Retry recharge ces mêmes valeurs pour le niveau courant.",
+    "boss_mastered_overlay_seconds": 2
   },
   "game_rules_concept": {
     "_description": "Texte de présentation des règles du jeu (affiché dans le menu).",
@@ -781,6 +787,9 @@
     ]
   },
   "release_notes": [
+    "Bouton ajout vers Evolution guidée",
+    "Retry boss et grenades mieux guidés",
+    "Boss niveau 1 vulnérable aux grenades",
     "Niveau violet magnétique ajouté",
     "Combos centrés et multiplicateur continu",
     "Popups de combos pour tirs remarquables",
@@ -797,10 +806,7 @@
     "Téléchargement APK depuis le menu",
     "Menu Evolution scrollable et simplifié",
     "Evolution ouvre une issue suivie",
-    "Evolution paramétrable depuis menu",
-    "Auto-fire corrigé + rangée de boutons basse remontée",
-    "Auto-fire continu synchronisé sur seuil heavy→mega",
-    "UI fine: boutons bas remontés et compteurs décalés"
+    "Evolution paramétrable depuis menu"
   ],
   "debug": {
     "show_velocities": false,

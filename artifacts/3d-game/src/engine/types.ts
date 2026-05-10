@@ -104,6 +104,8 @@ export type GameEvent =
   | { type: "orange_launched"; launcherId: string; launchedId: string }
   | { type: "ball_damaged"; ballId: string; amount: number; remainingHp: number; position: Vec2 }
   | { type: "ball_healed"; ballId: string; amount: number; remainingHp: number; position: Vec2 }
+  | { type: "grenade_awarded"; amount: number; reason: string }
+  | { type: "grenade_helper_flash"; reason: string }
   | { type: "player_shot"; projectileId: string; shotKind: ShotKind }
   | { type: "combo_popup"; projectileId: string; label: string; streak: number; tier: number; position: Vec2 }
   | { type: "session_clear"; launchedCount: number }
@@ -123,10 +125,13 @@ export interface GameState {
   currentLevelId: number;
   currentLevelName: string;
   bossIntroActive?: boolean;
+  bossHintActive?: boolean;
+  bossHintMessage?: string;
+  bossMasteredActive?: boolean;
   isBossPhase?: boolean;
   timerSecondsRemaining?: number;
   ammoRemaining?: number;
-  retryReason?: "timeout" | "ammo" | null;
+  retryReason?: "timeout" | "ammo" | "manual" | null;
   hospital?: {
     isActive: boolean;
     x: number;
@@ -158,6 +163,11 @@ export interface LevelBossConfig {
   spawn_spacing_x?: number;
   spawn_position?: BossSpawnPosition;
   dark_green_heal_bonus_percent?: number;
+  defeat_hint_message?: string;
+  defeat_hint_seconds?: number;
+  defeat_rule?: "grenade_last_hit";
+  non_matching_kill_recharge_hp?: number;
+  reward_grenades_on_spawn?: number;
 }
 
 
@@ -193,6 +203,7 @@ export interface LevelEntry {
 export interface LevelsConfig {
   _description?: string;
   boss_intro_overlay_seconds?: number;
+  boss_mastered_overlay_seconds?: number;
   list: LevelEntry[];
 }
 

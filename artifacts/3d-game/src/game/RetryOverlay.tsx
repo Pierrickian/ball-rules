@@ -3,13 +3,19 @@ export function RetryOverlay({
   levelNumber,
   onRetry,
   onSkipLevel,
+  onGoToBoss,
 }: {
-  reason: "timeout" | "ammo";
+  reason: "timeout" | "ammo" | "manual";
   levelNumber: number;
   onRetry: () => void;
   onSkipLevel: () => void;
+  onGoToBoss: () => void;
 }) {
-  const subtitle = reason === "timeout" ? "Temps écoulé" : "Munitions épuisées";
+  const subtitle = reason === "manual"
+    ? "Go to the boss, retry or skip to the next level."
+    : reason === "timeout"
+      ? "Temps écoulé"
+      : "Munitions épuisées";
 
   const actionButton = (label: string, onClick: () => void, primary = false) => (
     <button
@@ -63,6 +69,7 @@ export function RetryOverlay({
 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             {actionButton("Retry", onRetry, true)}
+            {actionButton("Go to the boss", onGoToBoss)}
             {actionButton("Skip level", onSkipLevel)}
           </div>
         </section>
