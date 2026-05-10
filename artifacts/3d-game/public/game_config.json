@@ -787,6 +787,11 @@
     ]
   },
   "release_notes": [
+    "Moteur plus typé et allégé",
+    "Game engine découpé en modules",
+    "Refonte interne des menus",
+    "Instant cible mieux les formulaires",
+    "Panneau Instant ajouté au menu",
     "Random Add valide directement les prompts sans ouvrir Evolution",
     "Random profond ajoute éléments MTC et hormones avant validation directe",
     "Add Random propose des types de features validables directement",
@@ -801,15 +806,7 @@
     "Difficulté Medium passe à +3 PV",
     "Formulaire Evolution simplifié sans préfixe technique",
     "Difficulté réglable depuis le menu",
-    "Curseur PV synchronisé avec la difficulté",
-    "Difficulté Medium sélectionnée par défaut",
-    "Règles du jeu rapprochées du terrain",
-    "Menus niveaux scrollables et balles ajoutables",
-    "Auto-fire restauré après merge",
-    "Build et retry stabilisés",
-    "Téléchargement APK depuis le menu",
-    "Menu Evolution scrollable et simplifié",
-    "Evolution ouvre une issue suivie"
+    "Curseur PV synchronisé avec la difficulté"
   ],
   "debug": {
     "show_velocities": false,
