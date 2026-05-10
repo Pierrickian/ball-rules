@@ -20,7 +20,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { GameEngine } from "./game_engine";
 import { addGrenadeZones, createGrenadeZoneStore, updateGrenadeZones } from "./grenade_lingering";
-import type { BallColor, GameConfig, GameEvent, GameState, ShotKind, Vec2 } from "./types";
+import type { BallColor, GameConfig, GameEvent, GameState, LevelEntry, ShotKind, Vec2 } from "./types";
 import { DEFAULT_DIFFICULTY, DEFAULT_LEVEL_AMMO_COUNT, DEFAULT_LEVEL_TIMER_SECONDS, DEFAULT_STATE, FALLBACK_DIFFICULTY_HP_PRESETS, buildQueue, clampDifficultyHpValue, getDefaultDifficulty, getDifficultyHpValue } from "./useGameEngineHelpers";
 
 export interface UseGameEngineResult {
@@ -39,6 +39,10 @@ export interface UseGameEngineResult {
   setPlayerProjectileDistribution: (distribution: Record<ShotKind, number>) => void;
   setActiveLevel: (index: number) => void;
   setLevelWeights: (index: number, weights: Record<BallColor, number>) => void;
+  applyRuntimeConfig: (nextConfig: GameConfig, options?: { reset?: boolean; playtestTarget?: unknown }) => void;
+  launchLevel: (levelId: number) => void;
+  launchBossLevel: (levelId: number) => void;
+  launchTemporaryBallTest: (levelConfig: LevelEntry) => void;
   openRetryMenu: () => void;
   goToBoss: () => void;
   playBossRush: (levelIds: number[]) => void;
@@ -72,7 +76,8 @@ export function useGameEngine(): UseGameEngineResult {
   const currentLevelIdxRef = useRef(0);
   // "levels"       — story mode: use level weights, advance on clear (loop)
   // "single_color" — one looping level, 100% of launch_config.color, no progression
-  const sessionModeRef     = useRef<"levels" | "single_color" | "boss_rush">("levels");
+  // "temporary_ball_test" — runtime-only level created to immediately test one ball
+  const sessionModeRef     = useRef<"levels" | "single_color" | "boss_rush" | "temporary_ball_test">("levels");
   const bossRushOrderRef   = useRef<number[]>([]);
   const defaultMaxSpawnRef = useRef<number>(20);
   const hpAdjustmentRef = useRef(FALLBACK_DIFFICULTY_HP_PRESETS[DEFAULT_DIFFICULTY]);
@@ -487,6 +492,87 @@ export function useGameEngine(): UseGameEngineResult {
     doReset();
   }, [doReset]);
 
+  const launchLevel = useCallback((levelId: number) => {
+    const cfg = configRef.current;
+    if (!cfg || !cfg.levels?.list?.length) return;
+    const index = cfg.levels.list.findIndex((level) => level.id === levelId);
+    if (index < 0) return;
+    configRef.current = { ...cfg, game_session: { ...cfg.game_session, max_balls_spawned: defaultMaxSpawnRef.current } };
+    setConfig(configRef.current);
+    sessionModeRef.current = "levels";
+    bossRushOrderRef.current = [];
+    currentLevelIdxRef.current = index;
+    rebootingRef.current = false;
+    doReset();
+  }, [doReset]);
+
+  const launchBossLevel = useCallback((levelId: number) => {
+    const cfg = configRef.current;
+    if (!cfg || !cfg.levels?.list?.length) return;
+    const index = cfg.levels.list.findIndex((level) => level.id === levelId && level.boss);
+    if (index < 0) return;
+    const bossConfig: GameConfig = {
+      ...cfg,
+      game_session: { ...cfg.game_session, max_balls_spawned: 0 },
+    };
+    configRef.current = bossConfig;
+    setConfig(bossConfig);
+    sessionModeRef.current = "levels";
+    bossRushOrderRef.current = [];
+    currentLevelIdxRef.current = index;
+    rebootingRef.current = false;
+    doReset();
+  }, [doReset]);
+
+  const launchTemporaryBallTest = useCallback((levelConfig: LevelEntry) => {
+    const cfg = configRef.current;
+    if (!cfg) return;
+    const list = [...(cfg.levels?.list ?? []), levelConfig];
+    const nextConfig: GameConfig = {
+      ...cfg,
+      game_session: {
+        ...cfg.game_session,
+        max_balls_spawned: Math.max(1, cfg.game_session?.max_balls_spawned ?? defaultMaxSpawnRef.current),
+        advance_level_on_clear: false,
+      },
+      levels: { ...cfg.levels, list },
+    };
+    configRef.current = nextConfig;
+    setConfig(nextConfig);
+    sessionModeRef.current = "temporary_ball_test";
+    bossRushOrderRef.current = [];
+    currentLevelIdxRef.current = list.length - 1;
+    rebootingRef.current = false;
+    doReset();
+  }, [doReset]);
+
+  const applyRuntimeConfig = useCallback((nextConfig: GameConfig, options?: { reset?: boolean; playtestTarget?: unknown }) => {
+    configRef.current = nextConfig;
+    setConfig(nextConfig);
+    engineRef.current?.updateConfig(nextConfig);
+
+    const target = options?.playtestTarget as
+      | { kind?: unknown; levelId?: unknown; levelConfig?: unknown }
+      | undefined;
+
+    if (target?.kind === "boss" && typeof target.levelId === "number") {
+      launchBossLevel(target.levelId);
+      return;
+    }
+    if (target?.kind === "level" && typeof target.levelId === "number") {
+      launchLevel(target.levelId);
+      return;
+    }
+    if (target?.kind === "temporaryBall" && target.levelConfig && typeof target.levelConfig === "object") {
+      launchTemporaryBallTest(target.levelConfig as LevelEntry);
+      return;
+    }
+    if (options?.reset) {
+      rebootingRef.current = false;
+      doReset();
+    }
+  }, [doReset, launchBossLevel, launchLevel, launchTemporaryBallTest]);
+
   const setPlayerProjectileDistribution = useCallback((distribution: Record<ShotKind, number>) => {
     const cfg = configRef.current;
     if (!cfg || !engineRef.current) return;
@@ -518,7 +604,7 @@ export function useGameEngine(): UseGameEngineResult {
   return {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
-    shoot, setLauncherColor, setCustomTerrainDistribution, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, openRetryMenu, goToBoss, playBossRush, classifyHold, toggleGrenade, grenadesLeft,
+    shoot, setLauncherColor, setCustomTerrainDistribution, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, applyRuntimeConfig, launchLevel, launchBossLevel, launchTemporaryBallTest, openRetryMenu, goToBoss, playBossRush, classifyHold, toggleGrenade, grenadesLeft,
     setDifficulty, difficulty, setHpAdjustment, hpAdjustment,
   };
 }

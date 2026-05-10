@@ -3,7 +3,7 @@ import { InstantCreationMenu } from "../InstantCreationMenu";
 import { CLOSE_BTN, MENU_BTN, PANEL, TITLE } from "./menuStyles";
 
 export function MainMenu({
-  config, onEvolution, onDifficulty, onRules, onLevels, onBoss, onBalls, onTerrain, onPlayerColors, onHowToAsk, onReleaseNotes, onEffects, onClose,
+  config, onEvolution, onDifficulty, onRules, onLevels, onBoss, onBalls, onTerrain, onPlayerColors, onHowToAsk, onReleaseNotes, onEffects, onApplyInstantConfig, onClose,
 }: {
   config:           GameConfig;
   onEvolution:      () => void;
@@ -17,6 +17,7 @@ export function MainMenu({
   onHowToAsk:       () => void;
   onReleaseNotes:   () => void;
   onEffects:        () => void;
+  onApplyInstantConfig: (nextConfig: GameConfig, options?: { reset?: boolean; playtestTarget?: unknown }) => void;
   onClose:          () => void;
 }) {
   return (
@@ -32,7 +33,7 @@ export function MainMenu({
           <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Demander une amélioration depuis le jeu</div>
         </div>
       </button>
-      <InstantCreationMenu config={config} />
+      <InstantCreationMenu config={config} onApplyInstantConfig={onApplyInstantConfig} />
       <button style={MENU_BTN} onClick={onDifficulty}>
         <div>🎚️</div><div><div style={{ fontWeight: "bold" }}>Difficulté</div><div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Retry rapide et ajustement PV</div></div>
       </button>
