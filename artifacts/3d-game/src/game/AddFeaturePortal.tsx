@@ -6,11 +6,13 @@ export type AddFeaturePhase =
   | "category_select"
   | "category_transition"
   | "proposal_select"
+  | "proposal_transition"
   | "ready_to_send";
 
 export type ProposalAction = {
   title: string;
   subtitle: string;
+  featureType?: string;
 };
 
 export type FeatureCategory = {
@@ -28,6 +30,21 @@ export type FeatureCategory = {
 };
 
 export const FEATURE_CATEGORIES: FeatureCategory[] = [
+  {
+    id: "random",
+    title: "RANDOM",
+    icon: "🎲",
+    subtitle: "Let the IA spark a surprise feature",
+    accent: { primary: "#f9a8d4", secondary: "#fde047", gradient: "linear-gradient(135deg, #ec4899, #f97316, #fde047, #22d3ee)", glow: "rgba(249, 168, 212, 0.58)" },
+    proposals: [
+      { title: "Random", subtitle: "Spin the cosmic roulette and let a wild mechanic escape", featureType: "Random" },
+      { title: "Gameplay", subtitle: "Twist the rules of motion, impact, and split-second decisions", featureType: "Gameplay" },
+      { title: "Level", subtitle: "Open a strange arena where the terrain rewrites the battle", featureType: "Level" },
+      { title: "Boss", subtitle: "Summon a larger-than-life menace with a memorable gimmick", featureType: "Boss" },
+      { title: "Ball", subtitle: "Release a new sphere with physics that feel almost alive", featureType: "Ball" },
+      { title: "UI", subtitle: "Enchant the interface with clearer signals and playful feedback", featureType: "UI" },
+    ],
+  },
   {
     id: "new_boss",
     title: "NEW BOSS",
@@ -137,12 +154,16 @@ const PARTICLES = Array.from({ length: 28 }, (_, index) => ({
 
 export function buildAddFeaturePrefill(category: FeatureCategory, proposal: ProposalAction): string {
   return [
-    "Add Feature request from the creative portal:",
-    `Category: ${category.title}`,
-    `Proposal: ${proposal.title}`,
-    `Proposal subtitle: ${proposal.subtitle}`,
-    "",
-    "Describe the idea here:",
+    ...(category.id === "random"
+      ? [`Ajoute une fonctionnalité ${proposal.featureType ?? proposal.title} dans l'esprit du jeu.`]
+      : [
+        "Add Feature request from the creative portal:",
+        `Category: ${category.title}`,
+        `Proposal: ${proposal.title}`,
+        `Proposal subtitle: ${proposal.subtitle}`,
+        "",
+        "Describe the idea here:",
+      ]),
   ].join("\n");
 }
 
@@ -203,12 +224,23 @@ export function AddFeaturePortal({
       setPhase("proposal_select");
       setBurstCategoryId(null);
       transitionTimerRef.current = null;
-    }, 520);
+    }, 1000);
   };
 
   const chooseProposal = (index: number) => {
+    if (!selectedCategory) return;
     setSelectedProposalIndex(index);
-    setPhase("ready_to_send");
+    setPhase("proposal_transition");
+    if (transitionTimerRef.current !== null) window.clearTimeout(transitionTimerRef.current);
+    transitionTimerRef.current = window.setTimeout(() => {
+      const proposal = selectedCategory.proposals[index];
+      if (selectedCategory.id === "random" && proposal) {
+        onSendIdea(buildAddFeaturePrefill(selectedCategory, proposal));
+      } else {
+        setPhase("ready_to_send");
+      }
+      transitionTimerRef.current = null;
+    }, 1000);
   };
 
   const sendIdea = () => {
@@ -299,15 +331,16 @@ export function AddFeaturePortal({
           </section>
         )}
 
-        {(phase === "proposal_select" || phase === "ready_to_send") && selectedCategory && (
+        {(phase === "proposal_select" || phase === "proposal_transition" || phase === "ready_to_send") && selectedCategory && (
           <section className="add-feature-proposal-stage" aria-label={`${selectedCategory.title} proposals`}>
             {selectedCategory.proposals.map((proposal, index) => (
               <button
                 key={proposal.title}
                 type="button"
-                className={`add-feature-proposal-button${selectedProposalIndex === index ? " is-selected" : ""}`}
+                className={`add-feature-proposal-button${selectedProposalIndex === index ? " is-selected" : ""}${phase === "proposal_transition" && selectedProposalIndex !== index ? " is-dissolving" : ""}`}
                 style={{ animationDelay: `${index * 130}ms` }}
                 onClick={() => chooseProposal(index)}
+                disabled={phase === "proposal_transition"}
               >
                 <span className="add-feature-proposal-shine" aria-hidden="true" />
                 <span className="add-feature-proposal-title">{proposal.title}</span>
@@ -318,13 +351,20 @@ export function AddFeaturePortal({
         )}
       </main>
 
+      {(phase === "category_transition" || phase === "proposal_transition") && (
+        <div className="add-feature-loading" role="status" aria-live="polite">
+          <span className="add-feature-loading-orb" aria-hidden="true" />
+          <span>L'IA mélange les idées…</span>
+        </div>
+      )}
+
       <button
         className="add-feature-cta"
         type="button"
-        disabled={!selectedCategory || !selectedProposal}
+        disabled={!selectedCategory || !selectedProposal || phase === "category_transition" || phase === "proposal_transition"}
         onClick={sendIdea}
       >
-        SEND IDEA TO CODEX
+        ENVOYER L'IDÉE À L'IA
       </button>
     </div>,
     document.body
