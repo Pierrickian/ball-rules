@@ -1,3 +1,4 @@
+import { BallSize } from "../engine/types";
 import type { BallColor, GameConfig, LevelEntry } from "../engine/types";
 import type { FeatureIntent } from "./featureCapabilities";
 
@@ -20,11 +21,173 @@ export const SUPPORTED_INSTANT_CONFIG_CAPABILITIES = new Set([
   "timer_seconds",
   "ammo_count",
   "launch_color_weights",
+  "spawnWeight",
+  "ball.spawnWeight",
+  "size",
+  "ball.size",
   "boss.hp",
   "boss.maxHp",
   "boss.horizontal_speed",
   "boss.spawn_count",
 ]);
+
+
+function optionalLevelId(intent: FeatureIntent): number | undefined {
+  const raw = intent.context?.levelId;
+  if (raw === undefined || raw === null || raw === "") return undefined;
+  const levelId = typeof raw === "number" ? raw : Number(raw);
+  if (!Number.isFinite(levelId)) throw new Error("Choose a valid level before applying this instant change.");
+  return levelId;
+}
+
+function requireBallColor(config: GameConfig, intent: FeatureIntent): BallColor {
+  const raw = intent.context?.color;
+  if (typeof raw !== "string" || raw.length === 0) {
+    throw new Error("Choose a ball before applying this instant playtest.");
+  }
+  const color = raw as BallColor;
+  const ballConfig = config.ball_colors[color];
+  if (!ballConfig || color.startsWith("_")) throw new Error(`Unknown ball color "${raw}".`);
+  if (ballConfig.system_role) {
+    throw new Error(`${ballConfig._label ?? color} is a system ball and cannot be launched as a temporary ball playtest yet.`);
+  }
+  if (!ballConfig.for_terrain) {
+    throw new Error(`${ballConfig._label ?? color} is not marked as a terrain ball, so it cannot be safely launched by the orange launcher yet.`);
+  }
+  if (!config.ball_rules?.[color]) {
+    throw new Error(`${ballConfig._label ?? color} does not have a terrain ball rule yet, so Apply Instantly cannot safely playtest it.`);
+  }
+  return color;
+}
+
+function ballLabel(config: GameConfig, color: BallColor): string {
+  return config.ball_colors[color]?._label ?? color;
+}
+
+function nextTemporaryLevelId(config: GameConfig): number {
+  const ids = (config.levels?.list ?? []).map((level) => level.id).filter(Number.isFinite);
+  return Math.max(0, ...ids) + 1;
+}
+
+function isBallPlaytestCapability(key: string): boolean {
+  return key === "spawnWeight"
+    || key === "ball.spawnWeight"
+    || key === "size"
+    || key === "ball.size"
+    || key === "launch_color_weights"
+    || key === "level.launch_color_weights";
+}
+
+function sizeValue(value: unknown): BallSize {
+  if (value !== BallSize.SMALL && value !== BallSize.MEDIUM && value !== BallSize.LARGE) {
+    throw new Error("Ball size must be one of: small, medium, large.");
+  }
+  return value;
+}
+
+function patchLevelBallSpawnWeight(config: GameConfig, levelId: number, color: BallColor, weight: number): GameConfig {
+  const level = config.levels?.list?.find((entry) => entry.id === levelId);
+  if (!level) throw new Error(`Level ${levelId} was not found.`);
+  const nextWeights: Partial<Record<BallColor, number>> = { ...(level.launch_color_weights ?? {}), [color]: weight };
+  if (!Object.values(nextWeights).some((entry) => typeof entry === "number" && entry > 0)) {
+    throw new Error("At least one launch weight on the selected level must remain greater than zero.");
+  }
+  return patchLevel(config, levelId, { launch_color_weights: nextWeights });
+}
+
+function patchLevelBallSize(config: GameConfig, levelId: number, color: BallColor, size: BallSize): GameConfig {
+  const level = config.levels?.list?.find((entry) => entry.id === levelId);
+  if (!level) throw new Error(`Level ${levelId} was not found.`);
+  return patchLevel(config, levelId, {
+    launch_overrides: {
+      ...(level.launch_overrides ?? {}),
+      [color]: {
+        ...(level.launch_overrides?.[color] ?? {}),
+        size,
+      },
+    },
+  });
+}
+
+function withFastTemporaryBallLauncher(config: GameConfig): GameConfig {
+  return {
+    ...config,
+    gameplay: {
+      ...config.gameplay,
+      orange: {
+        ...config.gameplay.orange,
+        launch_delay_seconds: 0,
+        spawn: {
+          ...config.gameplay.orange.spawn,
+          interval_seconds: 0.15,
+        },
+      },
+    } as GameConfig["gameplay"],
+    game_session: {
+      ...config.game_session,
+      max_balls_spawned: Math.max(24, config.game_session?.max_balls_spawned ?? 0),
+    },
+  };
+}
+
+function buildTemporaryBallLevel(config: GameConfig, color: BallColor, size?: BallSize): LevelEntry {
+  const label = ballLabel(config, color);
+  return {
+    id: nextTemporaryLevelId(config),
+    name: `Instant Test — ${label}`,
+    description: `Runtime-only playtest that immediately launches ${label} balls with a focused 100% color weight.`,
+    launch_color_weights: { [color]: 1 },
+    ...(size ? { launch_overrides: { [color]: { size } } } : {}),
+    timer_seconds: 90,
+    ammo_count: 99,
+  };
+}
+
+function buildBallPlaytestPatch(config: GameConfig, intent: FeatureIntent, key: string, value: unknown): InstantConfigPatchResult {
+  const color = requireBallColor(config, intent);
+  const levelId = optionalLevelId(intent);
+  let nextConfig = config;
+  let sizeOverride: BallSize | undefined;
+  let summaryDetail: string;
+
+  if (key === "spawnWeight" || key === "ball.spawnWeight") {
+    const spawnWeight = typeof value === "number" ? value : Number(value);
+    if (!Number.isFinite(spawnWeight) || spawnWeight < 0) {
+      throw new Error("Ball spawn weight must be a number greater than or equal to 0.");
+    }
+    if (levelId !== undefined) nextConfig = patchLevelBallSpawnWeight(nextConfig, levelId, color, spawnWeight);
+    summaryDetail = levelId !== undefined
+      ? `level ${levelId} ${ballLabel(config, color)} spawn weight is now ${spawnWeight}`
+      : `${ballLabel(config, color)} spawn weight will be tested`;
+  } else if (key === "size" || key === "ball.size") {
+    sizeOverride = sizeValue(value);
+    if (levelId !== undefined) nextConfig = patchLevelBallSize(nextConfig, levelId, color, sizeOverride);
+    summaryDetail = levelId !== undefined
+      ? `level ${levelId} ${ballLabel(config, color)} launch size is now ${sizeOverride}`
+      : `${ballLabel(config, color)} launch size override is ${sizeOverride}`;
+  } else if (key === "launch_color_weights" || key === "level.launch_color_weights") {
+    if (levelId !== undefined) {
+      const weights = value && typeof value === "object" && !Array.isArray(value)
+        ? weightsValue(value, config)
+        : { [color]: 1 };
+      nextConfig = patchLevel(nextConfig, levelId, { launch_color_weights: weights });
+    }
+    summaryDetail = levelId !== undefined
+      ? `level ${levelId} launch weights updated`
+      : `${ballLabel(config, color)} launch weights will be tested`;
+  } else {
+    throw new Error(`The ball capability "${key}" is not safely patchable as a runtime playtest yet.`);
+  }
+
+  nextConfig = withFastTemporaryBallLauncher(nextConfig);
+  const levelConfig = buildTemporaryBallLevel(nextConfig, color, sizeOverride);
+  return {
+    nextConfig,
+    summary: `Applied for this session: ${summaryDetail}. Starting a temporary 100% ${ballLabel(config, color)} playtest now.`,
+    requiresReset: true,
+    playtestTarget: { kind: "temporaryBall", levelConfig, color },
+  };
+}
 
 function requireLevelId(intent: FeatureIntent): number {
   const raw = intent.context?.levelId;
@@ -89,6 +252,11 @@ function patchBoss(config: GameConfig, levelId: number, patch: Partial<NonNullab
 
 export function buildInstantConfigPatch(config: GameConfig, intent: FeatureIntent): InstantConfigPatchResult {
   const [key, value] = getSingleRequestedProperty(intent);
+
+  if (intent.context?.color && isBallPlaytestCapability(key)) {
+    return buildBallPlaytestPatch(config, intent, key, value);
+  }
+
   const levelId = requireLevelId(intent);
 
   if (key === "level.timer_seconds" || key === "timer_seconds") {

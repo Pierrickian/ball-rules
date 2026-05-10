@@ -98,8 +98,8 @@ function defaultValueForCapability(capability: CapabilityDefinition, config: Gam
 function capabilityTargetFields(capability: CapabilityDefinition): Array<"level" | "ball" | "boss"> {
   const fields: Array<"level" | "ball" | "boss"> = [];
   if (capability.key.startsWith("boss.")) fields.push("level", "boss");
-  if (capability.key.includes("launch_color_weights") || capability.key.includes("timer") || capability.key.includes("ammo")) fields.push("level");
-  if (capability.key.includes("ball") || capability.key.includes("color") || capability.key.includes("spawnWeight") || capability.key.includes("bounce") || capability.key.startsWith("behavior.")) fields.push("ball");
+  if (capability.key.includes("launch_color_weights") || capability.key.includes("timer") || capability.key.includes("ammo") || capability.key.includes("spawnWeight")) fields.push("level");
+  if (capability.key.includes("ball") || capability.key.includes("color") || capability.key.includes("spawnWeight") || capability.key.includes("bounce") || capability.key === "size" || capability.key.startsWith("behavior.")) fields.push("ball");
   return Array.from(new Set(fields));
 }
 
