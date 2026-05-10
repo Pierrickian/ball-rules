@@ -14,6 +14,7 @@ import {
   selectedRecipe,
   type HoneycombNode,
 } from "./instantHoneycombGraph";
+import { useI18n } from "./i18n";
 
 const toggleButtonStyle = (isOpen: boolean): CSSProperties => ({
   border: "1px solid rgba(255,225,120,0.55)",
@@ -159,6 +160,7 @@ export function InstantHoneycombWizard({
   onApplyInstantConfig: (nextConfig: GameConfig, options?: { reset?: boolean; playtestTarget?: unknown }) => void;
   onOpenEvolution: (preprompt: string) => void;
 }) {
+  const { t } = useI18n();
   const bossLevels = useMemo(() => (config.levels?.list ?? []).filter((level) => level.boss), [config.levels?.list]);
   const levels = config.levels?.list ?? [];
   const ballColors = useMemo(() => playableBallColors(config), [config]);
@@ -219,7 +221,7 @@ export function InstantHoneycombWizard({
       return;
     }
     if (!canApply) {
-      setMessage({ kind: "error", text: "Pick a boss level before playing this creation." });
+      setMessage({ kind: "error", text: t("instant.pickBossError") });
       return;
     }
 
@@ -227,10 +229,10 @@ export function InstantHoneycombWizard({
       const intent = buildIntent(activeRecipe, activeIntensity, selectedLevelId, ballColor);
       const patch = buildInstantConfigPatch(config, intent);
       onApplyInstantConfig(patch.nextConfig, { reset: patch.requiresReset, playtestTarget: patch.playtestTarget });
-      setMessage({ kind: "success", text: patch.summary || "Creation launched for this session." });
+      setMessage({ kind: "success", text: patch.summary || t("instant.creationLaunched") });
       setIsOpen(false);
     } catch (error) {
-      setMessage({ kind: "error", text: error instanceof Error ? error.message : "Could not launch this creation." });
+      setMessage({ kind: "error", text: error instanceof Error ? error.message : t("instant.launchError") });
     }
   };
 
@@ -239,27 +241,27 @@ export function InstantHoneycombWizard({
       <button onClick={() => setIsOpen((value) => !value)} style={toggleButtonStyle(isOpen)}>
         <span style={{ fontSize: 20 }}>⚡</span>
         <div>
-          <div style={{ fontWeight: 900 }}>Instant</div>
-          <div style={{ fontSize: 11, color: "#8d7a4a", marginTop: 2 }}>Explorer un graphe de créations jouables</div>
+          <div style={{ fontWeight: 900 }}>{t("menu.instant")}</div>
+          <div style={{ fontSize: 11, color: "#8d7a4a", marginTop: 2 }}>{t("instant.entrySubtitle")}</div>
         </div>
       </button>
 
       {isOpen && (
         <div style={PANEL}>
           <div>
-            <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 2, color: "#b59750" }}>Instant graph</div>
-            <div style={{ fontSize: 17, fontWeight: 950, color: "#ffe18a", marginTop: 3 }}>Explore a living honeycomb</div>
-            <div style={{ fontSize: 11, color: "#9f8b57", marginTop: 3 }}>Pick nodes. Compatible ideas move closer. Random keeps the arcade buzzing.</div>
+            <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 2, color: "#b59750" }}>{t("instant.graph")}</div>
+            <div style={{ fontSize: 17, fontWeight: 950, color: "#ffe18a", marginTop: 3 }}>{t("instant.heading")}</div>
+            <div style={{ fontSize: 11, color: "#9f8b57", marginTop: 3 }}>{t("instant.help")}</div>
           </div>
 
           <div style={{ display: "flex", flexWrap: "wrap", gap: 9, justifyContent: "center" }}>
-            <HoneycombButton active={false} label="Random" symbol="🎲" hint="Refresh open nodes" variant="random" onClick={randomizeOpenNodes} />
-            <HoneycombButton active={false} label="Add / Evolution" symbol="🧬" hint="Ask for more" variant="add" onClick={openEvolution} />
+            <HoneycombButton active={false} label={t("instant.random")} symbol="🎲" hint={t("instant.randomHint")} variant="random" onClick={randomizeOpenNodes} />
+            <HoneycombButton active={false} label={t("instant.addEvolution")} symbol="🧬" hint={t("instant.addEvolutionHint")} variant="add" onClick={openEvolution} />
           </div>
 
           {selectedVisibleNodes.length > 0 && (
             <div style={{ border: "1px solid rgba(255,225,120,0.22)", borderRadius: 18, padding: 10, background: "rgba(255,208,95,0.07)", boxShadow: "inset 0 0 22px rgba(255,225,120,0.05)" }}>
-              <div style={{ color: "#fff0a6", fontSize: 10, fontWeight: 900, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8 }}>Selected cluster</div>
+              <div style={{ color: "#fff0a6", fontSize: 10, fontWeight: 900, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8 }}>{t("instant.selectedCluster")}</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
                 {selectedVisibleNodes.map((node) => (
                   <HoneycombButton key={node.id} active label={node.label} symbol={node.symbol} hint={node.hint} onClick={() => toggleNode(node)} />
@@ -284,7 +286,7 @@ export function InstantHoneycombWizard({
 
           {activeRecipe?.context === "boss" && (
             <label style={{ display: "flex", flexDirection: "column", gap: 6, color: "#ffe18a", fontSize: 12, fontWeight: 800 }}>
-              Boss level
+              {t("instant.bossLevel")}
               <select value={bossLevelId} onChange={(event) => { setBossLevelId(Number(event.target.value)); setMessage(null); }} style={SELECT}>
                 {bossLevels.map((level) => <option key={level.id} value={level.id}>{level.name}</option>)}
               </select>
@@ -293,7 +295,7 @@ export function InstantHoneycombWizard({
 
           {activeRecipe?.context === "level" && (
             <label style={{ display: "flex", flexDirection: "column", gap: 6, color: "#ffe18a", fontSize: 12, fontWeight: 800 }}>
-              Test level
+              {t("instant.testLevel")}
               <select value={levelId} onChange={(event) => { setLevelId(Number(event.target.value)); setMessage(null); }} style={SELECT}>
                 {levels.map((level) => <option key={level.id} value={level.id}>{level.name}</option>)}
               </select>
@@ -302,7 +304,7 @@ export function InstantHoneycombWizard({
 
           {activeRecipe?.context === "ball" && (
             <label style={{ display: "flex", flexDirection: "column", gap: 6, color: "#ffe18a", fontSize: 12, fontWeight: 800 }}>
-              Ball
+              {t("instant.ball")}
               <select value={ballColor} onChange={(event) => { setBallColor(event.target.value as BallColor); setMessage(null); }} style={SELECT}>
                 {ballColors.map((color) => <option key={color} value={color}>{colorLabel(config, color)}</option>)}
               </select>
@@ -311,9 +313,9 @@ export function InstantHoneycombWizard({
 
           <div style={{ border: "1px solid rgba(255,225,120,0.18)", borderRadius: 12, padding: 10, color: "#d8c078", fontSize: 11, background: "rgba(255,255,255,0.04)" }}>
             {activeRecipe ? (
-              <>Ready: <strong style={{ color: "#fff1bf" }}>{activeRecipe.label}</strong> · Intensity: <strong style={{ color: "#fff1bf" }}>{INTENSITIES[activeIntensity]}</strong>{activeRecipe.values !== "selectedBallWeight" && <> · Power: <strong style={{ color: "#fff1bf" }}>{String(activeValue)}</strong></>}</>
+              <>{t("instant.ready")}: <strong style={{ color: "#fff1bf" }}>{activeRecipe.label}</strong> · {t("instant.intensity")}: <strong style={{ color: "#fff1bf" }}>{INTENSITIES[activeIntensity]}</strong>{activeRecipe.values !== "selectedBallWeight" && <> · {t("instant.power")}: <strong style={{ color: "#fff1bf" }}>{String(activeValue)}</strong></>}</>
             ) : (
-              <>Select a recipe honeycomb to create a runtime-only playable variant, or hit Add / Evolution for a bigger idea.</>
+              <>{t("instant.emptyHelp")}</>
             )}
           </div>
 
@@ -332,7 +334,7 @@ export function InstantHoneycombWizard({
               boxShadow: canApply ? "0 0 20px rgba(255,165,64,0.32)" : "none",
             }}
           >
-            ⚡ Play My Creation
+            {t("instant.playCreation")}
           </button>
         </div>
       )}

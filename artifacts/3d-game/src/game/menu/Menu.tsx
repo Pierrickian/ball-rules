@@ -13,11 +13,13 @@ import { LevelsMenu } from "./LevelsMenu";
 import { BossMenu } from "./BossMenu";
 import { EffectsMenu } from "./EffectsMenu";
 import { DifficultyMenu } from "./DifficultyMenu";
+import { useI18n } from "../i18n";
 
 function DownloadApkButton() {
+  const { t } = useI18n();
   return (
     <a href={APK_DOWNLOAD_URL} target="_blank" rel="noreferrer" style={DOWNLOAD_APK_BTN}>
-      ⬇️ Download APK
+      {t("menu.downloadApk")}
     </a>
   );
 }

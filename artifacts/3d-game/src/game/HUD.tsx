@@ -4,6 +4,7 @@
 // ============================================================
 
 import type { GameConfig, GameState } from "../engine/types";
+import { useI18n } from "./i18n";
 
 interface HUDProps {
   gameState: GameState;
@@ -30,6 +31,7 @@ const BTN: React.CSSProperties = {
 };
 
 export function HUD({ gameState, config, isRunning, levelTimerSeconds, shotsRemaining, onPause, onResume, onReset }: HUDProps) {
+  const { t } = useI18n();
   const activeBalls = Array.from(gameState.balls.values()).filter(
     (b) => b.isAlive && b.color !== "orange" && b.metadata?.isProjectile !== true
   ).length;
@@ -79,7 +81,7 @@ export function HUD({ gameState, config, isRunning, levelTimerSeconds, shotsRema
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14 }}>
         <div style={{ minWidth: 72 }}>
-          <div style={{ fontSize: 9, color: "#445", textTransform: "uppercase", letterSpacing: 3 }}>Restantes</div>
+          <div style={{ fontSize: 9, color: "#445", textTransform: "uppercase", letterSpacing: 3 }}>{t("hud.remaining")}</div>
           <div style={{ fontSize: 20, fontWeight: "bold", color: "#1e90ff", lineHeight: 1 }}>{activeBalls}</div>
         </div>
 
@@ -103,7 +105,7 @@ export function HUD({ gameState, config, isRunning, levelTimerSeconds, shotsRema
         {/* Session progress */}
         <div style={{ width: "56%", minWidth: 150 }}>
           <div style={{ fontSize: 9, color: "#445", textTransform: "uppercase", letterSpacing: 3, marginBottom: 3 }}>
-            Vague {launched}/{max}
+            {t("hud.wave", { launched, max })}
           </div>
           <div style={{
             height: 6, background: "rgba(30,144,255,0.15)",
