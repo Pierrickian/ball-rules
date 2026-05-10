@@ -787,6 +787,7 @@
     ]
   },
   "release_notes": [
+    "Instant devient un wizard visuel",
     "Instructions agent architecture ajoutées",
     "Moteur plus typé et allégé",
     "Game engine découpé en modules",
@@ -805,8 +806,7 @@
     "Popups de combos pour tirs remarquables",
     "Retry propose rejouer ou passer",
     "Difficulté Medium passe à +3 PV",
-    "Formulaire Evolution simplifié sans préfixe technique",
-    "Difficulté réglable depuis le menu"
+    "Formulaire Evolution simplifié sans préfixe technique"
   ],
   "debug": {
     "show_velocities": false,
