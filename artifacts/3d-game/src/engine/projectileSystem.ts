@@ -1,30 +1,144 @@
 import { Ball } from "./Ball";
-import type { BallColor, GameConfig, GameEvent, Vec2 } from "./types";
-import { normalize } from "./engineMath";
+import type { BallColor, GameConfig, GameEvent, ShotKind, ShotTypeConfig, Vec2 } from "./types";
+import { BallSize, BounceCondition } from "./types";
+import { normalize, type Arena2D, type PendingCommand, type RuleContext } from "./engineMath";
+import {
+  detectWallHit,
+  isOutOfBounds,
+  isTemporarilyUntouchable,
+  triggerMagnetFieldsForProjectile,
+} from "./collisionSystem";
 
-interface Arena2D {
-  halfW: number;
-  halfH: number;
-}
 
-interface RuleContext {
-  allBalls: Ball[];
+export interface PlayerProjectileApiContext {
+  balls: Map<string, Ball>;
   config: GameConfig;
-  events: GameEvent[];
-  arena: Arena2D;
-  spawnBall: (
-    color: BallColor,
-    size: Ball["size"],
-    position: Vec2,
-    velocity: Vec2,
-    overrideRule?: Ball["rule"],
-    overrideHp?: { hp: number; maxHp: number }
-  ) => Ball;
-  despawnBall: (ball: Ball, reason: string) => void;
+  pendingCommands: PendingCommand[];
+  activeGrenadeId: string | null;
+  getArena: () => Arena2D;
+  classifyShot: (holdSeconds: number) => ShotKind;
   damageBall: (ball: Ball, amount: number, reason?: string) => boolean;
+  emitEvent: (event: GameEvent, source: "update" | "external") => void;
 }
 
-export function handlePlayerProjectile(this: any, ball: Ball, delta: number, ctx: RuleContext): void {
+export function playerShoot(
+  engine: PlayerProjectileApiContext,
+  targetX: number,
+  targetY: number,
+  holdSeconds: number,
+  color: BallColor
+): Ball | null {
+  const controls = engine.config.gameplay_controls;
+  if (!controls) return null;
+  const shotKind = engine.classifyShot(holdSeconds);
+  const shotCfg = controls.shot_types[shotKind];
+  if (!shotCfg) return null;
+
+  const arena = engine.getArena();
+  const inset = (controls.shot_origin?.inset_factor ?? 0.04) * arena.halfH * 2;
+  const origin: Vec2 = { x: 0, y: -arena.halfH + inset };
+
+  const dx = targetX - origin.x;
+  const dy = targetY - origin.y;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  if (len < 0.001) return null;
+  const dir: Vec2 = { x: dx / len, y: dy / len };
+
+  const baseSize = controls.queue_ball_size ?? BallSize.SMALL;
+  const baseDiameter = engine.config.graphics.ball_sizes[baseSize]?.diameter ?? 1.0;
+  const projectileDiameter = baseDiameter * shotCfg.diameter_multiplier;
+  const speed = shotCfg.speed;
+
+  const projectile = new Ball(
+    color,
+    baseSize,
+    origin,
+    { x: dir.x * speed, y: dir.y * speed },
+    projectileDiameter,
+    "player_projectile",
+    BounceCondition.AGAINST_OBSTACLE,
+    999, 999
+  );
+  projectile.metadata = {
+    isProjectile: true,
+    shotKind,
+    damage: shotCfg.damage,
+    passesThroughBalls: shotCfg.passes_through_balls,
+    remainingWallBounces: shotCfg.wall_bounces,
+    lifetime: 0,
+    damagedIds: new Map<string, number>(),
+    hitCount: 0,
+    killCount: 0,
+    comboPositionSum: { x: 0, y: 0 },
+    comboFinalized: false,
+    colorTint: shotCfg.color_tint ?? null,
+    effect: shotKind === 'mega' ? 'nova' : shotKind === 'heavy' ? 'shock' : 'pulse',
+  };
+  engine.balls.set(projectile.id, projectile);
+  engine.emitEvent({ type: "ball_spawned", ball: projectile.getState() }, "external");
+  engine.emitEvent({ type: "player_shot", projectileId: projectile.id, shotKind }, "external");
+  return projectile;
+}
+
+export function getShotConfig(config: GameConfig, kind: ShotKind): ShotTypeConfig | null {
+  return config.gameplay_controls?.shot_types?.[kind] ?? null;
+}
+
+export function getPlayerBaseDiameter(config: GameConfig): number {
+  const controls = config.gameplay_controls;
+  const baseSize = controls?.queue_ball_size ?? BallSize.SMALL;
+  return config.graphics.ball_sizes[baseSize]?.diameter ?? 1.0;
+}
+
+export function processPendingCommands(engine: PlayerProjectileApiContext): void {
+  if (engine.pendingCommands.length === 0) return;
+  const commands = engine.pendingCommands.splice(0);
+
+  for (const command of commands) {
+    if (command.type === "launch_grenade") {
+      const arena = engine.getArena();
+      const origin: Vec2 = { x: 0, y: -arena.halfH + 2 };
+      const len = Math.sqrt(command.direction.x*command.direction.x + command.direction.y*command.direction.y);
+      const dir = len > 0.001 ? {x: command.direction.x/len, y: command.direction.y/len} : {x: 0, y: 1};
+      const baseDiameter = getPlayerBaseDiameter(engine.config);
+      const baseSpeed = engine.config.gameplay_controls?.shot_types?.light?.speed ?? 9;
+      const grenade = new Ball('gray', BallSize.SMALL, origin, {x: dir.x * baseSpeed * 4, y: dir.y * baseSpeed * 4}, baseDiameter * 2, 'player_projectile', BounceCondition.AGAINST_OBSTACLE, 999, 999);
+      grenade.metadata = {isProjectile: true, isGrenade: true, lifetime: 0, damagedIds: new Map<string, number>(), colorTint: '#6b7a8f', effect: command.effect};
+      engine.balls.set(grenade.id, grenade);
+      engine.emitEvent({ type: 'ball_spawned', ball: grenade.getState() }, "update");
+      engine.activeGrenadeId = grenade.id;
+      continue;
+    }
+
+    if (command.type === "detonate_active_grenade") {
+      const grenadeId = engine.activeGrenadeId;
+      engine.activeGrenadeId = null;
+      if (!grenadeId) continue;
+      const grenade = engine.balls.get(grenadeId);
+      if (!grenade || !grenade.isAlive) continue;
+
+      if (grenade.metadata.touchedTarget === true) explodeGrenade(engine, grenade);
+      else {
+        grenade.isAlive = false;
+        engine.emitEvent({ type: 'ball_despawned', ballId: grenade.id, reason: 'grenade_fizzled', position: { ...grenade.position }, velocity: { ...grenade.velocity }, effect: String(grenade.metadata?.effect ?? 'ring') }, "update");
+      }
+    }
+  }
+}
+
+export function explodeGrenade(engine: PlayerProjectileApiContext, grenade: Ball): void {
+  const radius = getPlayerBaseDiameter(engine.config) * 3;
+  for (const other of engine.balls.values()) {
+    if (!other.isAlive || other.id===grenade.id || other.isProjectile() || other.color==='orange') continue;
+    const dx = other.position.x - grenade.position.x; const dy = other.position.y - grenade.position.y;
+    const reach = radius + other.diameter / 2;
+    if (Math.sqrt(dx*dx+dy*dy) <= reach) engine.damageBall(other, 10, 'killed_by_grenade');
+  }
+  grenade.isAlive = false;
+  engine.emitEvent({ type: 'ball_despawned', ballId: grenade.id, reason: 'grenade_exploded', position: { ...grenade.position }, velocity: { ...grenade.velocity }, effect: String(grenade.metadata?.effect ?? 'ring') }, "update");
+}
+
+export function handlePlayerProjectile(this: void, ball: Ball, delta: number, ctx: RuleContext): void {
   const metaAny = ball.metadata as Record<string, unknown>;
   if (metaAny.isGrenade === true) {
     const stuckToId = typeof metaAny.stuckToId === "string" ? metaAny.stuckToId : null;
@@ -54,12 +168,11 @@ export function handlePlayerProjectile(this: any, ball: Ball, delta: number, ctx
         }
       }
     }
-    if (this.isOutOfBounds(ball, ctx.arena)) {
+    if (isOutOfBounds(ball, ctx.arena)) {
       ctx.despawnBall(ball, "grenade_out_of_bounds");
-      this.activeGrenadeId = null;
+      ctx.clearActiveGrenade(ball.id);
       return;
     }
-    // Grenade is sticky to all non-projectile balls on its path.
     for (const other of ctx.allBalls) {
       if (other.id === ball.id || !other.isAlive || other.isProjectile() || other.color === "orange") continue;
       if (ball.isCollidingWith(other)) {
@@ -84,26 +197,22 @@ export function handlePlayerProjectile(this: any, ball: Ball, delta: number, ctx
     comboFinalized?: boolean;
   };
 
-  // Lifetime safety
   meta.lifetime += delta;
   const maxLife = ctx.config.rule_parameters.player_projectile?.max_lifetime_seconds ?? 4.0;
   if (meta.lifetime > maxLife) {
-    this.finalizePlayerProjectileCombo(ball, ctx);
+    finalizePlayerProjectileCombo(ball, ctx);
     ctx.despawnBall(ball, "projectile_expired");
     return;
   }
 
-  // Move
   ball.position.x += ball.velocity.x * delta;
   ball.position.y += ball.velocity.y * delta;
 
-  this.triggerMagnetFieldsForProjectile(ball, ctx);
+  triggerMagnetFieldsForProjectile(ball, ctx);
 
-  // --- Wall handling ---
-  const wallAxis = this.detectWallHit(ball, ctx.arena);
+  const wallAxis = detectWallHit(ball, ctx.arena);
   if (wallAxis) {
     if (meta.remainingWallBounces > 0) {
-      // Bounce: clamp position back inside, flip velocity
       const r = ball.diameter / 2;
       if (wallAxis === "x") {
         if (ball.position.x - r < -ctx.arena.halfW) ball.position.x = -ctx.arena.halfW + r;
@@ -116,29 +225,27 @@ export function handlePlayerProjectile(this: any, ball: Ball, delta: number, ctx
       }
       meta.remainingWallBounces--;
     } else {
-      // No bounces left → stop / despawn
-      this.finalizePlayerProjectileCombo(ball, ctx);
+      finalizePlayerProjectileCombo(ball, ctx);
       ctx.despawnBall(ball, "projectile_hit_wall");
       return;
     }
   }
 
-  // --- Ball collisions ---
   for (const other of ctx.allBalls) {
     if (other.id === ball.id || !other.isAlive) continue;
     if (other.color === "orange" || other.isProjectile()) continue;
-    if (this.isTemporarilyUntouchable(other)) continue;
+    if (isTemporarilyUntouchable(other)) continue;
     const immunityUntil = meta.damagedIds.get(other.id) ?? 0;
-    if (immunityUntil > this.elapsedTime) continue;
+    if (immunityUntil > ctx.elapsedTime) continue;
 
     const ignoreProjectileId = typeof other.metadata?.ignoreProjectileId === "string" ? other.metadata.ignoreProjectileId : null;
     const ignoreUntil = typeof other.metadata?.ignoreProjectileUntil === "number" ? other.metadata.ignoreProjectileUntil : 0;
-    if (ignoreProjectileId === ball.id && ignoreUntil > this.elapsedTime) continue;
+    if (ignoreProjectileId === ball.id && ignoreUntil > ctx.elapsedTime) continue;
 
     if (ball.isCollidingWith(other)) {
       const hpBeforeHit = other.hp;
-      const hitImmunitySeconds = this.getProjectileHitImmunitySeconds(ctx.config);
-      meta.damagedIds.set(other.id, this.elapsedTime + hitImmunitySeconds);
+      const hitImmunitySeconds = getProjectileHitImmunitySeconds(ctx.config);
+      meta.damagedIds.set(other.id, ctx.elapsedTime + hitImmunitySeconds);
       ctx.events.push({ type: "collision", ballAId: ball.id, ballBId: other.id });
       const killed = ctx.damageBall(other, meta.damage, "killed_by_player");
       meta.hitCount = (meta.hitCount ?? 0) + 1;
@@ -147,35 +254,29 @@ export function handlePlayerProjectile(this: any, ball: Ball, delta: number, ctx
       comboPositionSum.x += other.position.x;
       comboPositionSum.y += other.position.y;
       meta.comboPositionSum = comboPositionSum;
-      this.trySplitRedAfterNonLethalHit(other, hpBeforeHit, ball.id, ctx);
+      trySplitRedAfterNonLethalHit(other, hpBeforeHit, ball.id, ctx);
 
-      // Bouncy_surface targets (e.g. blue) act as bumpers for ALL three
-      // shot kinds: the projectile ricochets off them and keeps flying
-      // (the damage is still applied above). If the hit kills the target,
-      // we fall through to the normal pass-through / despawn behaviour
-      // since the bumper no longer exists.
       const isBouncy = !!ctx.config.ball_colors[other.color]?.bouncy_surface;
       if (isBouncy && other.isAlive) {
-        this.reflectProjectileOff(ball, other);
+        reflectProjectileOff(ball, other);
         continue;
       }
 
       if (!meta.passesThroughBalls) {
-        // Light shot: stop after first ball contact (non-bouncy target).
-        this.finalizePlayerProjectileCombo(ball, ctx);
+        finalizePlayerProjectileCombo(ball, ctx);
         ctx.despawnBall(ball, "projectile_hit_ball");
         return;
       }
     }
   }
 
-  if (this.isOutOfBounds(ball, ctx.arena)) {
-    this.finalizePlayerProjectileCombo(ball, ctx);
+  if (isOutOfBounds(ball, ctx.arena)) {
+    finalizePlayerProjectileCombo(ball, ctx);
     ctx.despawnBall(ball, "projectile_out_of_bounds");
   }
 }
 
-export function finalizePlayerProjectileCombo(this: any, ball: Ball, ctx: RuleContext): void {
+export function finalizePlayerProjectileCombo(ball: Ball, ctx: RuleContext): void {
   const meta = ball.metadata as {
     hitCount?: number;
     killCount?: number;
@@ -214,23 +315,24 @@ export function finalizePlayerProjectileCombo(this: any, ball: Ball, ctx: RuleCo
   }
 
   if (!comboType || !label) {
-    this.comboStreak = 0;
+    ctx.setComboStreak(0);
     return;
   }
 
-  this.comboStreak += 1;
+  const nextStreak = ctx.getComboStreak() + 1;
+  ctx.setComboStreak(nextStreak);
 
   ctx.events.push({
     type: "combo_popup",
     projectileId: ball.id,
     label,
-    streak: this.comboStreak,
+    streak: nextStreak,
     tier,
     position: { x: 0, y: 0 },
   });
 }
 
-export function trySplitRedAfterNonLethalHit(this: any, target: Ball, hpBeforeHit: number, sourceProjectileId: string, ctx: RuleContext): void {
+export function trySplitRedAfterNonLethalHit(target: Ball, hpBeforeHit: number, sourceProjectileId: string, ctx: RuleContext): void {
   if (target.color !== "red" || !target.isAlive) return;
   const redCap = target.isBoss ? 25 : 8;
   target.maxHp = Math.min(redCap, target.maxHp);
@@ -251,7 +353,7 @@ export function trySplitRedAfterNonLethalHit(this: any, target: Ball, hpBeforeHi
   }, "red_split_bouncer", { hp: childHp, maxHp: childHp });
   b1.maxHp = childHp; b1.hp = childHp; b1.isBoss = target.isBoss;
   b2.maxHp = childHp; b2.hp = childHp; b2.isBoss = target.isBoss;
-  const ignoreUntil = this.elapsedTime + this.getProjectileHitImmunitySeconds(ctx.config);
+  const ignoreUntil = ctx.elapsedTime + getProjectileHitImmunitySeconds(ctx.config);
   b1.metadata.ignoreProjectileId = sourceProjectileId;
   b1.metadata.ignoreProjectileUntil = ignoreUntil;
   b2.metadata.ignoreProjectileId = sourceProjectileId;
@@ -260,12 +362,12 @@ export function trySplitRedAfterNonLethalHit(this: any, target: Ball, hpBeforeHi
   ctx.despawnBall(target, "red_split_after_hit");
 }
 
-export function getProjectileHitImmunitySeconds(this: any, config: GameConfig): number {
+export function getProjectileHitImmunitySeconds(config: GameConfig): number {
   const ms = config.rule_parameters.player_projectile?.hit_immunity_ms ?? 200;
   return Math.max(0, ms) / 1000;
 }
 
-export function reflectProjectileOff(this: any, projectile: Ball, target: Ball): void {
+export function reflectProjectileOff(projectile: Ball, target: Ball): void {
   const dx = projectile.position.x - target.position.x;
   const dy = projectile.position.y - target.position.y;
   const dist = Math.sqrt(dx * dx + dy * dy);
