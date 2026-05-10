@@ -787,6 +787,7 @@
     ]
   },
   "release_notes": [
+    "Refonte interne des menus",
     "Instant cible mieux les formulaires",
     "Panneau Instant ajouté au menu",
     "Random Add valide directement les prompts sans ouvrir Evolution",
@@ -805,8 +806,7 @@
     "Difficulté réglable depuis le menu",
     "Curseur PV synchronisé avec la difficulté",
     "Difficulté Medium sélectionnée par défaut",
-    "Règles du jeu rapprochées du terrain",
-    "Menus niveaux scrollables et balles ajoutables"
+    "Règles du jeu rapprochées du terrain"
   ],
   "debug": {
     "show_velocities": false,
