@@ -787,6 +787,7 @@
     ]
   },
   "release_notes": [
+    "Portail créatif Add Feature",
     "Bouton ajout vers Evolution guidée",
     "Retry boss et grenades mieux guidés",
     "Boss niveau 1 vulnérable aux grenades",
@@ -805,8 +806,7 @@
     "Build et retry stabilisés",
     "Téléchargement APK depuis le menu",
     "Menu Evolution scrollable et simplifié",
-    "Evolution ouvre une issue suivie",
-    "Evolution paramétrable depuis menu"
+    "Evolution ouvre une issue suivie"
   ],
   "debug": {
     "show_velocities": false,
