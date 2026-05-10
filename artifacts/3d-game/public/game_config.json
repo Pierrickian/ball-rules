@@ -307,6 +307,10 @@
     "purple": {
       "rule": "magnet_field",
       "_description": "Génère un gabarit transparent de 3× son diamètre. Les balles du terrain qui y entrent sont attirées vers elle comme par un aimant, restent au contact sans la traverser ni rebondir. Quand un projectile pénètre le gabarit, la violette accélère 0,5 s puis reprend sa vitesse initiale."
+    },
+    "cyan": {
+      "rule": "gentle_current",
+      "_description": "Crée une zone d'entraide fluide: les tirs du joueur qui la traversent sont doucement guidés vers la menace la plus proche, tandis que les balles ennemies y sont ralenties et repoussées loin du bas de l'arène."
     }
   },
   "bounce_conditions": {
@@ -327,7 +331,8 @@
       "yellow": "against_wall",
       "black": "against_wall",
       "red": "against_wall",
-      "purple": "against_wall"
+      "purple": "against_wall",
+      "cyan": "against_wall"
     }
   },
   "rule_parameters": {
@@ -394,6 +399,14 @@
       "boost_duration_seconds": 0.5,
       "contact_velocity_damping": 0,
       "_contact_velocity_damping_comment": "0 annule la vitesse entrante au contact (pas de rebond); 1 la conserve."
+    },
+    "gentle_current": {
+      "_description": "Paramètres de la balle cyan: diamètre de la zone douce, guidage des projectiles, ralentissement et poussée protectrice contre les balles ennemies.",
+      "field_diameter_multiplier": 4,
+      "projectile_guidance_strength": 28,
+      "projectile_target_radius": 36,
+      "enemy_slow_factor": 0.62,
+      "enemy_push_strength": 8
     }
   },
   "gameplay": {
@@ -421,6 +434,7 @@
           "dark_green",
           "blue",
           "yellow",
+          "cyan",
           "black",
           "red",
           "purple"
@@ -490,6 +504,14 @@
       },
       "despawn": {
         "condition": "killed_at_zero_hp"
+      }
+    },
+    "cyan": {
+      "spawn": {
+        "condition": "launched_by_orange"
+      },
+      "despawn": {
+        "condition": "hp_zero_or_out_of_bounds"
       }
     }
   },
@@ -757,6 +779,19 @@
         },
         "timer_seconds": 65,
         "ammo_count": 50
+      },
+      {
+        "id": 12,
+        "name": "Niveau 12 — Courants cyan",
+        "description": "Des balles cyan ouvrent des zones d'entraide: traverse leurs courants avec tes tirs pour les guider, et laisse-les freiner la vague ennemie.",
+        "launch_color_weights": {
+          "cyan": 0.35,
+          "blue": 0.25,
+          "white": 0.25,
+          "purple": 0.15
+        },
+        "timer_seconds": 60,
+        "ammo_count": 45
       }
     ],
     "boss_intro_overlay_seconds": 1.5,
@@ -787,6 +822,7 @@
     ]
   },
   "release_notes": [
+    "Courants doux guident et protègent les tirs",
     "Instructions agent architecture ajoutées",
     "Moteur plus typé et allégé",
     "Game engine découpé en modules",
@@ -805,8 +841,7 @@
     "Popups de combos pour tirs remarquables",
     "Retry propose rejouer ou passer",
     "Difficulté Medium passe à +3 PV",
-    "Formulaire Evolution simplifié sans préfixe technique",
-    "Difficulté réglable depuis le menu"
+    "Formulaire Evolution simplifié sans préfixe technique"
   ],
   "debug": {
     "show_velocities": false,

@@ -43,6 +43,13 @@ export function BallMesh({ ball, config, showBlackHpLabel = false }: BallMeshPro
       ? Math.max(0, ball.metadata.magnetFieldDiameter as number)
       : ball.diameter * (config.rule_parameters.magnet_field?.field_diameter_multiplier ?? 3))
     : 0;
+  const gentleCurrentDiameter = ball.rule === "gentle_current"
+    ? (typeof ball.metadata?.gentleCurrentDiameter === "number"
+      ? Math.max(0, ball.metadata.gentleCurrentDiameter as number)
+      : ball.diameter * (config.rule_parameters.gentle_current?.field_diameter_multiplier ?? 4))
+    : 0;
+  const supportFieldDiameter = Math.max(magnetFieldDiameter, gentleCurrentDiameter);
+  const supportFieldOpacity = gentleCurrentDiameter > 0 ? 0.1 : 0.12;
 
   useFrame((_, delta) => {
     if (!meshRef.current) return;
@@ -65,8 +72,8 @@ export function BallMesh({ ball, config, showBlackHpLabel = false }: BallMeshPro
 
     if (fieldRef.current) {
       const mat = fieldRef.current.material as THREE.MeshBasicMaterial;
-      mat.opacity = 0.12 + 0.04 * Math.sin(pulseRef.current * 1.5);
-      fieldRef.current.scale.setScalar(magnetFieldDiameter);
+      mat.opacity = supportFieldOpacity + 0.04 * Math.sin(pulseRef.current * 1.5);
+      fieldRef.current.scale.setScalar(supportFieldDiameter);
       fieldRef.current.position.x = meshRef.current.position.x;
       fieldRef.current.position.z = meshRef.current.position.z;
     }
@@ -106,8 +113,8 @@ export function BallMesh({ ball, config, showBlackHpLabel = false }: BallMeshPro
 
   return (
     <group>
-      {/* Transparent magnetic footprint for purple balls */}
-      {!isInvisibleSprite && magnetFieldDiameter > 0 && (
+      {/* Transparent support footprint for purple magnets and cyan currents */}
+      {!isInvisibleSprite && supportFieldDiameter > 0 && (
         <mesh
           ref={fieldRef}
           position={[ball.position.x, Math.max(0.006, ball.diameter * 0.08), -ball.position.y]}
@@ -118,7 +125,7 @@ export function BallMesh({ ball, config, showBlackHpLabel = false }: BallMeshPro
           <meshBasicMaterial
             color={threeColor}
             transparent
-            opacity={0.12}
+            opacity={supportFieldOpacity}
             depthWrite={false}
             side={THREE.DoubleSide}
           />

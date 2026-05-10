@@ -113,6 +113,74 @@ export function handleMagnetField(this: void, ball: Ball, delta: number, ctx: Ru
   if (isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
 }
 
+export function handleGentleCurrent(this: void, ball: Ball, delta: number, ctx: RuleContext): void {
+  applyMovement(ball, delta, ctx.arena);
+  const p = ctx.config.rule_parameters.gentle_current ?? {
+    field_diameter_multiplier: 4,
+    projectile_guidance_strength: 5,
+    projectile_target_radius: 35,
+    enemy_slow_factor: 0.72,
+    enemy_push_strength: 4,
+  };
+  const fieldRadius = (ball.diameter * Math.max(1, p.field_diameter_multiplier)) / 2;
+  ball.metadata.gentleCurrentDiameter = fieldRadius * 2;
+
+  for (const other of ctx.allBalls) {
+    if (other.id === ball.id || !other.isAlive || other.color === "orange") continue;
+    const distance = ball.distanceTo(other);
+    if (distance > fieldRadius + other.diameter / 2) continue;
+
+    if (other.isProjectile()) {
+      guideProjectileTowardNearestTarget(other, ball, p.projectile_guidance_strength, p.projectile_target_radius, delta, ctx);
+      continue;
+    }
+
+    if (other.color === ball.color) continue;
+    const drag = 1 - (1 - Math.max(0, Math.min(1, p.enemy_slow_factor))) * delta;
+    other.velocity.x *= drag;
+    other.velocity.y *= drag;
+
+    const awayFromPlayer = normalize({ x: other.position.x, y: other.position.y + ctx.arena.halfH });
+    other.velocity.x += awayFromPlayer.x * p.enemy_push_strength * delta;
+    other.velocity.y += awayFromPlayer.y * p.enemy_push_strength * delta;
+  }
+
+  if (isOutOfBounds(ball, ctx.arena)) ctx.despawnBall(ball, "out_of_bounds");
+}
+
+function guideProjectileTowardNearestTarget(
+  projectile: Ball,
+  current: Ball,
+  guidanceStrength: number,
+  targetRadius: number,
+  delta: number,
+  ctx: RuleContext
+): void {
+  const currentSpeed = Math.sqrt(projectile.velocity.x ** 2 + projectile.velocity.y ** 2);
+  if (currentSpeed <= 0.001) return;
+
+  let nearest: Ball | null = null;
+  let nearestDistance = Infinity;
+  for (const candidate of ctx.allBalls) {
+    if (!candidate.isAlive || candidate.id === projectile.id || candidate.id === current.id) continue;
+    if (candidate.isProjectile() || candidate.color === "orange" || candidate.color === current.color) continue;
+    const distance = projectile.distanceTo(candidate);
+    if (distance > targetRadius || distance >= nearestDistance) continue;
+    nearest = candidate;
+    nearestDistance = distance;
+  }
+
+  if (!nearest) return;
+  const desired = normalize({ x: nearest.position.x - projectile.position.x, y: nearest.position.y - projectile.position.y });
+  const turn = Math.max(0, guidanceStrength) * delta;
+  projectile.velocity.x += desired.x * turn;
+  projectile.velocity.y += desired.y * turn;
+  const nextSpeed = Math.sqrt(projectile.velocity.x ** 2 + projectile.velocity.y ** 2);
+  if (nextSpeed <= 0.001) return;
+  projectile.velocity.x = (projectile.velocity.x / nextSpeed) * currentSpeed;
+  projectile.velocity.y = (projectile.velocity.y / nextSpeed) * currentSpeed;
+}
+
 export function handleSplit(this: void, ball: Ball, delta: number, ctx: RuleContext): void {
   ball.position.x += ball.velocity.x * delta;
   ball.position.y += ball.velocity.y * delta;

@@ -45,7 +45,8 @@ export type BallRule =
   | "blink_hp_bouncer"
   | "red_split_bouncer"
   | "player_projectile"
-  | "magnet_field";
+  | "magnet_field"
+  | "gentle_current";
 
 // ---- Bounce Condition Enum ----
 export enum BounceCondition {
@@ -343,6 +344,13 @@ export interface GameConfig {
       boost_speed_multiplier: number;
       boost_duration_seconds: number;
       contact_velocity_damping?: number;
+    };
+    gentle_current?: {
+      field_diameter_multiplier: number;
+      projectile_guidance_strength: number;
+      projectile_target_radius: number;
+      enemy_slow_factor: number;
+      enemy_push_strength: number;
     };
     freeze_nearby?: { radius: number; freeze_duration_seconds: number };
     gravity_sink?: { strength: number };

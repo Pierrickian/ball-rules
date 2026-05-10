@@ -57,6 +57,7 @@ import {
   handleBounce,
   handleDestroyOnContact,
   handleFreezeNearby,
+  handleGentleCurrent,
   handleGravitySink,
   handleHpGrowBouncer,
   handleLauncher,
@@ -145,6 +146,7 @@ export class GameEngine {
   private handleMagnetField = handleMagnetField;
   private handleSplit = handleSplit;
   private handleFreezeNearby = handleFreezeNearby;
+  private handleGentleCurrent = handleGentleCurrent;
   private handleTransferRule = handleTransferRule;
   private handleGravitySink = handleGravitySink;
   private handleNeutral = handleNeutral;
@@ -178,6 +180,7 @@ export class GameEngine {
     this.registerRuleHandler("red_split_bouncer", this.handleRedSplitBouncer);
     this.registerRuleHandler("player_projectile", this.handlePlayerProjectile);
     this.registerRuleHandler("magnet_field",      this.handleMagnetField);
+    this.registerRuleHandler("gentle_current",    this.handleGentleCurrent);
   }
 
   registerRuleHandler(rule: BallRule, handler: RuleHandler): void {
