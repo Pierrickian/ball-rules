@@ -21,7 +21,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { GameEngine } from "./game_engine";
 import { addGrenadeZones, createGrenadeZoneStore, updateGrenadeZones } from "./grenade_lingering";
 import type { BallColor, GameConfig, GameEvent, GameState, LevelEntry, ShotKind, Vec2 } from "./types";
+import type { ChangeReason } from "../game/change/changeModifiers";
 import { DEFAULT_DIFFICULTY, DEFAULT_LEVEL_AMMO_COUNT, DEFAULT_LEVEL_TIMER_SECONDS, DEFAULT_STATE, FALLBACK_DIFFICULTY_HP_PRESETS, buildQueue, clampDifficultyHpValue, getDefaultDifficulty, getDifficultyHpValue } from "./useGameEngineHelpers";
+
+export type PendingChange = { currentLevelIndex: number; nextLevelIndex: number; reason: ChangeReason; isBossPhase: boolean };
 
 export interface UseGameEngineResult {
   gameState: GameState | null;
@@ -43,7 +46,6 @@ export interface UseGameEngineResult {
   launchLevel: (levelId: number) => void;
   launchBossLevel: (levelId: number) => void;
   launchTemporaryBallTest: (levelConfig: LevelEntry) => void;
-  openRetryMenu: () => void;
   goToBoss: () => void;
   playBossRush: (levelIds: number[]) => void;
   classifyHold: (holdSeconds: number) => ShotKind;
@@ -53,9 +55,11 @@ export interface UseGameEngineResult {
   difficulty: "easy" | "medium" | "hard";
   setHpAdjustment: (adjustment: number) => void;
   hpAdjustment: number;
-  pendingLevelClear: { currentLevelIndex: number; nextLevelIndex: number } | null;
-  continueAfterLevelClear: (nextConfig: GameConfig, nextLevelIndex: number) => void;
-  startRunFromConfig: (nextConfig: GameConfig, levelIndex: number) => void;
+  pendingChange: PendingChange | null;
+  openChangeMenu: () => void;
+  closeChangeMenu: () => void;
+  continueAfterChange: (nextConfig: GameConfig, nextLevelIndex: number) => void;
+  startGameFromConfig: (nextConfig: GameConfig, levelIndex: number) => void;
   getCurrentLevelIndex: () => number;
 }
 
@@ -68,7 +72,7 @@ export function useGameEngine(): UseGameEngineResult {
   const [grenadesLeft, setGrenadesLeft] = useState(5);
   const [difficulty, setDifficultyState] = useState<"easy" | "medium" | "hard">(DEFAULT_DIFFICULTY);
   const [hpAdjustment, setHpAdjustmentState] = useState(FALLBACK_DIFFICULTY_HP_PRESETS[DEFAULT_DIFFICULTY]);
-  const [pendingLevelClear, setPendingLevelClear] = useState<{ currentLevelIndex: number; nextLevelIndex: number } | null>(null);
+  const [pendingChange, setPendingChange] = useState<PendingChange | null>(null);
 
   const engineRef          = useRef<GameEngine | null>(null);
   const grenadeZonesRef    = useRef(createGrenadeZoneStore());
@@ -181,12 +185,14 @@ export function useGameEngine(): UseGameEngineResult {
             timerRemainingRef.current = Math.max(0, Math.round((timerRemainingRef.current - 0.1) * 10) / 10);
             if (timerRemainingRef.current <= 0) {
               publishRetryReason("timeout");
+              setPendingChange({ currentLevelIndex: currentLevelIdxRef.current, nextLevelIndex: currentLevelIdxRef.current, reason: "failure", isBossPhase: false });
               pausedRef.current = true;
               setIsRunning(false);
             }
           }
           if (ammoRemainingRef.current <= 0) {
             publishRetryReason("ammo");
+            setPendingChange({ currentLevelIndex: currentLevelIdxRef.current, nextLevelIndex: currentLevelIdxRef.current, reason: "failure", isBossPhase: false });
             pausedRef.current = true;
             setIsRunning(false);
           }
@@ -201,7 +207,7 @@ export function useGameEngine(): UseGameEngineResult {
           isBossPhase: bossPhase,
         });
 
-        // ---- Auto-reboot / run-twist detection ----
+        // ---- Auto-reboot / Change menu detection ----
         if (
           cfg &&
           cfg.game_session.auto_reboot_on_clear &&
@@ -218,20 +224,30 @@ export function useGameEngine(): UseGameEngineResult {
             cfg.game_session.advance_level_on_clear !== false &&
             sessionModeRef.current === "levels";
 
-          if (advance && levelCount > 0) {
+          if (sessionModeRef.current === "boss_rush" && bossRushOrderRef.current.length > 0) {
+            const order = bossRushOrderRef.current;
+            const pos = Math.max(0, order.indexOf(currentLevelIdxRef.current));
+            setPendingChange({
+              currentLevelIndex: currentLevelIdxRef.current,
+              nextLevelIndex: order[(pos + 1) % order.length],
+              reason: "boss_clear",
+              isBossPhase: true,
+            });
+            pausedRef.current = true;
+            setIsRunning(false);
+          } else if (advance && levelCount > 0) {
             const nextLevelIndex = (currentLevelIdxRef.current + 1) % levelCount;
-            setPendingLevelClear({
+            const currentLevel = cfg.levels?.list?.[currentLevelIdxRef.current];
+            const reason: ChangeReason = currentLevel?.boss || bossPhase ? "boss_clear" : "level_clear";
+            setPendingChange({
               currentLevelIndex: currentLevelIdxRef.current,
               nextLevelIndex,
+              reason,
+              isBossPhase: reason === "boss_clear",
             });
             pausedRef.current = true;
             setIsRunning(false);
           } else {
-            if (sessionModeRef.current === "boss_rush" && bossRushOrderRef.current.length > 0) {
-              const order = bossRushOrderRef.current;
-              const pos = Math.max(0, order.indexOf(currentLevelIdxRef.current));
-              currentLevelIdxRef.current = order[(pos + 1) % order.length];
-            }
             window.setTimeout(() => {
               doReset();
               rebootingRef.current = false;
@@ -287,12 +303,43 @@ export function useGameEngine(): UseGameEngineResult {
 
   const pause  = useCallback(() => { pausedRef.current = true;  setIsRunning(false); }, []);
   const resume = useCallback(() => { pausedRef.current = false; lastTimeRef.current = performance.now(); setIsRunning(true); }, []);
-  const reset  = useCallback(() => { setPendingLevelClear(null); rebootingRef.current = false; doReset(); }, [doReset]);
-  const openRetryMenu = useCallback(() => {
-    publishRetryReason("manual");
+  const reset  = useCallback(() => { setPendingChange(null); rebootingRef.current = false; doReset(); }, [doReset]);
+  const openChangeMenu = useCallback(() => {
+    const cfg = configRef.current;
+    const levels = cfg?.levels?.list ?? [];
+    const nextLevelIndex = levels.length > 0 ? currentLevelIdxRef.current : 0;
+    setPendingChange({
+      currentLevelIndex: currentLevelIdxRef.current,
+      nextLevelIndex,
+      reason: "manual",
+      isBossPhase: engineRef.current?.isBossPhase() ?? false,
+    });
     pausedRef.current = true;
     setIsRunning(false);
-  }, [publishRetryReason]);
+  }, []);
+
+
+  const closeChangeMenu = useCallback(() => {
+    const pending = pendingChange;
+    setPendingChange(null);
+    if (pending?.reason === "manual") {
+      publishRetryReason(null);
+      pausedRef.current = false;
+      lastTimeRef.current = performance.now();
+      setIsRunning(true);
+      return;
+    }
+    if (pending?.reason === "failure") {
+      rebootingRef.current = false;
+      doReset();
+      return;
+    }
+    if (pending) {
+      currentLevelIdxRef.current = pending.nextLevelIndex;
+      rebootingRef.current = false;
+      doReset();
+    }
+  }, [doReset, pendingChange, publishRetryReason]);
 
   const goToBoss = useCallback(() => {
     const cfg = configRef.current;
@@ -345,6 +392,7 @@ export function useGameEngine(): UseGameEngineResult {
     const bossPhase = engineRef.current.isBossPhase();
     if (!bossPhase && ammoRemainingRef.current <= 0) {
       publishRetryReason("ammo");
+      setPendingChange({ currentLevelIndex: currentLevelIdxRef.current, nextLevelIndex: currentLevelIdxRef.current, reason: "failure", isBossPhase: false });
       pausedRef.current = true;
       setIsRunning(false);
       return null;
@@ -367,6 +415,7 @@ export function useGameEngine(): UseGameEngineResult {
       } : prev);
       if (ammoRemainingRef.current <= 0) {
         publishRetryReason("ammo");
+        setPendingChange({ currentLevelIndex: currentLevelIdxRef.current, nextLevelIndex: currentLevelIdxRef.current, reason: "failure", isBossPhase: false });
         pausedRef.current = true;
         setIsRunning(false);
       }
@@ -584,7 +633,7 @@ export function useGameEngine(): UseGameEngineResult {
     }
   }, [doReset, launchBossLevel, launchLevel, launchTemporaryBallTest]);
 
-  const startRunFromConfig = useCallback((nextConfig: GameConfig, levelIndex: number) => {
+  const startGameFromConfig = useCallback((nextConfig: GameConfig, levelIndex: number) => {
     const levels = nextConfig.levels?.list ?? [];
     const safe = levels.length > 0 ? ((levelIndex % levels.length) + levels.length) % levels.length : 0;
     configRef.current = nextConfig;
@@ -592,14 +641,14 @@ export function useGameEngine(): UseGameEngineResult {
     sessionModeRef.current = "levels";
     bossRushOrderRef.current = [];
     currentLevelIdxRef.current = safe;
-    setPendingLevelClear(null);
+    setPendingChange(null);
     rebootingRef.current = false;
     doReset();
   }, [doReset]);
 
-  const continueAfterLevelClear = useCallback((nextConfig: GameConfig, nextLevelIndex: number) => {
-    startRunFromConfig(nextConfig, nextLevelIndex);
-  }, [startRunFromConfig]);
+  const continueAfterChange = useCallback((nextConfig: GameConfig, nextLevelIndex: number) => {
+    startGameFromConfig(nextConfig, nextLevelIndex);
+  }, [startGameFromConfig]);
 
   const getCurrentLevelIndex = useCallback(() => currentLevelIdxRef.current, []);
 
@@ -634,8 +683,8 @@ export function useGameEngine(): UseGameEngineResult {
   return {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
-    shoot, setLauncherColor, setCustomTerrainDistribution, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, applyRuntimeConfig, launchLevel, launchBossLevel, launchTemporaryBallTest, openRetryMenu, goToBoss, playBossRush, classifyHold, toggleGrenade, grenadesLeft,
+    shoot, setLauncherColor, setCustomTerrainDistribution, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, applyRuntimeConfig, launchLevel, launchBossLevel, launchTemporaryBallTest, goToBoss, playBossRush, classifyHold, toggleGrenade, grenadesLeft,
     setDifficulty, difficulty, setHpAdjustment, hpAdjustment,
-    pendingLevelClear, continueAfterLevelClear, startRunFromConfig, getCurrentLevelIndex,
+    pendingChange, openChangeMenu, closeChangeMenu, continueAfterChange, startGameFromConfig, getCurrentLevelIndex,
   };
 }

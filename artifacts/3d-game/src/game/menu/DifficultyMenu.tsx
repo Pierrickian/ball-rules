@@ -43,7 +43,7 @@ export function DifficultyMenu({
   return <div style={PANEL}>
     <div>
       <div style={TITLE}>{t("menu.difficulty")}</div>
-      <div style={{ fontSize: 18, fontWeight: "bold", color: "#1e90ff" }}>Retry rapide</div>
+      <div style={{ fontSize: 18, fontWeight: "bold", color: "#1e90ff" }}>Change rapide</div>
     </div>
     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
       {button("easy", t("difficulty.easy"), t("difficulty.lessHp"))}

@@ -760,7 +760,7 @@
       }
     ],
     "boss_intro_overlay_seconds": 1.5,
-    "_limit_note": "Chaque niveau peut définir timer_seconds et ammo_count. Sans override, le runtime applique 60 secondes et 50 munitions; Retry recharge ces mêmes valeurs pour le niveau courant.",
+    "_limit_note": "Chaque niveau peut définir timer_seconds et ammo_count. Sans override, le runtime applique 60 secondes et 50 munitions; Change recharge ces mêmes valeurs pour le niveau courant.",
     "boss_mastered_overlay_seconds": 2
   },
   "game_rules_concept": {
@@ -782,12 +782,12 @@
       },
       {
         "heading": "Fin de partie",
-        "text": "Le lanceur orange spawn 20 balles maximum par partie. Une fois la 20e détruite, la partie redémarre automatiquement."
+        "text": "Le lanceur orange spawn 20 balles maximum par partie. Une fois la 20e détruite, le menu Change permet de modifier ou relancer la suite."
       }
     ]
   },
   "release_notes": [
-    "Runs personnalisées avec twists sauvegardés",
+    "Menu Change après niveaux et boss",
     "Slider Intensité ajouté au menu Instant",
     "Interface bilingue français anglais",
     "Instant contrôle les spawns ennemis",
@@ -804,7 +804,7 @@
     "Add Random propose des types de features validables directement",
     "Portail créatif Add Feature",
     "Bouton ajout vers Evolution guidée",
-    "Retry boss et grenades mieux guidés",
+    "Change boss et grenades mieux guidés",
     "Boss niveau 1 vulnérable aux grenades",
     "Niveau violet magnétique ajouté"
   ],
@@ -814,7 +814,7 @@
     "log_rule_changes": true
   },
   "evolution_request": {
-    "_description": "Paramètres du bouton Evolution du retry. Sans endpoint, le jeu ouvre une issue GitHub pré-remplie; avec endpoint, il attend une réponse JSON { type, number, title, url } pour confirmer la création.",
+    "_description": "Paramètres du bouton Evolution de Change. Sans endpoint, le jeu ouvre une issue GitHub pré-remplie; avec endpoint, il attend une réponse JSON { type, number, title, url } pour confirmer la création.",
     "repo": "Pierrickian/ball-rules",
     "mode": "issue",
     "endpoint": "",

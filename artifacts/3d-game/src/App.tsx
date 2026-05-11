@@ -10,28 +10,27 @@
 // 6. Menu            — Game menu
 // ============================================================
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useGameEngine } from "./engine/useGameEngine";
 import { GameScene } from "./scenes/GameScene";
 import { HUD } from "./game/HUD";
 import { Menu } from "./game/Menu";
-import { RetryOverlay } from "./game/RetryOverlay";
 import { AddFeaturePortal } from "./game/AddFeaturePortal";
 import { submitEvolutionRequest } from "./game/evolutionRequest";
 import type { GameConfig, GameState, ShotKind, Vec2 } from "./engine/types";
 import { ChargeBar, IncomingBallsOverlay, PlayerQueue, SessionClearOverlay } from "./AppOverlays";
 import { I18nProvider, readStoredLanguage, useI18n, type Language } from "./game/i18n";
 import { LanguageToggle } from "./game/LanguageToggle";
-import { ContinueRunOverlay, RunTwistOverlay } from "./game/RunTwistOverlay";
-import { applyRunTwist, getTwistChoices, type RunTwistChoice } from "./game/runTwists";
-import { clearSavedRun, createRunId, loadSavedRun, saveRun, type SavedRun } from "./game/runSave";
+import { ChangeMenu, ContinueChangeOverlay } from "./game/change/ChangeMenu";
+import { applyChangeModifiers, type ChangeContext } from "./game/change/changeModifiers";
+import { clearSavedChangeSession, createChangeSessionId, loadSavedChangeSession, saveChangeSession, type SavedChangeSession } from "./game/change/changeSave";
 
 function AppContent() {
   const { t } = useI18n();
   const {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
-    shoot, setCustomTerrainDistribution, setActiveLevel, setLevelWeights, applyRuntimeConfig, openRetryMenu, goToBoss, playBossRush, classifyHold, toggleGrenade, grenadesLeft, setDifficulty, difficulty, setHpAdjustment, hpAdjustment, pendingLevelClear, continueAfterLevelClear, startRunFromConfig,
+    shoot, setCustomTerrainDistribution, setActiveLevel, setLevelWeights, applyRuntimeConfig, openChangeMenu, closeChangeMenu, playBossRush, classifyHold, toggleGrenade, grenadesLeft, setDifficulty, difficulty, setHpAdjustment, hpAdjustment, pendingChange, continueAfterChange, startGameFromConfig,
   } = useGameEngine();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -56,21 +55,22 @@ function AppContent() {
   const [evolutionInitialText, setEvolutionInitialText] = useState("");
   const [grenadeAwardPopups, setGrenadeAwardPopups] = useState<Array<{ id: number; amount: number }>>([]);
   const [grenadeFlashKey, setGrenadeFlashKey] = useState(0);
-  const [savedRunPrompt, setSavedRunPrompt] = useState<SavedRun | null>(null);
-  const [savedRunPromptChecked, setSavedRunPromptChecked] = useState(false);
-  const [activeRun, setActiveRun] = useState<SavedRun | null>(null);
+  const [savedSessionPrompt, setSavedSessionPrompt] = useState<SavedChangeSession | null>(null);
+  const [savedSessionPromptChecked, setSavedSessionPromptChecked] = useState(false);
+  const [activeSession, setActiveSession] = useState<SavedChangeSession | null>(null);
+  const [selectedChangeModifiers, setSelectedChangeModifiers] = useState<string[]>([]);
   useEffect(() => { localStorage.setItem("bg_effect_ball", ballEffect); }, [ballEffect]);
   useEffect(() => { localStorage.setItem("bg_effect_grenade", grenadeEffect); }, [grenadeEffect]);
   useEffect(() => { localStorage.setItem("bg_debug_explosion_texture", debugExplosionTexture ? "1" : "0"); }, [debugExplosionTexture]);
   useEffect(() => {
-    if (!config || savedRunPromptChecked) return;
-    const saved = loadSavedRun();
+    if (!config || savedSessionPromptChecked) return;
+    const saved = loadSavedChangeSession();
     if (saved) {
       pause();
-      setSavedRunPrompt(saved);
+      setSavedSessionPrompt(saved);
     }
-    setSavedRunPromptChecked(true);
-  }, [config, pause, savedRunPromptChecked]);
+    setSavedSessionPromptChecked(true);
+  }, [config, pause, savedSessionPromptChecked]);
   useEffect(() => {
     for (const event of lastEvents) {
       if (event.type === "grenade_awarded") {
@@ -131,50 +131,80 @@ function AppContent() {
     resume();
   };
 
-  const currentRun = (): SavedRun => {
+  const currentSavedSession = (): SavedChangeSession => {
     const runtimeConfig = configRef.current ?? config;
     if (!runtimeConfig) throw new Error(t("app.error.configUnavailable"));
     const now = Date.now();
-    return activeRun ?? {
+    return activeSession ?? {
       saveVersion: 1,
-      runId: createRunId(),
+      sessionId: createChangeSessionId(),
       currentLevelIndex: gameState?.currentLevelIndex ?? 0,
-      selectedTwists: [],
+      selectedModifiers: [],
       runtimeConfig,
       createdAt: now,
       updatedAt: now,
     };
   };
 
-  const handleContinueSavedRun = () => {
-    if (!savedRunPrompt) return;
-    setActiveRun(savedRunPrompt);
-    setSavedRunPrompt(null);
-    startRunFromConfig(savedRunPrompt.runtimeConfig, savedRunPrompt.currentLevelIndex);
+  const handleContinueSavedSession = () => {
+    if (!savedSessionPrompt) return;
+    setActiveSession(savedSessionPrompt);
+    setSavedSessionPrompt(null);
+    startGameFromConfig(savedSessionPrompt.runtimeConfig, savedSessionPrompt.currentLevelIndex);
   };
 
-  const handleNewRun = () => {
-    clearSavedRun();
-    setActiveRun(null);
-    setSavedRunPrompt(null);
+  const handleNewSession = () => {
+    clearSavedChangeSession();
+    setActiveSession(null);
+    setSavedSessionPrompt(null);
     reset();
   };
 
-  const handleRunTwistChoice = (choice: RunTwistChoice) => {
-    if (!config || !pendingLevelClear) return;
-    const applied = applyRunTwist(config, pendingLevelClear.currentLevelIndex, choice);
-    const previous = currentRun();
+  const toggleChangeModifier = (modifierId: string) => {
+    setSelectedChangeModifiers((prev) => prev.includes(modifierId) ? prev.filter((id) => id !== modifierId) : [...prev, modifierId]);
+  };
+
+  const closeChange = () => {
+    setSelectedChangeModifiers([]);
+    closeChangeMenu();
+  };
+
+  const playChange = () => {
+    if (!config || !pendingChange || !gameState) return;
+    const context: ChangeContext = {
+      currentLevelIndex: pendingChange.currentLevelIndex,
+      currentLevelId: gameState.currentLevelId || pendingChange.currentLevelIndex + 1,
+      nextLevelIndex: pendingChange.nextLevelIndex,
+      isBossPhase: pendingChange.isBossPhase,
+      reason: pendingChange.reason,
+    };
+    const applied = applyChangeModifiers(config, context, selectedChangeModifiers);
+    const firstPrompt = applied.promptKeys[0];
+    if (firstPrompt) {
+      const fallbackLevelIndex = pendingChange.reason === "manual" || pendingChange.reason === "failure"
+        ? pendingChange.currentLevelIndex
+        : pendingChange.nextLevelIndex;
+      continueAfterChange(config, fallbackLevelIndex);
+      pause();
+      setEvolutionInitialText(t(firstPrompt));
+      setAddFeaturePortalOpen(false);
+      setMenuOpen(true);
+      setSelectedChangeModifiers([]);
+      return;
+    }
+    const previous = currentSavedSession();
     const now = Date.now();
-    const nextRun: SavedRun = {
+    const nextSession: SavedChangeSession = {
       ...previous,
       currentLevelIndex: applied.nextLevelIndex,
-      selectedTwists: [...previous.selectedTwists, choice.id],
+      selectedModifiers: [...previous.selectedModifiers, ...applied.appliedModifierIds],
       runtimeConfig: applied.nextConfig,
       updatedAt: now,
     };
-    saveRun(nextRun);
-    setActiveRun(nextRun);
-    continueAfterLevelClear(applied.nextConfig, applied.nextLevelIndex);
+    saveChangeSession(nextSession);
+    setActiveSession(nextSession);
+    setSelectedChangeModifiers([]);
+    continueAfterChange(applied.nextConfig, applied.nextLevelIndex);
   };
 
   const getDisplayMax = (): number => {
@@ -192,8 +222,6 @@ function AppContent() {
     if (gameState.bossIntroActive) return true;
     return Array.from(gameState.balls.values()).some((b) => b.isAlive && b.isBoss);
   })();
-  const retryReason = gameState?.retryReason ?? null;
-  const runTwistChoices = useMemo(() => pendingLevelClear && config ? getTwistChoices(config, pendingLevelClear.currentLevelIndex, activeRun?.selectedTwists ?? []) : [], [activeRun?.selectedTwists, config, pendingLevelClear]);
   const levelTimerSeconds = gameState?.timerSecondsRemaining ?? 60;
   const shotsRemaining = gameState?.ammoRemaining ?? 50;
 
@@ -525,11 +553,11 @@ function AppContent() {
         ☰
       </button>
       <button
-        onClick={openRetryMenu}
-        style={{ position: "absolute", top: 54, right: 12, width: 42, height: 42, zIndex: 95, pointerEvents: "all", background: "rgba(20,10,35,0.92)", color: "#ffe6f0", border: "1px solid rgba(255,77,122,0.55)", borderRadius: 10, fontSize: 20, cursor: "pointer", display:"grid", placeItems:"center" }}
-        title={t("app.title.retry")}
+        onClick={openChangeMenu}
+        style={{ position: "absolute", top: 54, right: 12, minWidth: 82, height: 42, zIndex: 95, pointerEvents: "all", background: "rgba(20,10,35,0.92)", color: "#ffe6f0", border: "1px solid rgba(255,77,122,0.55)", borderRadius: 10, fontSize: 14, fontWeight: 900, cursor: "pointer", display:"grid", placeItems:"center", padding: "0 10px" }}
+        title={t("change.title")}
       >
-        ↻
+        {t("change.title")}
       </button>
       <button
         onClick={handleAddFeatureOpen}
@@ -563,23 +591,20 @@ function AppContent() {
       )}
 
       {/* Game-over flash */}
-      {gameState.sessionCleared && !pendingLevelClear && (
+      {gameState.sessionCleared && !pendingChange && (
         <SessionClearOverlay config={config} gameState={gameState} />
       )}
-      {pendingLevelClear && runTwistChoices.length === 2 && (
-        <RunTwistOverlay choices={runTwistChoices} onChoose={handleRunTwistChoice} />
-      )}
-      {savedRunPrompt && (
-        <ContinueRunOverlay onContinue={handleContinueSavedRun} onNewRun={handleNewRun} />
-      )}
-      {retryReason && (
-        <RetryOverlay
-          reason={retryReason}
-          levelNumber={gameState.currentLevelId || gameState.currentLevelIndex + 1}
-          onRetry={reset}
-          onGoToBoss={goToBoss}
-          onSkipLevel={() => setActiveLevel(gameState.currentLevelIndex + 1)}
+      {pendingChange && (
+        <ChangeMenu
+          isBossPhase={pendingChange.isBossPhase}
+          selectedModifiers={selectedChangeModifiers}
+          onToggleModifier={toggleChangeModifier}
+          onPlay={playChange}
+          onClose={closeChange}
         />
+      )}
+      {savedSessionPrompt && (
+        <ContinueChangeOverlay onContinue={handleContinueSavedSession} onNew={handleNewSession} />
       )}
 
       {/* Menu overlay */}
