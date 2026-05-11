@@ -787,6 +787,7 @@
     ]
   },
   "release_notes": [
+    "Slider Intensité ajouté au menu Instant",
     "Interface bilingue français anglais",
     "Instant contrôle les spawns ennemis",
     "Instant devient un graphe aléatoire",

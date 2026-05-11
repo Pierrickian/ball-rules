@@ -3,14 +3,13 @@ import type { CSSProperties } from "react";
 import type { BallColor, GameConfig } from "../engine/types";
 import type { FeatureIntent } from "./featureCapabilities";
 import { buildInstantConfigPatch } from "./instantConfigPatches";
-import { INTENSITIES } from "./instantHoneycombRecipes";
+import { INTENSITIES, type IntensityIndex } from "./instantHoneycombRecipes";
 import {
   HONEYCOMB_NODES,
   areHoneycombNodesCompatible,
   buildEvolutionPreprompt,
   randomHoneycombSubset,
   recipeValue,
-  selectedIntensity,
   selectedRecipe,
   type HoneycombNode,
 } from "./instantHoneycombGraph";
@@ -36,7 +35,8 @@ const toggleButtonStyle = (isOpen: boolean): CSSProperties => ({
 
 const PANEL: CSSProperties = {
   border: "1px solid rgba(255,225,120,0.34)",
-  background: "radial-gradient(circle at 18% 0%, rgba(255,190,64,0.20), transparent 28%), linear-gradient(180deg, rgba(40,28,8,0.96), rgba(6,12,30,0.98))",
+  background:
+    "radial-gradient(circle at 18% 0%, rgba(255,190,64,0.20), transparent 28%), linear-gradient(180deg, rgba(40,28,8,0.96), rgba(6,12,30,0.98))",
   borderRadius: 18,
   padding: 14,
   display: "flex",
@@ -57,13 +57,17 @@ const SELECT: CSSProperties = {
 };
 
 function realColorKeys(config: GameConfig): BallColor[] {
-  return Object.keys(config.ball_colors).filter((color) => !color.startsWith("_")) as BallColor[];
+  return Object.keys(config.ball_colors).filter(
+    (color) => !color.startsWith("_"),
+  ) as BallColor[];
 }
 
 function playableBallColors(config: GameConfig): BallColor[] {
   return realColorKeys(config).filter((color) => {
     const ball = config.ball_colors[color];
-    return Boolean(ball?.for_terrain && !ball.system_role && config.ball_rules?.[color]);
+    return Boolean(
+      ball?.for_terrain && !ball.system_role && config.ball_rules?.[color],
+    );
   });
 }
 
@@ -71,12 +75,27 @@ function colorLabel(config: GameConfig, color: BallColor): string {
   return config.ball_colors[color]?._label ?? color;
 }
 
-function buildIntent(recipe: NonNullable<ReturnType<typeof selectedRecipe>>, intensity: number, levelId: number, ballColor: BallColor): FeatureIntent {
-  const context = recipe.context === "boss"
-    ? { levelId, scope: "boss" }
-    : recipe.context === "level"
-      ? { levelId }
-      : { color: ballColor };
+function formatRecipePresetValue(
+  recipe: NonNullable<ReturnType<typeof selectedRecipe>>,
+  intensity: IntensityIndex,
+  ballColor: BallColor,
+): string {
+  if (recipe.values === "selectedBallWeight") return "100%";
+  return String(recipeValue(recipe, intensity, ballColor));
+}
+
+function buildIntent(
+  recipe: NonNullable<ReturnType<typeof selectedRecipe>>,
+  intensity: IntensityIndex,
+  levelId: number,
+  ballColor: BallColor,
+): FeatureIntent {
+  const context =
+    recipe.context === "boss"
+      ? { levelId, scope: "boss" }
+      : recipe.context === "level"
+        ? { levelId }
+        : { color: ballColor };
 
   return {
     category: recipe.category,
@@ -84,7 +103,7 @@ function buildIntent(recipe: NonNullable<ReturnType<typeof selectedRecipe>>, int
     description: `Instant graph recipe: ${recipe.label}`,
     context,
     requestedProperties: {
-      [recipe.capabilityKey]: recipeValue(recipe, intensity as 0 | 1 | 2 | 3, ballColor),
+      [recipe.capabilityKey]: recipeValue(recipe, intensity, ballColor),
     },
   };
 }
@@ -141,8 +160,18 @@ function HoneycombButton({
       }}
     >
       <span style={{ fontSize: 22, lineHeight: 1 }}>{symbol}</span>
-      <span style={{ fontSize: 12, fontWeight: 900, lineHeight: 1.1 }}>{label}</span>
-      <span style={{ fontSize: 9, color: active ? "#fff0a6" : "#9f8b57", lineHeight: 1.15 }}>{hint}</span>
+      <span style={{ fontSize: 12, fontWeight: 900, lineHeight: 1.1 }}>
+        {label}
+      </span>
+      <span
+        style={{
+          fontSize: 9,
+          color: active ? "#fff0a6" : "#9f8b57",
+          lineHeight: 1.15,
+        }}
+      >
+        {hint}
+      </span>
     </button>
   );
 }
@@ -157,30 +186,58 @@ export function InstantHoneycombWizard({
   onOpenEvolution,
 }: {
   config: GameConfig;
-  onApplyInstantConfig: (nextConfig: GameConfig, options?: { reset?: boolean; playtestTarget?: unknown }) => void;
+  onApplyInstantConfig: (
+    nextConfig: GameConfig,
+    options?: { reset?: boolean; playtestTarget?: unknown },
+  ) => void;
   onOpenEvolution: (preprompt: string) => void;
 }) {
   const { t } = useI18n();
-  const bossLevels = useMemo(() => (config.levels?.list ?? []).filter((level) => level.boss), [config.levels?.list]);
+  const bossLevels = useMemo(
+    () => (config.levels?.list ?? []).filter((level) => level.boss),
+    [config.levels?.list],
+  );
   const levels = config.levels?.list ?? [];
   const ballColors = useMemo(() => playableBallColors(config), [config]);
   const [isOpen, setIsOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
-  const [visibleIds, setVisibleIds] = useState<string[]>(() => randomHoneycombSubset(new Set()));
-  const [bossLevelId, setBossLevelId] = useState(bossLevels[0]?.id ?? levels[0]?.id ?? 1);
+  const [visibleIds, setVisibleIds] = useState<string[]>(() =>
+    randomHoneycombSubset(new Set()),
+  );
+  const [bossLevelId, setBossLevelId] = useState(
+    bossLevels[0]?.id ?? levels[0]?.id ?? 1,
+  );
   const [levelId, setLevelId] = useState(levels[0]?.id ?? 1);
-  const [ballColor, setBallColor] = useState<BallColor>(ballColors[0] ?? "white");
-  const [message, setMessage] = useState<{ kind: "success" | "error"; text: string } | null>(null);
+  const [ballColor, setBallColor] = useState<BallColor>(
+    ballColors[0] ?? "white",
+  );
+  const [message, setMessage] = useState<{
+    kind: "success" | "error";
+    text: string;
+  } | null>(null);
+  const [activeIntensity, setActiveIntensity] = useState<IntensityIndex>(1);
 
   const activeRecipe = selectedRecipe(selectedIds);
-  const activeIntensity = selectedIntensity(selectedIds);
-  const selectedLevelId = activeRecipe?.context === "boss" ? bossLevelId : levelId;
-  const activeValue = activeRecipe ? recipeValue(activeRecipe, activeIntensity, ballColor) : undefined;
-  const canApply = Boolean(activeRecipe) && (activeRecipe?.context !== "boss" || bossLevels.length > 0);
-  const selectedNodes = HONEYCOMB_NODES.filter((node) => selectedIds.has(node.id));
-  const visibleNodes = visibleIds.map(nodeById).filter((node): node is HoneycombNode => Boolean(node));
-  const selectedVisibleNodes = visibleNodes.filter((node) => selectedIds.has(node.id));
-  const openVisibleNodes = visibleNodes.filter((node) => !selectedIds.has(node.id));
+  const selectedLevelId =
+    activeRecipe?.context === "boss" ? bossLevelId : levelId;
+  const activeValue = activeRecipe
+    ? recipeValue(activeRecipe, activeIntensity, ballColor)
+    : undefined;
+  const canApply =
+    Boolean(activeRecipe) &&
+    (activeRecipe?.context !== "boss" || bossLevels.length > 0);
+  const selectedNodes = HONEYCOMB_NODES.filter((node) =>
+    selectedIds.has(node.id),
+  );
+  const visibleNodes = visibleIds
+    .map(nodeById)
+    .filter((node): node is HoneycombNode => Boolean(node));
+  const selectedVisibleNodes = visibleNodes.filter((node) =>
+    selectedIds.has(node.id),
+  );
+  const openVisibleNodes = visibleNodes.filter(
+    (node) => !selectedIds.has(node.id),
+  );
 
   const refreshVisible = (nextSelectedIds: Set<string>) => {
     setVisibleIds(randomHoneycombSubset(nextSelectedIds));
@@ -193,10 +250,9 @@ export function InstantHoneycombWizard({
         next.delete(node.id);
       } else {
         if (node.kind === "recipe") {
-          HONEYCOMB_NODES.filter((entry) => entry.kind === "recipe").forEach((entry) => next.delete(entry.id));
-        }
-        if (node.kind === "intensity") {
-          HONEYCOMB_NODES.filter((entry) => entry.kind === "intensity").forEach((entry) => next.delete(entry.id));
+          HONEYCOMB_NODES.filter((entry) => entry.kind === "recipe").forEach(
+            (entry) => next.delete(entry.id),
+          );
         }
         next.add(node.id);
       }
@@ -217,7 +273,10 @@ export function InstantHoneycombWizard({
 
   const applyRecipe = () => {
     if (!activeRecipe) {
-      setMessage({ kind: "error", text: "Choose a glowing instant node before playing." });
+      setMessage({
+        kind: "error",
+        text: "Choose a glowing instant node before playing.",
+      });
       return;
     }
     if (!canApply) {
@@ -226,51 +285,151 @@ export function InstantHoneycombWizard({
     }
 
     try {
-      const intent = buildIntent(activeRecipe, activeIntensity, selectedLevelId, ballColor);
+      const intent = buildIntent(
+        activeRecipe,
+        activeIntensity,
+        selectedLevelId,
+        ballColor,
+      );
       const patch = buildInstantConfigPatch(config, intent);
-      onApplyInstantConfig(patch.nextConfig, { reset: patch.requiresReset, playtestTarget: patch.playtestTarget });
-      setMessage({ kind: "success", text: patch.summary || t("instant.creationLaunched") });
+      onApplyInstantConfig(patch.nextConfig, {
+        reset: patch.requiresReset,
+        playtestTarget: patch.playtestTarget,
+      });
+      setMessage({
+        kind: "success",
+        text: patch.summary || t("instant.creationLaunched"),
+      });
       setIsOpen(false);
     } catch (error) {
-      setMessage({ kind: "error", text: error instanceof Error ? error.message : t("instant.launchError") });
+      setMessage({
+        kind: "error",
+        text: error instanceof Error ? error.message : t("instant.launchError"),
+      });
     }
   };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <button onClick={() => setIsOpen((value) => !value)} style={toggleButtonStyle(isOpen)}>
+      <button
+        onClick={() => setIsOpen((value) => !value)}
+        style={toggleButtonStyle(isOpen)}
+      >
         <span style={{ fontSize: 20 }}>⚡</span>
         <div>
           <div style={{ fontWeight: 900 }}>{t("menu.instant")}</div>
-          <div style={{ fontSize: 11, color: "#8d7a4a", marginTop: 2 }}>{t("instant.entrySubtitle")}</div>
+          <div style={{ fontSize: 11, color: "#8d7a4a", marginTop: 2 }}>
+            {t("instant.entrySubtitle")}
+          </div>
         </div>
       </button>
 
       {isOpen && (
         <div style={PANEL}>
           <div>
-            <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 2, color: "#b59750" }}>{t("instant.graph")}</div>
-            <div style={{ fontSize: 17, fontWeight: 950, color: "#ffe18a", marginTop: 3 }}>{t("instant.heading")}</div>
-            <div style={{ fontSize: 11, color: "#9f8b57", marginTop: 3 }}>{t("instant.help")}</div>
+            <div
+              style={{
+                fontSize: 10,
+                textTransform: "uppercase",
+                letterSpacing: 2,
+                color: "#b59750",
+              }}
+            >
+              {t("instant.graph")}
+            </div>
+            <div
+              style={{
+                fontSize: 17,
+                fontWeight: 950,
+                color: "#ffe18a",
+                marginTop: 3,
+              }}
+            >
+              {t("instant.heading")}
+            </div>
+            <div style={{ fontSize: 11, color: "#9f8b57", marginTop: 3 }}>
+              {t("instant.help")}
+            </div>
           </div>
 
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 9, justifyContent: "center" }}>
-            <HoneycombButton active={false} label={t("instant.random")} symbol="🎲" hint={t("instant.randomHint")} variant="random" onClick={randomizeOpenNodes} />
-            <HoneycombButton active={false} label={t("instant.addEvolution")} symbol="🧬" hint={t("instant.addEvolutionHint")} variant="add" onClick={openEvolution} />
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 9,
+              justifyContent: "center",
+            }}
+          >
+            <HoneycombButton
+              active={false}
+              label={t("instant.random")}
+              symbol="🎲"
+              hint={t("instant.randomHint")}
+              variant="random"
+              onClick={randomizeOpenNodes}
+            />
+            <HoneycombButton
+              active={false}
+              label={t("instant.addEvolution")}
+              symbol="🧬"
+              hint={t("instant.addEvolutionHint")}
+              variant="add"
+              onClick={openEvolution}
+            />
           </div>
 
           {selectedVisibleNodes.length > 0 && (
-            <div style={{ border: "1px solid rgba(255,225,120,0.22)", borderRadius: 18, padding: 10, background: "rgba(255,208,95,0.07)", boxShadow: "inset 0 0 22px rgba(255,225,120,0.05)" }}>
-              <div style={{ color: "#fff0a6", fontSize: 10, fontWeight: 900, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8 }}>{t("instant.selectedCluster")}</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
+            <div
+              style={{
+                border: "1px solid rgba(255,225,120,0.22)",
+                borderRadius: 18,
+                padding: 10,
+                background: "rgba(255,208,95,0.07)",
+                boxShadow: "inset 0 0 22px rgba(255,225,120,0.05)",
+              }}
+            >
+              <div
+                style={{
+                  color: "#fff0a6",
+                  fontSize: 10,
+                  fontWeight: 900,
+                  letterSpacing: 1.5,
+                  textTransform: "uppercase",
+                  marginBottom: 8,
+                }}
+              >
+                {t("instant.selectedCluster")}
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 8,
+                  justifyContent: "center",
+                }}
+              >
                 {selectedVisibleNodes.map((node) => (
-                  <HoneycombButton key={node.id} active label={node.label} symbol={node.symbol} hint={node.hint} onClick={() => toggleNode(node)} />
+                  <HoneycombButton
+                    key={node.id}
+                    active
+                    label={node.label}
+                    symbol={node.symbol}
+                    hint={node.hint}
+                    onClick={() => toggleNode(node)}
+                  />
                 ))}
               </div>
             </div>
           )}
 
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 9, justifyContent: "center" }}>
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 9,
+              justifyContent: "center",
+            }}
+          >
             {openVisibleNodes.map((node) => (
               <HoneycombButton
                 key={node.id}
@@ -284,36 +443,207 @@ export function InstantHoneycombWizard({
             ))}
           </div>
 
+          <div
+            style={{
+              border: "1px solid rgba(255,225,120,0.18)",
+              borderRadius: 14,
+              padding: "10px 12px",
+              background: "rgba(255,255,255,0.04)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 10,
+              }}
+            >
+              <span style={{ color: "#ffe18a", fontSize: 12, fontWeight: 900 }}>
+                {t("instant.intensity")}
+              </span>
+              <span style={{ color: "#fff1bf", fontSize: 12, fontWeight: 950 }}>
+                {INTENSITIES[activeIntensity]}
+              </span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={INTENSITIES.length - 1}
+              step={1}
+              value={activeIntensity}
+              onChange={(event) => {
+                setActiveIntensity(
+                  Number(event.currentTarget.value) as IntensityIndex,
+                );
+                setMessage(null);
+              }}
+              style={{ width: "100%", accentColor: "#ffc64f" }}
+            />
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: `repeat(${INTENSITIES.length}, 1fr)`,
+                gap: 6,
+                color: "#9f8b57",
+                fontSize: 10,
+                fontWeight: 800,
+              }}
+            >
+              {INTENSITIES.map((label, index) => {
+                const presetIntensity = index as IntensityIndex;
+                return (
+                  <span
+                    key={label}
+                    style={{
+                      color: index === activeIntensity ? "#fff1bf" : "#9f8b57",
+                      textAlign:
+                        index === 0
+                          ? "left"
+                          : index === INTENSITIES.length - 1
+                            ? "right"
+                            : "center",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 2,
+                    }}
+                  >
+                    <span>{label}</span>
+                    {activeRecipe && (
+                      <span style={{ fontSize: 9, opacity: 0.86 }}>
+                        {formatRecipePresetValue(
+                          activeRecipe,
+                          presetIntensity,
+                          ballColor,
+                        )}
+                      </span>
+                    )}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+
           {activeRecipe?.context === "boss" && (
-            <label style={{ display: "flex", flexDirection: "column", gap: 6, color: "#ffe18a", fontSize: 12, fontWeight: 800 }}>
+            <label
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+                color: "#ffe18a",
+                fontSize: 12,
+                fontWeight: 800,
+              }}
+            >
               {t("instant.bossLevel")}
-              <select value={bossLevelId} onChange={(event) => { setBossLevelId(Number(event.target.value)); setMessage(null); }} style={SELECT}>
-                {bossLevels.map((level) => <option key={level.id} value={level.id}>{level.name}</option>)}
+              <select
+                value={bossLevelId}
+                onChange={(event) => {
+                  setBossLevelId(Number(event.target.value));
+                  setMessage(null);
+                }}
+                style={SELECT}
+              >
+                {bossLevels.map((level) => (
+                  <option key={level.id} value={level.id}>
+                    {level.name}
+                  </option>
+                ))}
               </select>
             </label>
           )}
 
           {activeRecipe?.context === "level" && (
-            <label style={{ display: "flex", flexDirection: "column", gap: 6, color: "#ffe18a", fontSize: 12, fontWeight: 800 }}>
+            <label
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+                color: "#ffe18a",
+                fontSize: 12,
+                fontWeight: 800,
+              }}
+            >
               {t("instant.testLevel")}
-              <select value={levelId} onChange={(event) => { setLevelId(Number(event.target.value)); setMessage(null); }} style={SELECT}>
-                {levels.map((level) => <option key={level.id} value={level.id}>{level.name}</option>)}
+              <select
+                value={levelId}
+                onChange={(event) => {
+                  setLevelId(Number(event.target.value));
+                  setMessage(null);
+                }}
+                style={SELECT}
+              >
+                {levels.map((level) => (
+                  <option key={level.id} value={level.id}>
+                    {level.name}
+                  </option>
+                ))}
               </select>
             </label>
           )}
 
           {activeRecipe?.context === "ball" && (
-            <label style={{ display: "flex", flexDirection: "column", gap: 6, color: "#ffe18a", fontSize: 12, fontWeight: 800 }}>
+            <label
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+                color: "#ffe18a",
+                fontSize: 12,
+                fontWeight: 800,
+              }}
+            >
               {t("instant.ball")}
-              <select value={ballColor} onChange={(event) => { setBallColor(event.target.value as BallColor); setMessage(null); }} style={SELECT}>
-                {ballColors.map((color) => <option key={color} value={color}>{colorLabel(config, color)}</option>)}
+              <select
+                value={ballColor}
+                onChange={(event) => {
+                  setBallColor(event.target.value as BallColor);
+                  setMessage(null);
+                }}
+                style={SELECT}
+              >
+                {ballColors.map((color) => (
+                  <option key={color} value={color}>
+                    {colorLabel(config, color)}
+                  </option>
+                ))}
               </select>
             </label>
           )}
 
-          <div style={{ border: "1px solid rgba(255,225,120,0.18)", borderRadius: 12, padding: 10, color: "#d8c078", fontSize: 11, background: "rgba(255,255,255,0.04)" }}>
+          <div
+            style={{
+              border: "1px solid rgba(255,225,120,0.18)",
+              borderRadius: 12,
+              padding: 10,
+              color: "#d8c078",
+              fontSize: 11,
+              background: "rgba(255,255,255,0.04)",
+            }}
+          >
             {activeRecipe ? (
-              <>{t("instant.ready")}: <strong style={{ color: "#fff1bf" }}>{activeRecipe.label}</strong> · {t("instant.intensity")}: <strong style={{ color: "#fff1bf" }}>{INTENSITIES[activeIntensity]}</strong>{activeRecipe.values !== "selectedBallWeight" && <> · {t("instant.power")}: <strong style={{ color: "#fff1bf" }}>{String(activeValue)}</strong></>}</>
+              <>
+                {t("instant.ready")}:{" "}
+                <strong style={{ color: "#fff1bf" }}>
+                  {activeRecipe.label}
+                </strong>{" "}
+                · {t("instant.intensity")}:{" "}
+                <strong style={{ color: "#fff1bf" }}>
+                  {INTENSITIES[activeIntensity]}
+                </strong>
+                {activeRecipe.values !== "selectedBallWeight" && (
+                  <>
+                    {" "}
+                    · {t("instant.power")}:{" "}
+                    <strong style={{ color: "#fff1bf" }}>
+                      {String(activeValue)}
+                    </strong>
+                  </>
+                )}
+              </>
             ) : (
               <>{t("instant.emptyHelp")}</>
             )}
@@ -324,7 +654,9 @@ export function InstantHoneycombWizard({
             disabled={!canApply}
             style={{
               border: "1px solid rgba(255,225,120,0.62)",
-              background: canApply ? "linear-gradient(90deg, #ffd05f, #ff7b3d)" : "rgba(110,96,60,0.4)",
+              background: canApply
+                ? "linear-gradient(90deg, #ffd05f, #ff7b3d)"
+                : "rgba(110,96,60,0.4)",
               color: canApply ? "#201000" : "#9f8b57",
               borderRadius: 14,
               padding: "13px 14px",
@@ -340,7 +672,13 @@ export function InstantHoneycombWizard({
       )}
 
       {message && (
-        <div style={{ color: message.kind === "success" ? "#78f29a" : "#ff9d9d", fontSize: 11, lineHeight: 1.35 }}>
+        <div
+          style={{
+            color: message.kind === "success" ? "#78f29a" : "#ff9d9d",
+            fontSize: 11,
+            lineHeight: 1.35,
+          }}
+        >
           {message.kind === "success" ? "✅" : "⚠️"} {message.text}
         </div>
       )}
