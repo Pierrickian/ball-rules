@@ -4,6 +4,7 @@
 // ============================================================
 
 import type { GameConfig, GameState } from "../engine/types";
+import type { BreathingWaveState } from "../engine/useGameEngine";
 
 interface HUDProps {
   gameState: GameState;
@@ -14,6 +15,8 @@ interface HUDProps {
   onPause: () => void;
   onResume: () => void;
   onReset: () => void;
+  breathingWave: BreathingWaveState;
+  onReload: () => void;
 }
 
 const BTN: React.CSSProperties = {
@@ -29,7 +32,7 @@ const BTN: React.CSSProperties = {
   letterSpacing: 1,
 };
 
-export function HUD({ gameState, config, isRunning, levelTimerSeconds, shotsRemaining, onPause, onResume, onReset }: HUDProps) {
+export function HUD({ gameState, config, isRunning, levelTimerSeconds, shotsRemaining, onPause, onResume, onReset, breathingWave, onReload }: HUDProps) {
   const activeBalls = Array.from(gameState.balls.values()).filter(
     (b) => b.isAlive && b.color !== "orange" && b.metadata?.isProjectile !== true
   ).length;
@@ -103,7 +106,7 @@ export function HUD({ gameState, config, isRunning, levelTimerSeconds, shotsRema
         {/* Session progress */}
         <div style={{ width: "56%", minWidth: 150 }}>
           <div style={{ fontSize: 9, color: "#445", textTransform: "uppercase", letterSpacing: 3, marginBottom: 3 }}>
-            Vague {launched}/{max}
+            Vague {breathingWave.waveNumber} · {launched}/{max}
           </div>
           <div style={{
             height: 6, background: "rgba(30,144,255,0.15)",
@@ -132,6 +135,7 @@ export function HUD({ gameState, config, isRunning, levelTimerSeconds, shotsRema
           {isRunning ? "⏸" : "▶"}
         </button>
         <button onClick={onReset} style={BTN}>↺</button>
+        {breathingWave.phase === "breathing" && <button onClick={onReload} style={{ ...BTN, borderColor: "#7afcff", color: "#eaffff" }}>Reload</button>}
       </div>
 
       {/* config-driven keepalive */}

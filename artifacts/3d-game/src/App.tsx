@@ -19,13 +19,13 @@ import { RetryOverlay } from "./game/RetryOverlay";
 import { AddFeaturePortal } from "./game/AddFeaturePortal";
 import { submitEvolutionRequest } from "./game/evolutionRequest";
 import type { GameConfig, GameState, ShotKind, Vec2 } from "./engine/types";
-import { ChargeBar, IncomingBallsOverlay, PlayerQueue, SessionClearOverlay } from "./AppOverlays";
+import { ChargeBar, IncomingBallsOverlay, PlayerQueue } from "./AppOverlays";
 
 function App() {
   const {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
-    shoot, setCustomTerrainDistribution, setActiveLevel, setLevelWeights, applyRuntimeConfig, openRetryMenu, goToBoss, playBossRush, classifyHold, toggleGrenade, grenadesLeft, setDifficulty, difficulty, setHpAdjustment, hpAdjustment,
+    shoot, setCustomTerrainDistribution, setActiveLevel, setLevelWeights, applyRuntimeConfig, openRetryMenu, goToBoss, playBossRush, classifyHold, toggleGrenade, grenadesLeft, setDifficulty, difficulty, setHpAdjustment, hpAdjustment, breathingWave, applyAlveole, reloadWave, requestContextualAlveoles,
   } = useGameEngine();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -50,6 +50,8 @@ function App() {
   const [evolutionInitialText, setEvolutionInitialText] = useState("");
   const [grenadeAwardPopups, setGrenadeAwardPopups] = useState<Array<{ id: number; amount: number }>>([]);
   const [grenadeFlashKey, setGrenadeFlashKey] = useState(0);
+  const [idleMicroPauseOpen, setIdleMicroPauseOpen] = useState(false);
+  const hadPlayerInputRef = useRef(false);
   useEffect(() => { localStorage.setItem("bg_effect_ball", ballEffect); }, [ballEffect]);
   useEffect(() => { localStorage.setItem("bg_effect_grenade", grenadeEffect); }, [grenadeEffect]);
   useEffect(() => { localStorage.setItem("bg_debug_explosion_texture", debugExplosionTexture ? "1" : "0"); }, [debugExplosionTexture]);
@@ -170,6 +172,8 @@ function App() {
 
 
   const handlePointerDown = (gameX: number, gameY: number) => {
+    hadPlayerInputRef.current = true;
+    setIdleMicroPauseOpen(false);
     if (menuOpenRef.current || !isRunningRef.current) return;
     pointerActiveRef.current = true;
     lastTargetRef.current = { x: gameX, y: gameY };
@@ -242,6 +246,8 @@ function App() {
   }, [autoFire, config, shoot, classifyHold]);
 
   const handlePointerUp = (gameX: number, gameY: number) => {
+    hadPlayerInputRef.current = true;
+    setIdleMicroPauseOpen(false);
     if (!pointerActiveRef.current) return;
     pointerActiveRef.current = false;
     if (!menuOpenRef.current && isRunningRef.current) {
@@ -328,6 +334,21 @@ function App() {
   }, [gameState, lastEvents, lockOn, lockedBallId, config, homingOn, classifyHold, holdTime]);
 
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if (!hadPlayerInputRef.current && !menuOpenRef.current && isRunningRef.current) {
+        setIdleMicroPauseOpen(true);
+        requestContextualAlveoles();
+      }
+    }, 6500);
+    const closeTimer = window.setTimeout(() => setIdleMicroPauseOpen(false), 10000);
+    return () => {
+      window.clearTimeout(timer);
+      window.clearTimeout(closeTimer);
+    };
+  }, [requestContextualAlveoles]);
+
+
   if (!gameState || !config) {
     return (
       <div
@@ -409,6 +430,10 @@ function App() {
           0%, 100% { transform: scale(1); box-shadow: 0 0 0 rgba(255, 214, 102, 0); }
           50% { transform: scale(1.16); box-shadow: 0 0 24px rgba(255, 214, 102, 0.95), 0 0 42px rgba(255, 122, 0, 0.8); }
         }
+        @keyframes alveole-breathe {
+          0%, 100% { transform: translateY(0) scale(1); opacity: .92; }
+          50% { transform: translateY(-2px) scale(1.025); opacity: 1; }
+        }
         @keyframes grenade-award-float {
           0% { opacity: 0; transform: translateY(8px) scale(0.8); }
           20% { opacity: 1; transform: translateY(0) scale(1.05); }
@@ -479,6 +504,34 @@ function App() {
         onSendIdea={openEvolutionFromAdd}
         onSubmitRandomIdea={submitRandomIdeaFromAdd}
       />
+
+      <div style={{ position:"absolute", left:12, top:118, zIndex:20, pointerEvents:"none", display:"flex", flexDirection:"column", gap:8, maxWidth:320 }}>
+        <div style={{ padding:"10px 12px", borderRadius:16, background:"linear-gradient(135deg, rgba(0,14,32,.72), rgba(17,40,62,.52))", border:"1px solid rgba(122,252,255,.32)", color:"#eaffff", boxShadow:"0 0 28px rgba(0,210,255,.18)", backdropFilter:"blur(10px)", animation:"alveole-breathe 2.4s ease-in-out infinite" }}>
+          <div style={{ fontSize:10, textTransform:"uppercase", letterSpacing:2.4, color:"#7afcff" }}>Wave respirante</div>
+          <div style={{ fontSize:20, fontWeight:900, textShadow:"0 0 12px rgba(122,252,255,.55)" }}>{breathingWave.message}</div>
+          {breathingWave.phase === "breathing" && (
+            <div style={{ marginTop:6, fontSize:12, color:"#b8d8ff" }}>
+              Respiration {Math.ceil(breathingWave.countdownRemaining)}s · {breathingWave.aiAnalyzing ? "analyse IA simulée…" : "alvéoles prêtes"}
+            </div>
+          )}
+        </div>
+        {(breathingWave.phase === "breathing" || breathingWave.alveoles.length > 0 || idleMicroPauseOpen) && (
+          <div style={{ pointerEvents:"all", padding:10, borderRadius:16, background:"rgba(3,10,24,.78)", border:"1px solid rgba(255,255,255,.16)", backdropFilter:"blur(10px)", boxShadow:"0 12px 34px rgba(0,0,0,.28)" }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:8 }}>
+              <span style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:"#ffd166" }}>{idleMicroPauseOpen ? "micro-pause intelligente" : "alvéoles gameplay"}</span>
+              {breathingWave.phase === "breathing" && <button onClick={reloadWave} style={{ border:"1px solid #7afcff", background:"rgba(122,252,255,.14)", color:"#eaffff", borderRadius:999, padding:"5px 10px", fontWeight:800, cursor:"pointer" }}>Reload</button>}
+            </div>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+              {breathingWave.alveoles.map((alveole) => (
+                <button key={alveole.id} onClick={() => { hadPlayerInputRef.current = true; setIdleMicroPauseOpen(false); applyAlveole(alveole); }} title={alveole.description} style={{ border:"1px solid rgba(122,252,255,.4)", background:"radial-gradient(circle at 30% 20%, rgba(122,252,255,.22), rgba(30,70,100,.24))", color:"#f3ffff", borderRadius:999, padding:"8px 11px", fontWeight:800, cursor:"pointer", boxShadow:"0 0 16px rgba(122,252,255,.12)", animation:"alveole-breathe 2.8s ease-in-out infinite" }}>
+                  {alveole.label}
+                </button>
+              ))}
+              {breathingWave.aiAnalyzing && breathingWave.alveoles.length === 0 && <span style={{ color:"#9db8d6", fontSize:12 }}>3–4 secondes d'analyse locale…</span>}
+            </div>
+          </div>
+        )}
+      </div>
       <HUD
         gameState={gameState}
         config={config}
@@ -488,6 +541,8 @@ function App() {
         onPause={pause}
         onResume={resume}
         onReset={reset}
+        breathingWave={breathingWave}
+        onReload={reloadWave}
       />
 
       {gameState.bossMasteredActive && (
@@ -496,10 +551,7 @@ function App() {
         </div>
       )}
 
-      {/* Game-over flash */}
-      {gameState.sessionCleared && (
-        <SessionClearOverlay config={config} gameState={gameState} />
-      )}
+      {/* Session clear overlay intentionally disabled for continuous breathing-wave flow. */}
       {retryReason && (
         <RetryOverlay
           reason={retryReason}

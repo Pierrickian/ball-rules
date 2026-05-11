@@ -27,6 +27,7 @@ import type {
   ShotTypeConfig,
   Vec2,
 } from "./types";
+import type { RuntimeEngineModifiers } from "./runtimeModifiers";
 import { BallSize, BounceCondition } from "./types";
 import type { Arena2D, PendingCommand, RuleContext } from "./engineMath";
 import {
@@ -108,6 +109,13 @@ export class GameEngine {
   private difficultyBonusHp = 0;
   private hpAdjustment = 0;
   private comboStreak = 0;
+  private runtimeModifiers: RuntimeEngineModifiers = {
+    spawnIntervalMultiplier: 1,
+    enemySpeedMultiplier: 1,
+    enemyHpMultiplier: 1,
+    gameplaySpeedMultiplier: 1,
+    enemyDensityMultiplier: 1,
+  };
 
   constructor(config: GameConfig, initialLevelIndex = 0) {
     this.config = config;
@@ -251,6 +259,17 @@ export class GameEngine {
   }
   setDifficultyBonusHp(bonus: number): void { this.difficultyBonusHp = Math.max(0, Math.floor(bonus)); }
 
+  setRuntimeModifiers(modifiers: RuntimeEngineModifiers): void {
+    this.runtimeModifiers = modifiers;
+  }
+
+  addGrenades(amount: number): void {
+    const safe = Math.max(0, Math.floor(amount));
+    if (safe <= 0) return;
+    this.grenadesLeft += safe;
+    this.pendingEvents.push({ type: "grenade_awarded", amount: safe, reason: "runtime_alveole" });
+  }
+
   /** Relative HP tuning selected by the player for the current retry/level. */
   setHpAdjustment(adjustment: number): void {
     this.hpAdjustment = Math.max(-10, Math.min(10, Math.round(adjustment)));
@@ -369,6 +388,7 @@ export class GameEngine {
   // Main Update Loop
   // --------------------------------------------------------
   update(delta: number): GameState {
+    delta *= this.runtimeModifiers.gameplaySpeedMultiplier;
     this.pendingEvents = [...this.queuedExternalEvents];
     this.queuedExternalEvents = [];
     this.isInsideUpdate = true;
@@ -654,6 +674,14 @@ export class GameEngine {
     if (color === "red" && options?.isBoss !== true) {
       maxHp = Math.min(maxHp, 8);
       hp = Math.min(hp, maxHp);
+    }
+    if (options?.bypassHpBonuses !== true && options?.isBoss !== true && rule !== "player_projectile" && color !== "orange") {
+      hp = Math.max(1, Math.round(hp * this.runtimeModifiers.enemyHpMultiplier));
+      maxHp = Math.max(1, Math.round(maxHp * this.runtimeModifiers.enemyHpMultiplier));
+      velocity = {
+        x: velocity.x * this.runtimeModifiers.enemySpeedMultiplier,
+        y: velocity.y * this.runtimeModifiers.enemySpeedMultiplier,
+      };
     }
     const ball = new Ball(color, size, position, velocity, diameter, rule, bounceCondition, hp, maxHp, options?.isBoss === true);
 
