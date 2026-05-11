@@ -76,7 +76,8 @@ const fr: I18nDictionary = {
 
   "release.title": "Notes de version",
   "release.heading": "Dernières évolutions",
-  "release.description": "Les {count} évolutions les plus récentes du jeu, de la plus récente à la plus ancienne.",
+  "release.description":
+    "Les {count} évolutions les plus récentes du jeu, de la plus récente à la plus ancienne.",
   "release.empty": "Aucune note de version pour l'instant.",
 
   "common.noneSelected": "Aucune balle sélectionnée.",
@@ -93,7 +94,8 @@ const fr: I18nDictionary = {
   "common.follow": "Voir le suivi",
   "evolution.title": "Évolution",
   "evolution.heading": "Demande d'amélioration",
-  "evolution.help": "Décris clairement l'amélioration souhaitée : comportement attendu, menu concerné ou règle à modifier.",
+  "evolution.help":
+    "Décris clairement l'amélioration souhaitée : comportement attendu, menu concerné ou règle à modifier.",
   "evolution.placeholder": "Décris l'évolution voulue…",
   "evolution.listening": "🎙️ écoute…",
   "evolution.voice": "🎙️ Vocal",
@@ -113,13 +115,16 @@ const fr: I18nDictionary = {
   "difficulty.moreHp": "plus de PV",
   "effects.fieldBalls": "balles terrain",
   "effects.grenade": "grenade",
-  "effects.fieldBallsHelp": "Les balles de terrain explosent visuellement avec un petit diamètre supplémentaire, sans dégâts de zone.",
-  "effects.grenadeHelp": "La grenade explose avec un grand diamètre et inflige des dégâts autour d'elle.",
+  "effects.fieldBallsHelp":
+    "Les balles de terrain explosent visuellement avec un petit diamètre supplémentaire, sans dégâts de zone.",
+  "effects.grenadeHelp":
+    "La grenade explose avec un grand diamètre et inflige des dégâts autour d'elle.",
   "effects.debugTexture": "Debug texture",
   "instant.entrySubtitle": "Explorer un graphe de créations jouables",
   "instant.graph": "Graphe instant",
   "instant.heading": "Explore une ruche vivante",
-  "instant.help": "Choisis des nœuds. Les idées compatibles se rapprochent. Random garde l'arcade en mouvement.",
+  "instant.help":
+    "Choisis des nœuds de recette. Règle ensuite l'intensité avec le slider de presets.",
   "instant.random": "Random",
   "instant.randomHint": "Rafraîchir les nœuds ouverts",
   "instant.addEvolution": "Ajout / Évolution",
@@ -131,9 +136,11 @@ const fr: I18nDictionary = {
   "instant.ready": "Prêt",
   "instant.intensity": "Intensité",
   "instant.power": "Puissance",
-  "instant.emptyHelp": "Sélectionne une ruche de recette pour créer une variante jouable temporaire, ou lance Ajout / Évolution pour une idée plus grande.",
+  "instant.emptyHelp":
+    "Sélectionne une ruche de recette, puis choisis un preset d'intensité au slider pour créer une variante jouable temporaire.",
   "instant.playCreation": "⚡ Jouer ma création",
-  "instant.pickBossError": "Choisis un niveau boss avant de jouer cette création.",
+  "instant.pickBossError":
+    "Choisis un niveau boss avant de jouer cette création.",
   "instant.creationLaunched": "Création lancée pour cette session.",
   "instant.launchError": "Impossible de lancer cette création.",
   "common.previous": "← Précédent",
@@ -144,11 +151,13 @@ const fr: I18nDictionary = {
   "levels.active": "★ NIVEAU ACTIF",
   "levels.customLabel": "NIVEAU CUSTOM",
   "levels.customGame": "Partie custom",
-  "levels.customHelp": "Compose une répartition de balles de terrain avec le même contrôleur que « Couleur terrain », puis lance directement la partie depuis le carrousel.",
+  "levels.customHelp":
+    "Compose une répartition de balles de terrain avec le même contrôleur que « Couleur terrain », puis lance directement la partie depuis le carrousel.",
   "levels.fieldDistribution": "Répartition terrain",
   "levels.levelId": "NIVEAU {id}",
   "levels.launchWeights": "Pondération des balles lancées",
-  "levels.progressHelp": "Tu progresses au niveau suivant en nettoyant le terrain. Quand le dernier niveau est nettoyé, le jeu repart au niveau 1.",
+  "levels.progressHelp":
+    "Tu progresses au niveau suivant en nettoyant le terrain. Quand le dernier niveau est nettoyé, le jeu repart au niveau 1.",
   "levels.customPlay": "▶ Custom",
   "levels.replay": "▶ Rejouer",
   "levels.playCustomTitle": "Lancer une partie custom",
@@ -157,15 +166,16 @@ const fr: I18nDictionary = {
   "levels.playFallback": "Jouer",
   "rules.concept": "Concept",
   "balls.systemRole": "⚙️ RÔLE SYSTÈME — {role}",
-  "balls.systemFallback": "Mécanisme système du terrain. Pas de règle classique : son comportement est codé dans le moteur.",
+  "balls.systemFallback":
+    "Mécanisme système du terrain. Pas de règle classique : son comportement est codé dans le moteur.",
   "balls.pending": "⏳ EN ATTENTE DE RÈGLE",
-  "balls.pendingHelp": "Cette couleur fait partie de la palette mais n'a pas encore de comportement défini en jeu. Tu peux demander à l'agent d'en créer un (voir le menu « Comment demander », tutoriels « Ajouter une nouvelle couleur » et « Éditer / créer les règles d'une couleur »).",
+  "balls.pendingHelp":
+    "Cette couleur fait partie de la palette mais n'a pas encore de comportement défini en jeu. Tu peux demander à l'agent d'en créer un (voir le menu « Comment demander », tutoriels « Ajouter une nouvelle couleur » et « Éditer / créer les règles d'une couleur »).",
   "balls.rule": "Règle",
   "balls.hp": "Points de vie",
   "balls.bounce": "Condition de rebond",
   "balls.spawn": "Apparition",
   "balls.despawn": "Disparition",
-
 };
 
 const en: I18nDictionary = {
@@ -237,7 +247,8 @@ const en: I18nDictionary = {
 
   "release.title": "Release notes",
   "release.heading": "Latest changes",
-  "release.description": "The {count} most recent game changes, from newest to oldest.",
+  "release.description":
+    "The {count} most recent game changes, from newest to oldest.",
   "release.empty": "No release notes yet.",
 
   "common.noneSelected": "No ball selected.",
@@ -254,7 +265,8 @@ const en: I18nDictionary = {
   "common.follow": "View tracking",
   "evolution.title": "Evolution",
   "evolution.heading": "Improvement request",
-  "evolution.help": "Clearly describe the desired improvement: expected behavior, related menu, or rule to change.",
+  "evolution.help":
+    "Clearly describe the desired improvement: expected behavior, related menu, or rule to change.",
   "evolution.placeholder": "Describe the evolution you want…",
   "evolution.listening": "🎙️ listening…",
   "evolution.voice": "🎙️ Voice",
@@ -274,13 +286,16 @@ const en: I18nDictionary = {
   "difficulty.moreHp": "more HP",
   "effects.fieldBalls": "field balls",
   "effects.grenade": "grenade",
-  "effects.fieldBallsHelp": "Field balls explode visually with a small extra diameter, without area damage.",
-  "effects.grenadeHelp": "The grenade explodes with a large diameter and deals damage around it.",
+  "effects.fieldBallsHelp":
+    "Field balls explode visually with a small extra diameter, without area damage.",
+  "effects.grenadeHelp":
+    "The grenade explodes with a large diameter and deals damage around it.",
   "effects.debugTexture": "Debug texture",
   "instant.entrySubtitle": "Explore a graph of playable creations",
   "instant.graph": "Instant graph",
   "instant.heading": "Explore a living honeycomb",
-  "instant.help": "Pick nodes. Compatible ideas move closer. Random keeps the arcade buzzing.",
+  "instant.help":
+    "Pick recipe nodes, then set intensity with the preset slider.",
   "instant.random": "Random",
   "instant.randomHint": "Refresh open nodes",
   "instant.addEvolution": "Add / Evolution",
@@ -292,7 +307,8 @@ const en: I18nDictionary = {
   "instant.ready": "Ready",
   "instant.intensity": "Intensity",
   "instant.power": "Power",
-  "instant.emptyHelp": "Select a recipe honeycomb to create a runtime-only playable variant, or hit Add / Evolution for a bigger idea.",
+  "instant.emptyHelp":
+    "Select a recipe honeycomb, then choose an intensity preset on the slider to create a runtime-only playable variant.",
   "instant.playCreation": "⚡ Play My Creation",
   "instant.pickBossError": "Pick a boss level before playing this creation.",
   "instant.creationLaunched": "Creation launched for this session.",
@@ -305,11 +321,13 @@ const en: I18nDictionary = {
   "levels.active": "★ ACTIVE LEVEL",
   "levels.customLabel": "CUSTOM LEVEL",
   "levels.customGame": "Custom game",
-  "levels.customHelp": "Create a field-ball distribution with the same controller as “Field color”, then launch the game directly from the carousel.",
+  "levels.customHelp":
+    "Create a field-ball distribution with the same controller as “Field color”, then launch the game directly from the carousel.",
   "levels.fieldDistribution": "Field distribution",
   "levels.levelId": "LEVEL {id}",
   "levels.launchWeights": "Launched ball weighting",
-  "levels.progressHelp": "You progress to the next level by clearing the field. When the last level is cleared, the game returns to level 1.",
+  "levels.progressHelp":
+    "You progress to the next level by clearing the field. When the last level is cleared, the game returns to level 1.",
   "levels.customPlay": "▶ Custom",
   "levels.replay": "▶ Replay",
   "levels.playCustomTitle": "Launch a custom game",
@@ -318,15 +336,16 @@ const en: I18nDictionary = {
   "levels.playFallback": "Play",
   "rules.concept": "Concept",
   "balls.systemRole": "⚙️ SYSTEM ROLE — {role}",
-  "balls.systemFallback": "System field mechanic. No classic rule: its behavior is coded in the engine.",
+  "balls.systemFallback":
+    "System field mechanic. No classic rule: its behavior is coded in the engine.",
   "balls.pending": "⏳ WAITING FOR A RULE",
-  "balls.pendingHelp": "This color is part of the palette but does not yet have a defined in-game behavior. You can ask the agent to create one from the “How to ask” menu.",
+  "balls.pendingHelp":
+    "This color is part of the palette but does not yet have a defined in-game behavior. You can ask the agent to create one from the “How to ask” menu.",
   "balls.rule": "Rule",
   "balls.hp": "Hit points",
   "balls.bounce": "Bounce condition",
   "balls.spawn": "Spawn",
   "balls.despawn": "Despawn",
-
 };
 
 const dictionaries: Record<Language, I18nDictionary> = { fr, en };
@@ -343,10 +362,16 @@ export function readStoredLanguage(): Language {
 
 export function interpolate(template: string, params?: TranslationParams) {
   if (!params) return template;
-  return template.replace(/\{(\w+)\}/g, (match, key) => String(params[key] ?? match));
+  return template.replace(/\{(\w+)\}/g, (match, key) =>
+    String(params[key] ?? match),
+  );
 }
 
-export function translate(language: Language, key: string, params?: TranslationParams) {
+export function translate(
+  language: Language,
+  key: string,
+  params?: TranslationParams,
+) {
   const template = dictionaries[language][key] ?? dictionaries.fr[key] ?? key;
   return interpolate(template, params);
 }
@@ -365,7 +390,15 @@ const I18nContext = createContext<I18nContextValue>({
   t: (key, params) => translate("fr", key, params),
 });
 
-export function I18nProvider({ language, setLanguage, children }: { language: Language; setLanguage: (language: Language) => void; children: ReactNode }) {
+export function I18nProvider({
+  language,
+  setLanguage,
+  children,
+}: {
+  language: Language;
+  setLanguage: (language: Language) => void;
+  children: ReactNode;
+}) {
   const toggleLanguage = () => setLanguage(language === "fr" ? "en" : "fr");
   const value: I18nContextValue = {
     language,
