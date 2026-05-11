@@ -60,6 +60,8 @@ export interface UseGameEngineResult {
   playBossRush: (levelIds: number[]) => void;
   classifyHold: (holdSeconds: number) => ShotKind;
   toggleGrenade: (dir: Vec2, effect?: string) => boolean;
+  placeMine: (position: Vec2, effect?: string) => boolean;
+  upgradeBetterShot: () => number;
   grenadesLeft: number;
   setDifficulty: (difficulty: "easy" | "medium" | "hard") => void;
   difficulty: "easy" | "medium" | "hard";
@@ -167,6 +169,7 @@ export function useGameEngine(): UseGameEngineResult {
   const beginBreathingWave = useCallback(() => {
     if (breathingActiveRef.current || !engineRef.current) return;
     breathingActiveRef.current = true;
+    engineRef.current.spawnChaosBurst(3);
     breathingCountdownRef.current = Math.round(8 * runtimeModifiersRef.current.wave_duration);
     breathingTotalRef.current = breathingCountdownRef.current;
     breathingVictoryAnnouncedRef.current = false;
@@ -223,6 +226,8 @@ export function useGameEngine(): UseGameEngineResult {
           ammoRemaining: ammoRemainingRef.current,
           retryReason: null,
           isBossPhase: engineRef.current.isBossPhase(),
+          lightShotDamage: engineRef.current.getCurrentLightShotDamage(),
+          betterShotLevel: engineRef.current.getBetterShotLevel(),
         });
         setIsRunning(true);
       })
@@ -274,6 +279,7 @@ export function useGameEngine(): UseGameEngineResult {
                 }
                 const lvl = engineRef.current.getCurrentLevel();
                 const ammoBase = lvl?.ammo_count ?? DEFAULT_LEVEL_AMMO_COUNT;
+                engineRef.current.resetShotProgression();
                 ammoRemainingRef.current += Math.max(6, Math.round(ammoBase * 0.45 * runtimeModifiersRef.current.ammo_count));
                 timerRemainingRef.current += Math.round((lvl?.timer_seconds ?? DEFAULT_LEVEL_TIMER_SECONDS) * 0.5 * runtimeModifiersRef.current.wave_duration);
                 waveNumberRef.current += 1;
@@ -307,6 +313,8 @@ export function useGameEngine(): UseGameEngineResult {
           ammoRemaining: bossPhase ? Infinity : ammoRemainingRef.current,
           retryReason: retryReasonRef.current,
           isBossPhase: bossPhase,
+          lightShotDamage: engineRef.current.getCurrentLightShotDamage(),
+          betterShotLevel: engineRef.current.getBetterShotLevel(),
         });
 
         // ---- Auto-reboot detection ----
@@ -385,6 +393,8 @@ export function useGameEngine(): UseGameEngineResult {
       ammoRemaining: ammoRemainingRef.current,
       retryReason: null,
       isBossPhase: engineRef.current.isBossPhase(),
+      lightShotDamage: engineRef.current.getCurrentLightShotDamage(),
+      betterShotLevel: engineRef.current.getBetterShotLevel(),
     });
     lastTimeRef.current = performance.now();
     pausedRef.current = false;
@@ -459,7 +469,7 @@ export function useGameEngine(): UseGameEngineResult {
     const resolved: ShotKind = forcedKind ?? effective;
     const holdForResolved = holdSeconds;
     const projectileColor: BallColor = resolved === "light" ? "white" : resolved === "heavy" ? "yellow" : "pink";
-    const proj = engineRef.current.playerShoot(targetX, targetY, holdForResolved, projectileColor);
+    const proj = engineRef.current.playerShoot(targetX, targetY, holdForResolved, projectileColor, resolved);
     if (!proj) return null;
 
     if (!bossPhase) {
@@ -480,6 +490,17 @@ export function useGameEngine(): UseGameEngineResult {
     const ok = engineRef.current.toggleGrenade(dir, effect);
     setGrenadesLeft(engineRef.current.getGrenadesLeft());
     return ok;
+  }, []);
+
+  const placeMine = useCallback((position: Vec2, effect: string = "mine"): boolean => {
+    if (!engineRef.current || pausedRef.current) return false;
+    return engineRef.current.placeMine(position, effect);
+  }, []);
+
+  const upgradeBetterShot = useCallback((): number => {
+    const level = engineRef.current?.upgradeBetterShot() ?? 0;
+    setGameState((prev) => prev ? { ...prev, betterShotLevel: level, lightShotDamage: engineRef.current?.getCurrentLightShotDamage() ?? prev.lightShotDamage } : prev);
+    return level;
   }, []);
 
   const classifyHold = useCallback((holdSeconds: number): ShotKind => {
@@ -732,7 +753,8 @@ export function useGameEngine(): UseGameEngineResult {
     const lvl = engineRef.current?.getCurrentLevel();
     const add = Math.max(6, Math.round((lvl?.ammo_count ?? DEFAULT_LEVEL_AMMO_COUNT) * 0.35 * runtimeModifiersRef.current.ammo_count));
     ammoRemainingRef.current += add;
-    setGameState((prev) => prev ? { ...prev, ammoRemaining: ammoRemainingRef.current } : prev);
+    engineRef.current?.resetShotProgression();
+    setGameState((prev) => prev ? { ...prev, ammoRemaining: ammoRemainingRef.current, lightShotDamage: engineRef.current?.getCurrentLightShotDamage() ?? prev.lightShotDamage } : prev);
     if (!breathingActiveRef.current) beginBreathingWave();
   }, [beginBreathingWave]);
 
@@ -743,7 +765,7 @@ export function useGameEngine(): UseGameEngineResult {
   return {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
-    shoot, setLauncherColor, setCustomTerrainDistribution, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, applyRuntimeConfig, launchLevel, launchBossLevel, launchTemporaryBallTest, openRetryMenu, goToBoss, playBossRush, classifyHold, toggleGrenade, grenadesLeft,
+    shoot, setLauncherColor, setCustomTerrainDistribution, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, applyRuntimeConfig, launchLevel, launchBossLevel, launchTemporaryBallTest, openRetryMenu, goToBoss, playBossRush, classifyHold, toggleGrenade, placeMine, upgradeBetterShot, grenadesLeft,
     setDifficulty, difficulty, setHpAdjustment, hpAdjustment,
     breathingWave, runtimeModifiers, applyAlveole, reloadWave, requestContextualAlveoles,
   };

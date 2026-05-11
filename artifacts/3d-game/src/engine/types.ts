@@ -106,6 +106,7 @@ export type GameEvent =
   | { type: "ball_healed"; ballId: string; amount: number; remainingHp: number; position: Vec2 }
   | { type: "grenade_awarded"; amount: number; reason: string }
   | { type: "grenade_helper_flash"; reason: string }
+  | { type: "mine_placed"; mineId: string; position: Vec2 }
   | { type: "player_shot"; projectileId: string; shotKind: ShotKind }
   | { type: "combo_popup"; projectileId: string; label: string; streak: number; tier: number; position: Vec2 }
   | { type: "session_clear"; launchedCount: number }
@@ -131,6 +132,8 @@ export interface GameState {
   isBossPhase?: boolean;
   timerSecondsRemaining?: number;
   ammoRemaining?: number;
+  lightShotDamage?: number;
+  betterShotLevel?: number;
   retryReason?: "timeout" | "ammo" | "manual" | null;
   hospital?: {
     isActive: boolean;

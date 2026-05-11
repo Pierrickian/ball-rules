@@ -25,7 +25,7 @@ function App() {
   const {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
-    shoot, setCustomTerrainDistribution, setActiveLevel, setLevelWeights, applyRuntimeConfig, openRetryMenu, goToBoss, playBossRush, classifyHold, toggleGrenade, grenadesLeft, setDifficulty, difficulty, setHpAdjustment, hpAdjustment, breathingWave, applyAlveole, reloadWave, requestContextualAlveoles,
+    shoot, setCustomTerrainDistribution, setActiveLevel, setLevelWeights, applyRuntimeConfig, openRetryMenu, goToBoss, playBossRush, classifyHold, toggleGrenade, placeMine, upgradeBetterShot, grenadesLeft, setDifficulty, difficulty, setHpAdjustment, hpAdjustment, breathingWave, applyAlveole, reloadWave, requestContextualAlveoles,
   } = useGameEngine();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -46,6 +46,8 @@ function App() {
   const [grenadeEffect, setGrenadeEffect] = useState(() => localStorage.getItem("bg_effect_grenade") ?? "spark");
   const [debugExplosionTexture, setDebugExplosionTexture] = useState(() => localStorage.getItem("bg_debug_explosion_texture") === "1");
   const [autoFire, setAutoFire] = useState(false);
+  const [minePlacementMode, setMinePlacementMode] = useState(false);
+  const [betterShotChooserOpen, setBetterShotChooserOpen] = useState(false);
   const [addFeaturePortalOpen, setAddFeaturePortalOpen] = useState(false);
   const [evolutionInitialText, setEvolutionInitialText] = useState("");
   const [grenadeAwardPopups, setGrenadeAwardPopups] = useState<Array<{ id: number; amount: number }>>([]);
@@ -175,6 +177,7 @@ function App() {
     hadPlayerInputRef.current = true;
     setIdleMicroPauseOpen(false);
     if (menuOpenRef.current || !isRunningRef.current) return;
+    if (minePlacementMode) return;
     pointerActiveRef.current = true;
     lastTargetRef.current = { x: gameX, y: gameY };
     const dx = gameX;
@@ -248,6 +251,12 @@ function App() {
   const handlePointerUp = (gameX: number, gameY: number) => {
     hadPlayerInputRef.current = true;
     setIdleMicroPauseOpen(false);
+    if (minePlacementMode) {
+      if (!menuOpenRef.current && isRunningRef.current && placeMine({ x: gameX, y: gameY }, "mine")) setMinePlacementMode(false);
+      cycleStartRef.current = performance.now();
+      setHoldTime(0);
+      return;
+    }
     if (!pointerActiveRef.current) return;
     pointerActiveRef.current = false;
     if (!menuOpenRef.current && isRunningRef.current) {
@@ -434,6 +443,10 @@ function App() {
           0%, 100% { transform: translateY(0) scale(1); opacity: .92; }
           50% { transform: translateY(-2px) scale(1.025); opacity: 1; }
         }
+        @keyframes mine-placement-pulse {
+          0%, 100% { transform: scale(1); box-shadow: 0 0 0 rgba(255,77,122,0); }
+          50% { transform: scale(1.08); box-shadow: 0 0 22px rgba(255,77,122,.75); }
+        }
         @keyframes grenade-award-float {
           0% { opacity: 0; transform: translateY(8px) scale(0.8); }
           20% { opacity: 1; transform: translateY(0) scale(1.05); }
@@ -447,6 +460,14 @@ function App() {
       >
         💣 {grenadesLeft}
       </button>
+      <button
+        onClick={() => setMinePlacementMode((v) => !v)}
+        title={minePlacementMode ? "Cancel mine placement" : "Place mine"}
+        style={{position:"absolute", right:16, bottom:206, width:56, height:56, borderRadius:"50%", border:`2px solid ${minePlacementMode ? "#ff4d7a" : "#aab4c4"}`, background: minePlacementMode ? "radial-gradient(circle at 30% 30%, #ff4d7a, #30101c)" : "radial-gradient(circle at 30% 30%, #889, #223)", color:"#fff", zIndex:12, fontWeight:"bold", animation: minePlacementMode ? "mine-placement-pulse 0.8s ease-in-out infinite" : undefined}}
+      >
+        🧨
+      </button>
+      {minePlacementMode && <div style={{ position:"absolute", right:84, bottom:220, zIndex:12, pointerEvents:"none", color:"#ffd6e2", fontWeight:900, textShadow:"0 0 8px #000" }}>Release in field</div>}
       {grenadeAwardPopups.map((popup, index) => (
         <div
           key={popup.id}
@@ -475,7 +496,21 @@ function App() {
         >
           {autoFire ? "Auto Fire ON" : "Auto Fire"}
         </button>
+        <button
+          onClick={() => setBetterShotChooserOpen((v) => !v)}
+          style={{ border:"1px solid #c084fc", background: (gameState.betterShotLevel ?? 0) > 0 ? "#7e22ce" : "rgba(0,0,0,.55)", color:"#f3e8ff", borderRadius:8, padding:"6px 12px", fontWeight:700, minWidth: 118, whiteSpace: "nowrap" }}
+        >
+          Better Shot {(gameState.betterShotLevel ?? 0) > 0 ? `+${gameState.betterShotLevel}` : ""}
+        </button>
       </div>
+      {betterShotChooserOpen && (
+        <div style={{ position:"absolute", left:"50%", transform:"translateX(-50%)", bottom:96, zIndex:14, display:"flex", gap:8, padding:10, borderRadius:14, background:"rgba(12,6,28,.9)", border:"1px solid rgba(192,132,252,.55)", boxShadow:"0 0 24px rgba(126,34,206,.35)" }}>
+          <button onClick={() => { setLockOn(true); setBetterShotChooserOpen(false); }} style={{ border:"1px solid #1e90ff", background:"rgba(30,144,255,.22)", color:"#dbeafe", borderRadius:8, padding:"7px 10px", fontWeight:800 }}>lock</button>
+          <button onClick={() => { setLockOn(true); setHomingOn(true); setBetterShotChooserOpen(false); }} style={{ border:"1px solid #00d4aa", background:"rgba(0,212,170,.22)", color:"#ccfbf1", borderRadius:8, padding:"7px 10px", fontWeight:800 }}>homing</button>
+          <button onClick={() => { setAutoFire(true); setBetterShotChooserOpen(false); }} style={{ border:"1px solid #ff9f1c", background:"rgba(255,159,28,.22)", color:"#ffedd5", borderRadius:8, padding:"7px 10px", fontWeight:800 }}>auto fire</button>
+          <button onClick={() => { upgradeBetterShot(); setBetterShotChooserOpen(false); }} style={{ border:"1px solid #c084fc", background:"rgba(192,132,252,.22)", color:"#f3e8ff", borderRadius:8, padding:"7px 10px", fontWeight:800 }}>shifted shots</button>
+        </div>
+      )}
 
       <button
         onClick={handleMenuOpen}
