@@ -787,6 +787,7 @@
     ]
   },
   "release_notes": [
+    "Runs personnalisées avec twists sauvegardés",
     "Slider Intensité ajouté au menu Instant",
     "Interface bilingue français anglais",
     "Instant contrôle les spawns ennemis",
@@ -805,9 +806,7 @@
     "Bouton ajout vers Evolution guidée",
     "Retry boss et grenades mieux guidés",
     "Boss niveau 1 vulnérable aux grenades",
-    "Niveau violet magnétique ajouté",
-    "Combos centrés et multiplicateur continu",
-    "Popups de combos pour tirs remarquables"
+    "Niveau violet magnétique ajouté"
   ],
   "debug": {
     "show_velocities": false,

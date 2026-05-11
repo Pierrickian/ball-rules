@@ -10,7 +10,7 @@
 // 6. Menu            — Game menu
 // ============================================================
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useGameEngine } from "./engine/useGameEngine";
 import { GameScene } from "./scenes/GameScene";
 import { HUD } from "./game/HUD";
@@ -22,13 +22,16 @@ import type { GameConfig, GameState, ShotKind, Vec2 } from "./engine/types";
 import { ChargeBar, IncomingBallsOverlay, PlayerQueue, SessionClearOverlay } from "./AppOverlays";
 import { I18nProvider, readStoredLanguage, useI18n, type Language } from "./game/i18n";
 import { LanguageToggle } from "./game/LanguageToggle";
+import { ContinueRunOverlay, RunTwistOverlay } from "./game/RunTwistOverlay";
+import { applyRunTwist, getTwistChoices, type RunTwistChoice } from "./game/runTwists";
+import { clearSavedRun, createRunId, loadSavedRun, saveRun, type SavedRun } from "./game/runSave";
 
 function AppContent() {
   const { t } = useI18n();
   const {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
-    shoot, setCustomTerrainDistribution, setActiveLevel, setLevelWeights, applyRuntimeConfig, openRetryMenu, goToBoss, playBossRush, classifyHold, toggleGrenade, grenadesLeft, setDifficulty, difficulty, setHpAdjustment, hpAdjustment,
+    shoot, setCustomTerrainDistribution, setActiveLevel, setLevelWeights, applyRuntimeConfig, openRetryMenu, goToBoss, playBossRush, classifyHold, toggleGrenade, grenadesLeft, setDifficulty, difficulty, setHpAdjustment, hpAdjustment, pendingLevelClear, continueAfterLevelClear, startRunFromConfig,
   } = useGameEngine();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -53,9 +56,21 @@ function AppContent() {
   const [evolutionInitialText, setEvolutionInitialText] = useState("");
   const [grenadeAwardPopups, setGrenadeAwardPopups] = useState<Array<{ id: number; amount: number }>>([]);
   const [grenadeFlashKey, setGrenadeFlashKey] = useState(0);
+  const [savedRunPrompt, setSavedRunPrompt] = useState<SavedRun | null>(null);
+  const [savedRunPromptChecked, setSavedRunPromptChecked] = useState(false);
+  const [activeRun, setActiveRun] = useState<SavedRun | null>(null);
   useEffect(() => { localStorage.setItem("bg_effect_ball", ballEffect); }, [ballEffect]);
   useEffect(() => { localStorage.setItem("bg_effect_grenade", grenadeEffect); }, [grenadeEffect]);
   useEffect(() => { localStorage.setItem("bg_debug_explosion_texture", debugExplosionTexture ? "1" : "0"); }, [debugExplosionTexture]);
+  useEffect(() => {
+    if (!config || savedRunPromptChecked) return;
+    const saved = loadSavedRun();
+    if (saved) {
+      pause();
+      setSavedRunPrompt(saved);
+    }
+    setSavedRunPromptChecked(true);
+  }, [config, pause, savedRunPromptChecked]);
   useEffect(() => {
     for (const event of lastEvents) {
       if (event.type === "grenade_awarded") {
@@ -116,6 +131,52 @@ function AppContent() {
     resume();
   };
 
+  const currentRun = (): SavedRun => {
+    const runtimeConfig = configRef.current ?? config;
+    if (!runtimeConfig) throw new Error(t("app.error.configUnavailable"));
+    const now = Date.now();
+    return activeRun ?? {
+      saveVersion: 1,
+      runId: createRunId(),
+      currentLevelIndex: gameState?.currentLevelIndex ?? 0,
+      selectedTwists: [],
+      runtimeConfig,
+      createdAt: now,
+      updatedAt: now,
+    };
+  };
+
+  const handleContinueSavedRun = () => {
+    if (!savedRunPrompt) return;
+    setActiveRun(savedRunPrompt);
+    setSavedRunPrompt(null);
+    startRunFromConfig(savedRunPrompt.runtimeConfig, savedRunPrompt.currentLevelIndex);
+  };
+
+  const handleNewRun = () => {
+    clearSavedRun();
+    setActiveRun(null);
+    setSavedRunPrompt(null);
+    reset();
+  };
+
+  const handleRunTwistChoice = (choice: RunTwistChoice) => {
+    if (!config || !pendingLevelClear) return;
+    const applied = applyRunTwist(config, pendingLevelClear.currentLevelIndex, choice);
+    const previous = currentRun();
+    const now = Date.now();
+    const nextRun: SavedRun = {
+      ...previous,
+      currentLevelIndex: applied.nextLevelIndex,
+      selectedTwists: [...previous.selectedTwists, choice.id],
+      runtimeConfig: applied.nextConfig,
+      updatedAt: now,
+    };
+    saveRun(nextRun);
+    setActiveRun(nextRun);
+    continueAfterLevelClear(applied.nextConfig, applied.nextLevelIndex);
+  };
+
   const getDisplayMax = (): number => {
     if (!config) return 1.2;
     const types = config.gameplay_controls.shot_types;
@@ -132,6 +193,7 @@ function AppContent() {
     return Array.from(gameState.balls.values()).some((b) => b.isAlive && b.isBoss);
   })();
   const retryReason = gameState?.retryReason ?? null;
+  const runTwistChoices = useMemo(() => pendingLevelClear && config ? getTwistChoices(config, pendingLevelClear.currentLevelIndex, activeRun?.selectedTwists ?? []) : [], [activeRun?.selectedTwists, config, pendingLevelClear]);
   const levelTimerSeconds = gameState?.timerSecondsRemaining ?? 60;
   const shotsRemaining = gameState?.ammoRemaining ?? 50;
 
@@ -501,8 +563,14 @@ function AppContent() {
       )}
 
       {/* Game-over flash */}
-      {gameState.sessionCleared && (
+      {gameState.sessionCleared && !pendingLevelClear && (
         <SessionClearOverlay config={config} gameState={gameState} />
+      )}
+      {pendingLevelClear && runTwistChoices.length === 2 && (
+        <RunTwistOverlay choices={runTwistChoices} onChoose={handleRunTwistChoice} />
+      )}
+      {savedRunPrompt && (
+        <ContinueRunOverlay onContinue={handleContinueSavedRun} onNewRun={handleNewRun} />
       )}
       {retryReason && (
         <RetryOverlay
