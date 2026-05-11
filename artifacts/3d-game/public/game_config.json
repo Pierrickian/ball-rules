@@ -787,6 +787,7 @@
     ]
   },
   "release_notes": [
+    "Les choix évoluent selon votre partie",
     "Moteur plus typé et allégé",
     "Game engine découpé en modules",
     "Refonte interne des menus",
@@ -805,8 +806,7 @@
     "Retry propose rejouer ou passer",
     "Difficulté Medium passe à +3 PV",
     "Formulaire Evolution simplifié sans préfixe technique",
-    "Difficulté réglable depuis le menu",
-    "Curseur PV synchronisé avec la difficulté"
+    "Difficulté réglable depuis le menu"
   ],
   "debug": {
     "show_velocities": false,

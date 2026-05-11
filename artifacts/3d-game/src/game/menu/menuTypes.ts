@@ -1,6 +1,6 @@
 import type { BallColor, EvolutionRequestConfig, GameConfig } from "../../engine/types";
 
-export type MenuView = "main" | "evolution" | "rules" | "balls" | "terrain" | "player_colors" | "how_to_ask" | "release_notes" | "levels" | "boss" | "effects" | "difficulty";
+export type MenuView = "main" | "change" | "evolution" | "rules" | "balls" | "terrain" | "player_colors" | "how_to_ask" | "release_notes" | "levels" | "boss" | "effects" | "difficulty";
 
 const APK_DOWNLOAD_URL = "https://github.com/Pierrickian/ball-rules/releases/latest/download/ball-rules.apk";
 
