@@ -9,6 +9,7 @@ interface Arena2D {
 }
 
 export function updateOrangeSpawn(this: any, delta: number, arena: Arena2D): void {
+  if (this.orangeSpawningPaused) return;
   const max = this.config.game_session?.max_balls_spawned ?? 20;
   if (this.launchedCount >= max) return; // hard cap
 

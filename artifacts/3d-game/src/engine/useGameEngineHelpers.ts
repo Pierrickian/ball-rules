@@ -22,7 +22,7 @@ export function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-export const DEFAULT_LEVEL_TIMER_SECONDS = 60;
+export const DEFAULT_LEVEL_TIMER_SECONDS = 10;
 export const DEFAULT_LEVEL_AMMO_COUNT = 50;
 export const DEFAULT_DIFFICULTY: "easy" | "medium" | "hard" = "medium";
 export const FALLBACK_DIFFICULTY_HP_PRESETS: Record<"easy" | "medium" | "hard", number> = { easy: 0, medium: 3, hard: 6 };

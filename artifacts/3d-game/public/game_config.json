@@ -374,7 +374,10 @@
       "max_lifetime_seconds": 4,
       "_max_lifetime_comment": "Sécurité: tout projectile disparaît après ce délai même s'il n'a rien touché.",
       "hit_immunity_ms": 200,
-      "_hit_immunity_ms_comment": "Immunité temporaire (ms) après impact: évite les doubles touches immédiates, mais autorise une retouche après rebond."
+      "_hit_immunity_ms_comment": "Immunité temporaire (ms) après impact: évite les doubles touches immédiates, mais autorise une retouche après rebond.",
+      "light_damage_progression": "Tous les 2 tirs légers, dégâts +1 jusqu’à 20; Recharger réinitialise.",
+      "better_shot_progression": "Better Shot ajoute un nouveau tir plus puissant au cran maximal; les tirs existants se décalent vers le cran inférieur et la progression est répétable.",
+      "mine_trigger": "La mine n’a plus de timer: elle explose quand une balle de terrain passe dessus."
     },
     "yellow_blinker": {
       "default_hp": 4,
@@ -568,8 +571,8 @@
   },
   "game_session": {
     "_description": "Conditions de fin de partie et redémarrage automatique.",
-    "max_balls_spawned": 20,
-    "_max_balls_spawned_comment": "Nombre total de balles que le lanceur orange générera dans une partie. Au-delà, plus aucun spawn.",
+    "max_balls_spawned": 999999,
+    "_max_balls_spawned_comment": "Limite pratique désactivée: les vagues respirantes se terminent par la logique de munitions, pas par un nombre fixe de spawns.",
     "auto_reboot_on_clear": true,
     "_auto_reboot_comment": "Si vrai, redémarre une nouvelle partie quand max_balls_spawned est atteint ET que toutes les balles sont détruites.",
     "reboot_delay_seconds": 1.5,
@@ -782,11 +785,22 @@
       },
       {
         "heading": "Fin de partie",
-        "text": "Le lanceur orange spawn 20 balles maximum par partie. Une fois la 20e détruite, la partie redémarre automatiquement."
+        "text": "Les vagues ne s’arrêtent plus après 20 spawns: la pression et les respirations dépendent surtout de tes munitions. Avant chaque respiration, 3 balles surgissent vite pour créer un pic de chaos."
       }
     ]
   },
   "release_notes": [
+    "Popups étoiles plus visibles",
+    "Impacts evolution plus lisibles",
+    "Time up et tirs légers réinitialisés",
+    "Étoiles live et recharge manuelle",
+    "Boss attendu avant évolution",
+    "Oranges stoppées en fin de vague",
+    "Décompte final et étoiles animées",
+    "Better Shot dans le Game",
+    "Résultats de vague et Play",
+    "Entonnoir Game et réglages hormones",
+    "Mines et tirs évolutifs",
     "Prototype de waves respirantes adaptatives",
     "Les choix évoluent selon votre partie",
     "Moteur plus typé et allégé",
@@ -795,18 +809,7 @@
     "Instant cible mieux les formulaires",
     "Panneau Instant ajouté au menu",
     "Random Add valide directement les prompts sans ouvrir Evolution",
-    "Random profond ajoute éléments MTC et hormones avant validation directe",
-    "Add Random propose des types de features validables directement",
-    "Portail créatif Add Feature",
-    "Bouton ajout vers Evolution guidée",
-    "Retry boss et grenades mieux guidés",
-    "Boss niveau 1 vulnérable aux grenades",
-    "Niveau violet magnétique ajouté",
-    "Combos centrés et multiplicateur continu",
-    "Popups de combos pour tirs remarquables",
-    "Retry propose rejouer ou passer",
-    "Difficulté Medium passe à +3 PV",
-    "Formulaire Evolution simplifié sans préfixe technique"
+    "Random profond ajoute éléments MTC et hormones avant validation directe"
   ],
   "debug": {
     "show_velocities": false,

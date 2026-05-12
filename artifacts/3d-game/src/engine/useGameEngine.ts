@@ -33,6 +33,13 @@ export interface BreathingWaveState {
   aiAnalyzing: boolean;
   alveoles: GameplayAlveole[];
   victoryPulse: boolean;
+  outcome?: "victory" | "defeat" | null;
+}
+
+export interface GameplayFeedback {
+  ammoAdded: number;
+  grenadesAdded: number;
+  effects?: Partial<RuntimeModifiers>;
 }
 
 export interface UseGameEngineResult {
@@ -60,6 +67,8 @@ export interface UseGameEngineResult {
   playBossRush: (levelIds: number[]) => void;
   classifyHold: (holdSeconds: number) => ShotKind;
   toggleGrenade: (dir: Vec2, effect?: string) => boolean;
+  placeMine: (position: Vec2, effect?: string) => boolean;
+  upgradeBetterShot: () => number;
   grenadesLeft: number;
   setDifficulty: (difficulty: "easy" | "medium" | "hard") => void;
   difficulty: "easy" | "medium" | "hard";
@@ -67,9 +76,12 @@ export interface UseGameEngineResult {
   hpAdjustment: number;
   breathingWave: BreathingWaveState;
   runtimeModifiers: RuntimeModifiers;
-  applyAlveole: (alveole: GameplayAlveole) => void;
-  reloadWave: () => void;
+  applyAlveole: (alveole: GameplayAlveole) => GameplayFeedback;
+  reloadWave: () => GameplayFeedback;
+  launchNextWave: () => void;
   requestContextualAlveoles: () => void;
+  setRuntimeModifiersFromSettings: (modifiers: RuntimeModifiers) => void;
+  resetRuntimeModifiers: () => void;
 }
 
 export function useGameEngine(): UseGameEngineResult {
@@ -90,6 +102,7 @@ export function useGameEngine(): UseGameEngineResult {
     aiAnalyzing: false,
     alveoles: [],
     victoryPulse: false,
+    outcome: null,
   });
 
   const engineRef          = useRef<GameEngine | null>(null);
@@ -120,8 +133,13 @@ export function useGameEngine(): UseGameEngineResult {
   const breathingActiveRef = useRef(false);
   const breathingCountdownRef = useRef(0);
   const breathingTotalRef = useRef(10);
-  const breathingVictoryAnnouncedRef = useRef(false);
   const aiRequestIdRef = useRef(0);
+  const nextWaveSpawnBudgetRef = useRef(8);
+  const lastWaveColorRef = useRef<BallColor | null>(null);
+  const finalCountdownActiveRef = useRef(false);
+  const finalCountdownRemainingRef = useRef<number>(Infinity);
+  const waveEndSpawnPausedRef = useRef(false);
+  const lowAmmoHysteresisArmedRef = useRef(true);
 
   useEffect(() => { runtimeModifiersRef.current = runtimeModifiers; }, [runtimeModifiers]);
 
@@ -133,11 +151,34 @@ export function useGameEngine(): UseGameEngineResult {
   const applyLevelLimits = useCallback(() => {
     const lvl = engineRef.current?.getCurrentLevel();
     const bossPhase = engineRef.current?.isBossPhase() ?? false;
-    timerRemainingRef.current = bossPhase ? Infinity : Math.round((lvl?.timer_seconds ?? DEFAULT_LEVEL_TIMER_SECONDS) * runtimeModifiersRef.current.wave_duration);
+    timerRemainingRef.current = Infinity;
     ammoRemainingRef.current = bossPhase ? Infinity : Math.round((lvl?.ammo_count ?? DEFAULT_LEVEL_AMMO_COUNT) * runtimeModifiersRef.current.ammo_count);
+    lowAmmoHysteresisArmedRef.current = ammoRemainingRef.current > 15;
     timerTickAccumulatorRef.current = 0;
   }, []);
 
+  const pickDifferentWaveColor = useCallback((cfg: GameConfig): BallColor | null => {
+    const allowed = (cfg.gameplay.orange.launch_config.allow_colors ?? [])
+      .filter((color): color is BallColor => Boolean(cfg.ball_rules[color] && cfg.ball_colors[color]?.for_terrain));
+    if (allowed.length === 0) return null;
+    const candidates = allowed.filter((color) => color !== lastWaveColorRef.current);
+    const pool = candidates.length > 0 ? candidates : allowed;
+    const color = pool[Math.floor(Math.random() * pool.length)];
+    lastWaveColorRef.current = color;
+    return color;
+  }, []);
+
+  const withSingleWaveColor = useCallback((cfg: GameConfig, color: BallColor | null): GameConfig => {
+    if (!color || !cfg.levels?.list?.length) return cfg;
+    const index = ((currentLevelIdxRef.current % cfg.levels.list.length) + cfg.levels.list.length) % cfg.levels.list.length;
+    return {
+      ...cfg,
+      levels: {
+        ...cfg.levels,
+        list: cfg.levels.list.map((level, levelIndex) => levelIndex === index ? { ...level, launch_color_weights: { [color]: 1 } } : level),
+      },
+    };
+  }, []);
 
   const syncRuntimeConfig = useCallback((nextModifiers: RuntimeModifiers, breathingSpawnBrake = 1) => {
     const base = baseConfigRef.current;
@@ -164,25 +205,34 @@ export function useGameEngine(): UseGameEngineResult {
     });
   }, []);
 
-  const beginBreathingWave = useCallback(() => {
+  const beginBreathingWave = useCallback((outcome: "victory" | "defeat") => {
     if (breathingActiveRef.current || !engineRef.current) return;
     breathingActiveRef.current = true;
-    breathingCountdownRef.current = Math.round(8 * runtimeModifiersRef.current.wave_duration);
+    const activeEnemies = engineRef.current.getEnemyBallCount();
+    nextWaveSpawnBudgetRef.current = Math.max(4, Math.ceil((activeEnemies + Math.max(1, DEFAULT_LEVEL_AMMO_COUNT)) * 0.55 * runtimeModifiersRef.current.enemy_density));
+    breathingCountdownRef.current = Math.round(DEFAULT_LEVEL_TIMER_SECONDS * runtimeModifiersRef.current.wave_duration);
     breathingTotalRef.current = breathingCountdownRef.current;
-    breathingVictoryAnnouncedRef.current = false;
-    const nextWave = waveNumberRef.current + 1;
+    const cfg = configRef.current;
+    if (cfg) {
+      const frozenConfig = { ...cfg, game_session: { ...cfg.game_session, max_balls_spawned: engineRef.current.getLaunchedCount() } };
+      configRef.current = frozenConfig;
+      setConfig(frozenConfig);
+      engineRef.current.updateConfig(frozenConfig);
+    }
+    engineRef.current.setRuntimeModifiers(toEngineRuntimeModifiers(runtimeModifiersRef.current, 99));
     setBreathingWave((prev) => ({
       ...prev,
       waveNumber: waveNumberRef.current,
       phase: "breathing",
       countdownRemaining: breathingCountdownRef.current,
-      message: `vague ${nextWave} arrive`,
+      message: "Time up / Temps écoulé",
       aiAnalyzing: true,
       alveoles: [],
-      victoryPulse: false,
+      victoryPulse: outcome === "victory",
+      outcome,
     }));
     requestBreathingAlveoles("breathing_wave");
-  }, [requestBreathingAlveoles]);
+  }, [requestBreathingAlveoles, syncRuntimeConfig]);
 
   // Load config and initialize engine
   useEffect(() => {
@@ -223,6 +273,8 @@ export function useGameEngine(): UseGameEngineResult {
           ammoRemaining: ammoRemainingRef.current,
           retryReason: null,
           isBossPhase: engineRef.current.isBossPhase(),
+          lightShotDamage: engineRef.current.getCurrentLightShotDamage(),
+          betterShotLevel: engineRef.current.getBetterShotLevel(),
         });
         setIsRunning(true);
       })
@@ -260,42 +312,37 @@ export function useGameEngine(): UseGameEngineResult {
           while (timerTickAccumulatorRef.current >= 0.1) {
             timerTickAccumulatorRef.current -= 0.1;
             if (breathingActiveRef.current) {
-              breathingCountdownRef.current = Math.max(0, Math.round((breathingCountdownRef.current - 0.1) * 10) / 10);
-              const progress = 1 - breathingCountdownRef.current / Math.max(0.1, breathingTotalRef.current);
-              syncRuntimeConfig(runtimeModifiersRef.current, 1 + progress * 98);
-              const activeEnemies = engineRef.current.getEnemyBallCount();
-              if (activeEnemies === 0 && !breathingVictoryAnnouncedRef.current) {
-                breathingVictoryAnnouncedRef.current = true;
-                setBreathingWave((prev) => ({ ...prev, message: "Victory!", victoryPulse: true }));
-              } else if (breathingCountdownRef.current <= 0) {
-                const hadVictory = breathingVictoryAnnouncedRef.current || activeEnemies === 0;
-                if (!hadVictory) {
-                  setBreathingWave((prev) => ({ ...prev, message: `vague ${waveNumberRef.current} toujours en vie`, victoryPulse: false }));
-                }
-                const lvl = engineRef.current.getCurrentLevel();
-                const ammoBase = lvl?.ammo_count ?? DEFAULT_LEVEL_AMMO_COUNT;
-                ammoRemainingRef.current += Math.max(6, Math.round(ammoBase * 0.45 * runtimeModifiersRef.current.ammo_count));
-                timerRemainingRef.current += Math.round((lvl?.timer_seconds ?? DEFAULT_LEVEL_TIMER_SECONDS) * 0.5 * runtimeModifiersRef.current.wave_duration);
-                waveNumberRef.current += 1;
-                const spawnBudget = Math.max(4, Math.ceil(ammoRemainingRef.current * 0.55 * runtimeModifiersRef.current.enemy_density));
-                const baseForWave = baseConfigRef.current ?? cfg;
-                const currentMax = baseForWave.game_session?.max_balls_spawned ?? engineRef.current.getLaunchedCount();
-                const nextConfig = { ...baseForWave, game_session: { ...baseForWave.game_session, max_balls_spawned: Math.max(currentMax, engineRef.current.getLaunchedCount() + spawnBudget) } };
-                baseConfigRef.current = nextConfig;
-                configRef.current = nextConfig;
-                setConfig(nextConfig);
-                engineRef.current.updateConfig(nextConfig);
-                syncRuntimeConfig(runtimeModifiersRef.current, 1);
-                breathingActiveRef.current = false;
-                breathingCountdownRef.current = 0;
-                setBreathingWave((prev) => ({ ...prev, waveNumber: waveNumberRef.current, phase: "active", countdownRemaining: 0, message: `vague ${waveNumberRef.current} active`, victoryPulse: false }));
-              } else if (!breathingVictoryAnnouncedRef.current) {
-                setBreathingWave((prev) => ({ ...prev, countdownRemaining: breathingCountdownRef.current }));
-              }
+              setBreathingWave((prev) => ({ ...prev, countdownRemaining: breathingCountdownRef.current }));
             } else {
-              timerRemainingRef.current = Math.max(0, Math.round((timerRemainingRef.current - 0.1) * 10) / 10);
-              const lowAmmo = ammoRemainingRef.current <= Math.max(3, Math.ceil((engineRef.current.getCurrentLevel()?.ammo_count ?? DEFAULT_LEVEL_AMMO_COUNT) * 0.14));
-              if (lowAmmo || timerRemainingRef.current <= 0) beginBreathingWave();
+              const activeEnemies = engineRef.current.getEnemyBallCount();
+              const waveHadActivity = engineRef.current.getLaunchedCount() > 0 || waveEndSpawnPausedRef.current || finalCountdownActiveRef.current;
+              const regularWaveCleared = activeEnemies === 0 && waveHadActivity;
+              if (regularWaveCleared && engineRef.current.hasCurrentLevelBoss() && !visibleState.sessionCleared) {
+                engineRef.current.completeRegularWaveForBoss();
+                finalCountdownActiveRef.current = false;
+                finalCountdownRemainingRef.current = Infinity;
+                timerRemainingRef.current = Infinity;
+              } else if (regularWaveCleared) {
+                beginBreathingWave("victory");
+              } else {
+                if (ammoRemainingRef.current > 15) lowAmmoHysteresisArmedRef.current = true;
+                if (lowAmmoHysteresisArmedRef.current && ammoRemainingRef.current <= 15 && !waveEndSpawnPausedRef.current) {
+                  waveEndSpawnPausedRef.current = true;
+                  engineRef.current.setOrangeSpawningPaused(true);
+                }
+                if (lowAmmoHysteresisArmedRef.current && ammoRemainingRef.current <= 10 && !finalCountdownActiveRef.current) {
+                  finalCountdownActiveRef.current = true;
+                  finalCountdownRemainingRef.current = DEFAULT_LEVEL_TIMER_SECONDS;
+                  timerRemainingRef.current = finalCountdownRemainingRef.current;
+                }
+                if (finalCountdownActiveRef.current) {
+                  finalCountdownRemainingRef.current = Math.max(0, Math.round((finalCountdownRemainingRef.current - 0.1) * 10) / 10);
+                  timerRemainingRef.current = finalCountdownRemainingRef.current;
+                  if (finalCountdownRemainingRef.current <= 0) beginBreathingWave("defeat");
+                } else {
+                  timerRemainingRef.current = Infinity;
+                }
+              }
             }
           }
         }
@@ -303,10 +350,12 @@ export function useGameEngine(): UseGameEngineResult {
         setGameState({
           ...visibleState,
           time: timestamp / 1000,
-          timerSecondsRemaining: bossPhase ? Infinity : timerRemainingRef.current,
+          timerSecondsRemaining: bossPhase ? Infinity : (finalCountdownActiveRef.current ? finalCountdownRemainingRef.current : Infinity),
           ammoRemaining: bossPhase ? Infinity : ammoRemainingRef.current,
           retryReason: retryReasonRef.current,
           isBossPhase: bossPhase,
+          lightShotDamage: engineRef.current.getCurrentLightShotDamage(),
+          betterShotLevel: engineRef.current.getBetterShotLevel(),
         });
 
         // ---- Auto-reboot detection ----
@@ -368,10 +417,16 @@ export function useGameEngine(): UseGameEngineResult {
     }
     applyLevelLimits();
     waveNumberRef.current = 1;
+    lastWaveColorRef.current = null;
+    finalCountdownActiveRef.current = false;
+    finalCountdownRemainingRef.current = Infinity;
+    lowAmmoHysteresisArmedRef.current = ammoRemainingRef.current > 15;
+    waveEndSpawnPausedRef.current = false;
+    engineRef.current.setOrangeSpawningPaused(false);
     breathingActiveRef.current = false;
     breathingCountdownRef.current = 0;
     syncRuntimeConfig(runtimeModifiersRef.current, 1);
-    setBreathingWave({ waveNumber: 1, phase: "active", countdownRemaining: 0, message: "vague 1 active", aiAnalyzing: false, alveoles: [], victoryPulse: false });
+    setBreathingWave({ waveNumber: 1, phase: "active", countdownRemaining: 0, message: "vague 1 active", aiAnalyzing: false, alveoles: [], victoryPulse: false, outcome: null });
     const q = buildQueue(cfg.gameplay_controls.queue_size, cfg.gameplay_controls.player_projectile_distribution ?? { light: 0.6, heavy: 0.3, mega: 0.1 });
     queueRef.current = q;
     setPlayerQueue(q);
@@ -385,6 +440,8 @@ export function useGameEngine(): UseGameEngineResult {
       ammoRemaining: ammoRemainingRef.current,
       retryReason: null,
       isBossPhase: engineRef.current.isBossPhase(),
+      lightShotDamage: engineRef.current.getCurrentLightShotDamage(),
+      betterShotLevel: engineRef.current.getBetterShotLevel(),
     });
     lastTimeRef.current = performance.now();
     pausedRef.current = false;
@@ -399,7 +456,7 @@ export function useGameEngine(): UseGameEngineResult {
     publishRetryReason("manual");
     pausedRef.current = true;
     setIsRunning(false);
-  }, [publishRetryReason]);
+  }, [beginBreathingWave]);
 
   const goToBoss = useCallback(() => {
     const cfg = configRef.current;
@@ -451,15 +508,14 @@ export function useGameEngine(): UseGameEngineResult {
     if (!cfg || !engineRef.current || pausedRef.current || retryReasonRef.current) return null;
     const bossPhase = engineRef.current.isBossPhase();
     if (!bossPhase && ammoRemainingRef.current <= 0) {
-      beginBreathingWave();
       return null;
     }
     const types = cfg.gameplay_controls.shot_types;
-    const effective: ShotKind = holdSeconds >= (types.mega?.max_hold_seconds ?? 0.8) ? "mega" : holdSeconds >= (types.heavy?.max_hold_seconds ?? 0.3) ? "heavy" : "light";
+    const effective: ShotKind = holdSeconds >= (types.mega?.min_hold_seconds ?? 0.8) ? "mega" : holdSeconds >= (types.heavy?.min_hold_seconds ?? 0.3) ? "heavy" : "light";
     const resolved: ShotKind = forcedKind ?? effective;
     const holdForResolved = holdSeconds;
     const projectileColor: BallColor = resolved === "light" ? "white" : resolved === "heavy" ? "yellow" : "pink";
-    const proj = engineRef.current.playerShoot(targetX, targetY, holdForResolved, projectileColor);
+    const proj = engineRef.current.playerShoot(targetX, targetY, holdForResolved, projectileColor, resolved);
     if (!proj) return null;
 
     if (!bossPhase) {
@@ -469,17 +525,27 @@ export function useGameEngine(): UseGameEngineResult {
         ammoRemaining: ammoRemainingRef.current,
         retryReason: null,
       } : prev);
-      if (ammoRemainingRef.current <= 0) beginBreathingWave();
     }
 
     return resolved;
-  }, [publishRetryReason]);
+  }, [beginBreathingWave]);
 
   const toggleGrenade = useCallback((dir: Vec2, effect: string = "ring"): boolean => {
     if (!engineRef.current || pausedRef.current) return false;
     const ok = engineRef.current.toggleGrenade(dir, effect);
     setGrenadesLeft(engineRef.current.getGrenadesLeft());
     return ok;
+  }, []);
+
+  const placeMine = useCallback((position: Vec2, effect: string = "mine"): boolean => {
+    if (!engineRef.current || pausedRef.current) return false;
+    return engineRef.current.placeMine(position, effect);
+  }, []);
+
+  const upgradeBetterShot = useCallback((): number => {
+    const level = engineRef.current?.upgradeBetterShot() ?? 0;
+    setGameState((prev) => prev ? { ...prev, betterShotLevel: level, lightShotDamage: engineRef.current?.getCurrentLightShotDamage() ?? prev.lightShotDamage } : prev);
+    return level;
   }, []);
 
   const classifyHold = useCallback((holdSeconds: number): ShotKind => {
@@ -713,38 +779,89 @@ export function useGameEngine(): UseGameEngineResult {
   }, [doReset]);
 
 
-  const applyAlveole = useCallback((alveole: GameplayAlveole) => {
+  const applyAlveole = useCallback((alveole: GameplayAlveole): GameplayFeedback => {
     const next = applyAlveoleModifier(runtimeModifiersRef.current, alveole);
     runtimeModifiersRef.current = next;
     setRuntimeModifiers(next);
     syncRuntimeConfig(next, breathingActiveRef.current ? 2 : 1);
+    let ammoAdded = 0;
+    let grenadesAdded = 0;
     if (alveole.effects.ammo_count && alveole.effects.ammo_count > 1) {
-      ammoRemainingRef.current += Math.max(2, Math.round(4 * (alveole.effects.ammo_count - 1) * 5));
+      ammoAdded = Math.max(2, Math.round(4 * (alveole.effects.ammo_count - 1) * 5));
+      ammoRemainingRef.current += ammoAdded;
+      if (ammoRemainingRef.current > 15) lowAmmoHysteresisArmedRef.current = true;
     }
     if (alveole.effects.grenade_count && alveole.effects.grenade_count > 1) {
-      engineRef.current?.addGrenades(Math.max(1, Math.round((alveole.effects.grenade_count - 1) * 4)));
+      grenadesAdded = Math.max(1, Math.round((alveole.effects.grenade_count - 1) * 4));
+      engineRef.current?.addGrenades(grenadesAdded);
       setGrenadesLeft(engineRef.current?.getGrenadesLeft() ?? grenadesLeft);
     }
+    setGameState((prev) => prev ? { ...prev, ammoRemaining: ammoRemainingRef.current } : prev);
     setBreathingWave((prev) => ({ ...prev, message: `${alveole.label} appliqué`, alveoles: prev.alveoles.filter((item) => item.id !== alveole.id) }));
+    return { ammoAdded, grenadesAdded, effects: alveole.effects };
   }, [grenadesLeft, syncRuntimeConfig]);
 
-  const reloadWave = useCallback(() => {
-    const lvl = engineRef.current?.getCurrentLevel();
-    const add = Math.max(6, Math.round((lvl?.ammo_count ?? DEFAULT_LEVEL_AMMO_COUNT) * 0.35 * runtimeModifiersRef.current.ammo_count));
+  const reloadWave = useCallback((): GameplayFeedback => {
+    const activeRemainder = engineRef.current?.getEnemyBallCount() ?? 0;
+    const add = Math.max(6, Math.ceil((nextWaveSpawnBudgetRef.current + activeRemainder) * 1.25 * runtimeModifiersRef.current.ammo_count));
+    const grenadesAdded = Math.max(1, Math.ceil(add / 20));
     ammoRemainingRef.current += add;
-    setGameState((prev) => prev ? { ...prev, ammoRemaining: ammoRemainingRef.current } : prev);
-    if (!breathingActiveRef.current) beginBreathingWave();
-  }, [beginBreathingWave]);
+    if (ammoRemainingRef.current > 15) lowAmmoHysteresisArmedRef.current = true;
+    engineRef.current?.addGrenades(grenadesAdded);
+    setGrenadesLeft(engineRef.current?.getGrenadesLeft() ?? grenadesLeft);
+    engineRef.current?.resetShotProgression();
+    setGameState((prev) => prev ? { ...prev, ammoRemaining: ammoRemainingRef.current, lightShotDamage: engineRef.current?.getCurrentLightShotDamage() ?? prev.lightShotDamage } : prev);
+    return { ammoAdded: add, grenadesAdded };
+  }, [grenadesLeft]);
+
+  const launchNextWave = useCallback(() => {
+    const cfg = configRef.current;
+    if (!cfg || !engineRef.current || !breathingActiveRef.current) return;
+    const spawnBudget = Math.max(4, nextWaveSpawnBudgetRef.current);
+    finalCountdownActiveRef.current = false;
+    finalCountdownRemainingRef.current = Infinity;
+    lowAmmoHysteresisArmedRef.current = ammoRemainingRef.current > 15;
+    waveEndSpawnPausedRef.current = false;
+    engineRef.current.setOrangeSpawningPaused(false);
+    timerRemainingRef.current = Infinity;
+    waveNumberRef.current += 1;
+    const baseForWave = baseConfigRef.current ?? cfg;
+    const waveColor = pickDifferentWaveColor(baseForWave);
+    const coloredBase = withSingleWaveColor(baseForWave, waveColor);
+    const currentMax = coloredBase.game_session?.max_balls_spawned ?? engineRef.current.getLaunchedCount();
+    const nextConfig = { ...coloredBase, game_session: { ...coloredBase.game_session, max_balls_spawned: Math.max(currentMax, engineRef.current.getLaunchedCount() + spawnBudget) } };
+    baseConfigRef.current = nextConfig;
+    configRef.current = nextConfig;
+    setConfig(nextConfig);
+    engineRef.current.updateConfig(nextConfig);
+    syncRuntimeConfig(runtimeModifiersRef.current, 1);
+    breathingActiveRef.current = false;
+    breathingCountdownRef.current = 0;
+    engineRef.current.spawnChaosBurst(3);
+    setBreathingWave((prev) => ({ ...prev, waveNumber: waveNumberRef.current, phase: "active", countdownRemaining: 0, message: `vague ${waveNumberRef.current} active`, victoryPulse: false, outcome: null }));
+  }, [pickDifferentWaveColor, syncRuntimeConfig, withSingleWaveColor]);
 
   const requestContextualAlveoles = useCallback(() => {
     requestBreathingAlveoles("idle_micro_pause", ["longer_waves", "different_enemy_balls"]);
   }, [requestBreathingAlveoles]);
 
+  const setRuntimeModifiersFromSettings = useCallback((next: RuntimeModifiers) => {
+    runtimeModifiersRef.current = next;
+    setRuntimeModifiers(next);
+    syncRuntimeConfig(next, breathingActiveRef.current ? 2 : 1);
+  }, [syncRuntimeConfig]);
+
+  const resetRuntimeModifiers = useCallback(() => {
+    runtimeModifiersRef.current = DEFAULT_RUNTIME_MODIFIERS;
+    setRuntimeModifiers(DEFAULT_RUNTIME_MODIFIERS);
+    syncRuntimeConfig(DEFAULT_RUNTIME_MODIFIERS, breathingActiveRef.current ? 2 : 1);
+  }, [syncRuntimeConfig]);
+
   return {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
-    shoot, setLauncherColor, setCustomTerrainDistribution, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, applyRuntimeConfig, launchLevel, launchBossLevel, launchTemporaryBallTest, openRetryMenu, goToBoss, playBossRush, classifyHold, toggleGrenade, grenadesLeft,
+    shoot, setLauncherColor, setCustomTerrainDistribution, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, applyRuntimeConfig, launchLevel, launchBossLevel, launchTemporaryBallTest, openRetryMenu, goToBoss, playBossRush, classifyHold, toggleGrenade, placeMine, upgradeBetterShot, grenadesLeft,
     setDifficulty, difficulty, setHpAdjustment, hpAdjustment,
-    breathingWave, runtimeModifiers, applyAlveole, reloadWave, requestContextualAlveoles,
+    breathingWave, runtimeModifiers, applyAlveole, reloadWave, launchNextWave, requestContextualAlveoles, setRuntimeModifiersFromSettings, resetRuntimeModifiers,
   };
 }

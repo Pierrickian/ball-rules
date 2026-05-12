@@ -1,10 +1,11 @@
 import { useMemo } from "react";
 import * as THREE from "three";
 
-export type ExplosionKind = "ball" | "grenade" | "deflagration";
+export type ExplosionKind = "ball" | "grenade" | "mine" | "deflagration";
 
 export function effectColor(kind: ExplosionKind, effect: string): string {
   if (kind === "ball") return effect === "shock" ? "#ffe089" : effect === "nova" ? "#9de0ff" : "#66ccff";
+  if (kind === "mine") return "#ff4d7a";
   return effect === "flash" ? "#fff2b5" : effect === "smoke" ? "#aab4c4" : effect === "flare" ? "#ffb35c" : effect === "shard" ? "#7fd0ff" : "#ffcc66";
 }
 
@@ -51,7 +52,9 @@ export function ExplosionSprite({ kind, effect, t, baseBallDiameter = 1, debugTe
     ? 14.4 * (0.75 + t * 1.35)
     : kind === "deflagration"
       ? baseBallDiameter * 120 * grenadeScaleMultiplier
-      : baseBallDiameter * 6 * grenadeScaleMultiplier;
+      : kind === "mine"
+        ? baseBallDiameter * 10 * grenadeScaleMultiplier
+        : baseBallDiameter * 6 * grenadeScaleMultiplier;
   return (
     <group renderOrder={20}>
       <sprite scale={[scale, scale, 1]}>

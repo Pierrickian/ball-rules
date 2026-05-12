@@ -139,6 +139,13 @@ Pour ajouter / éditer un niveau :
 - Pas de date, pas de numéro de version, pas de lien — juste un titre lisible par un joueur non-développeur.
 - Si le commit est purement interne (refacto sans impact joueur), ajouter quand même une ligne neutre du type « Refonte interne du moteur » plutôt que de sauter la mise à jour.
 
+### Localisation UI
+
+- Tout texte affiché au joueur doit être localisé par défaut, sauf demande explicite contraire.
+- Chaque nouveau texte UI doit avoir une version française et anglaise.
+- Les textes doivent réagir au changement de langue runtime sans nécessiter de rechargement.
+- Ne pas afficher simultanément les deux langues pour un même message, sauf si la demande utilisateur l'exige explicitement.
+
 ### Règles développeur
 
 - **Tout changement de règle → `ball.changeRule()` ou `ball.passRuleTo()`** (Ball.ts)
