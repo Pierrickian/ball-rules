@@ -26,7 +26,7 @@ function App() {
   const {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
-    shoot, setCustomTerrainDistribution, setActiveLevel, setLevelWeights, applyRuntimeConfig, openRetryMenu, goToBoss, playBossRush, classifyHold, toggleGrenade, placeMine, upgradeBetterShot, grenadesLeft, setDifficulty, difficulty, setHpAdjustment, hpAdjustment, breathingWave, runtimeModifiers, applyAlveole, reloadWave, requestContextualAlveoles, setRuntimeModifiersFromSettings, resetRuntimeModifiers,
+    shoot, setCustomTerrainDistribution, setActiveLevel, setLevelWeights, applyRuntimeConfig, openRetryMenu, goToBoss, playBossRush, classifyHold, toggleGrenade, placeMine, upgradeBetterShot, grenadesLeft, setDifficulty, difficulty, setHpAdjustment, hpAdjustment, breathingWave, runtimeModifiers, applyAlveole, reloadWave, launchNextWave, requestContextualAlveoles, setRuntimeModifiersFromSettings, resetRuntimeModifiers,
   } = useGameEngine();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -55,10 +55,15 @@ function App() {
   const [grenadeFlashKey, setGrenadeFlashKey] = useState(0);
   const [idleMicroPauseOpen, setIdleMicroPauseOpen] = useState(false);
   const [waveNoticeUntil, setWaveNoticeUntil] = useState(0);
-  const [funnelAwaitingReload, setFunnelAwaitingReload] = useState(false);
-  const [funnelDismissed, setFunnelDismissed] = useState(false);
   const [selectedAlveoleIds, setSelectedAlveoleIds] = useState<string[]>([]);
   const [uiNow, setUiNow] = useState(() => Date.now());
+  const [waveUiStage, setWaveUiStage] = useState<"none" | "notice" | "results" | "evolution">("none");
+  const [waveResult, setWaveResult] = useState<null | { outcome: "victory" | "defeat"; durationSeconds: number; reloadCount: number; maxCombo: number; previousRecord: number; combos: Record<string, number> }>(null);
+  const waveStartedAtRef = useRef(performance.now());
+  const waveReloadCountRef = useRef(0);
+  const waveMaxComboRef = useRef(0);
+  const previousComboRecordRef = useRef(0);
+  const waveCombosRef = useRef<Record<string, number>>({});
   const hadPlayerInputRef = useRef(false);
   useEffect(() => { localStorage.setItem("bg_effect_ball", ballEffect); }, [ballEffect]);
   useEffect(() => { localStorage.setItem("bg_effect_grenade", grenadeEffect); }, [grenadeEffect]);
@@ -74,6 +79,10 @@ function App() {
       }
       if (event.type === "grenade_helper_flash") {
         setGrenadeFlashKey((prev) => prev + 1);
+      }
+      if (event.type === "combo_popup") {
+        waveMaxComboRef.current = Math.max(waveMaxComboRef.current, event.streak);
+        waveCombosRef.current[event.label] = (waveCombosRef.current[event.label] ?? 0) + 1;
       }
     }
   }, [lastEvents]);
@@ -101,17 +110,34 @@ function App() {
   }, [breathingWave.phase]);
 
   useEffect(() => {
-    if (breathingWave.phase === "breathing") {
+    if (breathingWave.phase === "breathing" && breathingWave.outcome) {
+      const result = {
+        outcome: breathingWave.outcome,
+        durationSeconds: Math.max(0, (performance.now() - waveStartedAtRef.current) / 1000),
+        reloadCount: waveReloadCountRef.current,
+        maxCombo: waveMaxComboRef.current,
+        previousRecord: previousComboRecordRef.current,
+        combos: { ...waveCombosRef.current },
+      };
+      setWaveResult(result);
+      if (result.maxCombo > previousComboRecordRef.current) {
+        previousComboRecordRef.current = result.maxCombo;
+      }
       setWaveNoticeUntil(Date.now() + 3000);
-      setFunnelAwaitingReload(false);
-      setFunnelDismissed(false);
+      setWaveUiStage("notice");
       setSelectedAlveoleIds([]);
-    } else {
-      setFunnelAwaitingReload(false);
-      setFunnelDismissed(false);
+    } else if (breathingWave.phase === "active") {
+      setWaveUiStage("none");
       setSelectedAlveoleIds([]);
     }
-  }, [breathingWave.phase, breathingWave.waveNumber]);
+  }, [breathingWave.phase, breathingWave.waveNumber, breathingWave.outcome]);
+
+  useEffect(() => {
+    if (waveUiStage !== "notice") return;
+    const delay = Math.max(0, waveNoticeUntil - Date.now());
+    const timer = window.setTimeout(() => setWaveUiStage("results"), delay);
+    return () => window.clearTimeout(timer);
+  }, [waveUiStage, waveNoticeUntil]);
 
   const handleMenuOpen = () => { setEvolutionInitialText(""); setAddFeaturePortalOpen(false); pause(); setMenuOpen(true); };
   const handleApplyInstantConfig = (nextConfig: GameConfig, options?: { reset?: boolean; playtestTarget?: unknown }) => {
@@ -158,7 +184,6 @@ function App() {
     return Array.from(gameState.balls.values()).some((b) => b.isAlive && b.isBoss);
   })();
   const retryReason = gameState?.retryReason ?? null;
-  const levelTimerSeconds = gameState?.timerSecondsRemaining ?? 60;
   const shotsRemaining = gameState?.ammoRemaining ?? 50;
 
   const computeInterceptTarget = (targetPos: Vec2, targetVel: Vec2, shotSpeed: number): Vec2 => {
@@ -407,20 +432,30 @@ function App() {
   })();
 
   const visibleAlveoles = breathingWave.alveoles;
-  const showWaveNotice = breathingWave.phase === "breathing" && uiNow < waveNoticeUntil && !funnelDismissed;
-  const showGameFunnel = breathingWave.phase === "breathing" && !showWaveNotice && !funnelDismissed;
+  const showWaveNotice = breathingWave.phase === "breathing" && waveUiStage === "notice" && uiNow < waveNoticeUntil;
+  const showResultsFrame = breathingWave.phase === "breathing" && waveUiStage === "results" && waveResult !== null;
+  const showGameFunnel = breathingWave.phase === "breathing" && waveUiStage === "evolution";
   const selectedAlveoles = selectedAlveoleIds
     .map((id) => visibleAlveoles.find((alveole) => alveole.id === id))
     .filter((alveole): alveole is GameplayAlveole => Boolean(alveole));
+  const handleGameplayReload = () => {
+    reloadWave();
+    waveReloadCountRef.current += 1;
+  };
+  const resetWaveTracking = () => {
+    waveStartedAtRef.current = performance.now();
+    waveReloadCountRef.current = 0;
+    waveMaxComboRef.current = 0;
+    waveCombosRef.current = {};
+  };
   const handlePlayFunnel = () => {
     for (const alveole of selectedAlveoles) applyAlveole(alveole);
     setSelectedAlveoleIds([]);
-    setFunnelAwaitingReload(true);
-  };
-  const handleReloadFunnel = () => {
+    resetWaveTracking();
     reloadWave();
-    setFunnelDismissed(true);
-    setFunnelAwaitingReload(false);
+    waveReloadCountRef.current += 1;
+    launchNextWave();
+    setWaveUiStage("none");
   };
 
   return (
@@ -495,6 +530,13 @@ function App() {
           100% { opacity: 0; transform: translateY(-34px) scale(1); }
         }
       `}</style>
+      <button
+        onClick={handleGameplayReload}
+        style={{position:"absolute", left:16, bottom:140, width:56, height:56, borderRadius:"50%", border:"2px solid #7afcff", background:"radial-gradient(circle at 30% 30%, #366, #123)", color:"#eaffff", zIndex:12, fontWeight:"bold"}}
+        title="Recharger"
+      >
+        ↻
+      </button>
       <button
         key={`grenade-${grenadeFlashKey}`}
         onClick={() => toggleGrenade(lastDirectionRef.current, grenadeEffect)}
@@ -589,27 +631,39 @@ function App() {
             <div style={{ marginTop:4, fontSize:12, color:"#b8d8ff" }}>{Math.ceil(breathingWave.countdownRemaining)}s</div>
           </div>
         )}
+        {showResultsFrame && waveResult && (
+          <div style={{ pointerEvents:"all", padding:12, borderRadius:16, background:"rgba(3,10,24,.9)", border:"1px solid rgba(255,255,255,.16)", backdropFilter:"blur(10px)", boxShadow:"0 12px 34px rgba(0,0,0,.28)", color:"#eaffff" }}>
+            <div style={{ fontSize:24, fontWeight:900, color:"#ffd166", textAlign:"center" }}>Combo score {waveResult.maxCombo * 100}</div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginTop:10, fontSize:12 }}>
+              <span>Record précédent x{waveResult.previousRecord}</span><span>Max vague x{waveResult.maxCombo}</span>
+              <span>Rechargements {waveResult.reloadCount}</span><span>Temps {waveResult.durationSeconds.toFixed(1)}s</span>
+            </div>
+            <div style={{ display:"flex", gap:6, marginTop:10, flexWrap:"wrap" }}>
+              {waveResult.outcome === "victory" && <span>⭐ Rapide</span>}
+              {waveResult.reloadCount <= 1 && <span>⭐ Expert</span>}
+              {waveResult.maxCombo > waveResult.previousRecord && <span>⭐ Pro</span>}
+            </div>
+            <div style={{ marginTop:10, fontSize:12, color:"#b8d8ff" }}>
+              {Object.entries(waveResult.combos).length === 0 ? "Aucun combo" : Object.entries(waveResult.combos).map(([name, count]) => <div key={name}>{name} × {count}</div>)}
+            </div>
+            <button onClick={() => setWaveUiStage("evolution")} style={{ marginTop:12, border:"1px solid #7afcff", background:"rgba(122,252,255,.14)", color:"#eaffff", borderRadius:999, padding:"8px 14px", fontWeight:900, cursor:"pointer", width:"100%" }}>Suivant</button>
+          </div>
+        )}
         {showGameFunnel && (
           <div style={{ pointerEvents:"all", padding:10, borderRadius:16, background:"rgba(3,10,24,.86)", border:"1px solid rgba(255,255,255,.16)", backdropFilter:"blur(10px)", boxShadow:"0 12px 34px rgba(0,0,0,.28)" }}>
             <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:"#7afcff", marginBottom:8 }}>Game</div>
-            {funnelAwaitingReload || (!breathingWave.aiAnalyzing && visibleAlveoles.length === 0) ? (
-              <button onClick={handleReloadFunnel} style={{ border:"1px solid #7afcff", background:"rgba(122,252,255,.14)", color:"#eaffff", borderRadius:999, padding:"8px 14px", fontWeight:900, cursor:"pointer", width:"100%" }}>Recharger</button>
-            ) : (
-              <>
-                <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
-                  {visibleAlveoles.map((alveole) => {
-                    const selected = selectedAlveoleIds.includes(alveole.id);
-                    return (
-                      <button key={alveole.id} onClick={() => setSelectedAlveoleIds((prev) => selected ? prev.filter((id) => id !== alveole.id) : [...prev, alveole.id])} title={alveole.description} style={{ border:`1px solid ${selected ? "#ffd166" : "rgba(122,252,255,.4)"}`, background:selected ? "rgba(255,209,102,.22)" : "radial-gradient(circle at 30% 20%, rgba(122,252,255,.22), rgba(30,70,100,.24))", color:"#f3ffff", borderRadius:999, padding:"8px 11px", fontWeight:800, cursor:"pointer", boxShadow:"0 0 16px rgba(122,252,255,.12)" }}>
-                        {alveole.label}
-                      </button>
-                    );
-                  })}
-                  {breathingWave.aiAnalyzing && visibleAlveoles.length === 0 && <span style={{ color:"#9db8d6", fontSize:12 }}>Analyse locale…</span>}
-                </div>
-                {visibleAlveoles.length > 0 && <button onClick={handlePlayFunnel} style={{ marginTop:10, border:"1px solid #66ffbb", background:"rgba(102,255,187,.16)", color:"#d7ffec", borderRadius:999, padding:"8px 14px", fontWeight:900, cursor:"pointer", width:"100%" }}>Play</button>}
-              </>
-            )}
+            <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+              {visibleAlveoles.map((alveole) => {
+                const selected = selectedAlveoleIds.includes(alveole.id);
+                return (
+                  <button key={alveole.id} onClick={() => setSelectedAlveoleIds((prev) => selected ? prev.filter((id) => id !== alveole.id) : [...prev, alveole.id])} title={alveole.description} style={{ border:`1px solid ${selected ? "#ffd166" : "rgba(122,252,255,.4)"}`, background:selected ? "rgba(255,209,102,.22)" : "radial-gradient(circle at 30% 20%, rgba(122,252,255,.22), rgba(30,70,100,.24))", color:"#f3ffff", borderRadius:999, padding:"8px 11px", fontWeight:800, cursor:"pointer", boxShadow:"0 0 16px rgba(122,252,255,.12)" }}>
+                    {alveole.label}
+                  </button>
+                );
+              })}
+              {breathingWave.aiAnalyzing && visibleAlveoles.length === 0 && <span style={{ color:"#9db8d6", fontSize:12 }}>Analyse locale…</span>}
+            </div>
+            <button onClick={handlePlayFunnel} style={{ marginTop:10, border:"1px solid #66ffbb", background:"rgba(102,255,187,.16)", color:"#d7ffec", borderRadius:999, padding:"8px 14px", fontWeight:900, cursor:"pointer", width:"100%" }}>Play</button>
           </div>
         )}
       </div>
@@ -617,13 +671,12 @@ function App() {
         gameState={gameState}
         config={config}
         isRunning={isRunning}
-        levelTimerSeconds={isBossPhase || breathingWave.phase !== "breathing" ? null : breathingWave.countdownRemaining}
+        levelTimerSeconds={isBossPhase || !showWaveNotice ? null : breathingWave.countdownRemaining}
         shotsRemaining={isBossPhase ? null : shotsRemaining}
         onPause={pause}
         onResume={resume}
         onReset={reset}
         breathingWave={breathingWave}
-        onReload={handleReloadFunnel}
       />
 
       {gameState.bossMasteredActive && (

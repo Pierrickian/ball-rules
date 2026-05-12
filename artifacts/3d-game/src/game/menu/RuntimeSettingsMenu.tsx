@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import type { RuntimeModifierKey, RuntimeModifiers } from "../../engine/runtimeModifiers";
 import { DEFAULT_RUNTIME_MODIFIERS } from "../../engine/runtimeModifiers";
 import { CLOSE_BTN, MENU_BTN, PANEL, TITLE } from "./menuStyles";
@@ -98,7 +98,6 @@ export function RuntimeSettingsMenu({ runtimeModifiers, onRuntimeModifiersChange
   const [tab, setTab] = useState(0);
   const [hormones, setHormones] = useState<Record<HormoneId, number>>({ dopamine: 50, serotonine: 50, ocytocine: 50, endorphines: 50, adrénaline: 50 });
   const [ranges, setRanges] = useState(DEFAULT_RANGES);
-  const touchStartRef = useRef<number | null>(null);
 
   const intentions = useMemo(() => Object.fromEntries(INTENTIONS.map((item) => [item.id, clamp(item.fromHormones(hormones))])) as Record<IntentionId, number>, [hormones]);
 
@@ -124,7 +123,7 @@ export function RuntimeSettingsMenu({ runtimeModifiers, onRuntimeModifiersChange
   const current = INTENTIONS[tab - 1];
 
   return (
-    <div style={PANEL} onTouchStart={(e) => { touchStartRef.current = e.touches[0]?.clientX ?? null; }} onTouchEnd={(e) => { const start = touchStartRef.current; if (start === null) return; const dx = (e.changedTouches[0]?.clientX ?? start) - start; if (Math.abs(dx) > 45) setTab((prev) => (prev + (dx < 0 ? 1 : -1) + 6) % 6); touchStartRef.current = null; }}>
+    <div style={PANEL}>
       <div><div style={TITLE}>Settings</div><div style={{ fontSize: 20, color: "#7afcff", fontWeight: 900 }}>Game</div></div>
       <div style={{ display: "flex", gap: 8 }}>
         <button style={{ ...MENU_BTN, justifyContent: "center", background: language === "fr" ? "#1e90ff" : MENU_BTN.background }} onClick={() => setLanguage("fr")}>Français</button>
@@ -137,7 +136,7 @@ export function RuntimeSettingsMenu({ runtimeModifiers, onRuntimeModifiersChange
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {HORMONES.map((id) => <label key={id} style={{ display: "grid", gridTemplateColumns: "96px 1fr", gap: 10, alignItems: "center", color: "#dbeafe", textTransform: "capitalize" }}><span>{id}</span><RangeSlider value={hormones[id]} onChange={(v) => setHormone(id, v)} /></label>)}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>{INTENTIONS.map((intent) => <div key={intent.id} style={{ fontSize: 11, color: "#9db8d6" }}>{intent.label}<RangeSlider value={intentions[intent.id]} readOnly /></div>)}</div>
-          <button style={MENU_BTN} onClick={resetAll}>Reset usine</button>
+          <button style={MENU_BTN} onClick={resetAll}>Reset</button>
         </div>
       ) : current ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -146,7 +145,11 @@ export function RuntimeSettingsMenu({ runtimeModifiers, onRuntimeModifiersChange
           <button style={MENU_BTN} onClick={() => setRanges((prev) => ({ ...prev, ...Object.fromEntries(current.keys.map((key) => [key, DEFAULT_RANGES[key]])) } as typeof prev))}>Reset {current.label}</button>
         </div>
       ) : null}
-      <button style={CLOSE_BTN} onClick={onBack}>← Retour</button>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginTop: 4 }}>
+        <button style={{ ...CLOSE_BTN, marginTop: 0 }} onClick={() => setTab((prev) => (prev + 5) % 6)}>←</button>
+        <button style={{ ...CLOSE_BTN, marginTop: 0 }} onClick={onBack}>Retour</button>
+        <button style={{ ...CLOSE_BTN, marginTop: 0 }} onClick={() => setTab((prev) => (prev + 1) % 6)}>→</button>
+      </div>
     </div>
   );
 }

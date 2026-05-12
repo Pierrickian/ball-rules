@@ -16,7 +16,6 @@ interface HUDProps {
   onResume: () => void;
   onReset: () => void;
   breathingWave: BreathingWaveState;
-  onReload: () => void;
 }
 
 const BTN: React.CSSProperties = {
@@ -32,7 +31,7 @@ const BTN: React.CSSProperties = {
   letterSpacing: 1,
 };
 
-export function HUD({ gameState, config, isRunning, levelTimerSeconds, shotsRemaining, onPause, onResume, onReset, breathingWave, onReload }: HUDProps) {
+export function HUD({ gameState, config, isRunning, levelTimerSeconds, shotsRemaining, onPause, onResume, onReset, breathingWave }: HUDProps) {
   const activeBalls = Array.from(gameState.balls.values()).filter(
     (b) => b.isAlive && b.color !== "orange" && b.metadata?.isProjectile !== true
   ).length;
@@ -137,7 +136,6 @@ export function HUD({ gameState, config, isRunning, levelTimerSeconds, shotsRema
           {isRunning ? "⏸" : "▶"}
         </button>
         <button onClick={onReset} style={BTN}>↺</button>
-        {breathingWave.phase === "breathing" && <button onClick={onReload} style={{ ...BTN, borderColor: "#7afcff", color: "#eaffff" }}>Recharger</button>}
       </div>
 
       {/* config-driven keepalive */}

@@ -33,6 +33,7 @@ export interface BreathingWaveState {
   aiAnalyzing: boolean;
   alveoles: GameplayAlveole[];
   victoryPulse: boolean;
+  outcome?: "victory" | "defeat" | null;
 }
 
 export interface UseGameEngineResult {
@@ -71,6 +72,7 @@ export interface UseGameEngineResult {
   runtimeModifiers: RuntimeModifiers;
   applyAlveole: (alveole: GameplayAlveole) => void;
   reloadWave: () => void;
+  launchNextWave: () => void;
   requestContextualAlveoles: () => void;
   setRuntimeModifiersFromSettings: (modifiers: RuntimeModifiers) => void;
   resetRuntimeModifiers: () => void;
@@ -94,6 +96,7 @@ export function useGameEngine(): UseGameEngineResult {
     aiAnalyzing: false,
     alveoles: [],
     victoryPulse: false,
+    outcome: null,
   });
 
   const engineRef          = useRef<GameEngine | null>(null);
@@ -124,10 +127,8 @@ export function useGameEngine(): UseGameEngineResult {
   const breathingActiveRef = useRef(false);
   const breathingCountdownRef = useRef(0);
   const breathingTotalRef = useRef(10);
-  const breathingVictoryAnnouncedRef = useRef(false);
   const aiRequestIdRef = useRef(0);
   const nextWaveSpawnBudgetRef = useRef(8);
-  const breathingReloadedRef = useRef(false);
   const lastWaveColorRef = useRef<BallColor | null>(null);
 
   useEffect(() => { runtimeModifiersRef.current = runtimeModifiers; }, [runtimeModifiers]);
@@ -193,29 +194,34 @@ export function useGameEngine(): UseGameEngineResult {
     });
   }, []);
 
-  const beginBreathingWave = useCallback(() => {
+  const beginBreathingWave = useCallback((outcome: "victory" | "defeat") => {
     if (breathingActiveRef.current || !engineRef.current) return;
     breathingActiveRef.current = true;
-    breathingReloadedRef.current = false;
     const activeEnemies = engineRef.current.getEnemyBallCount();
-    nextWaveSpawnBudgetRef.current = Math.max(4, Math.ceil((activeEnemies + Math.max(1, ammoRemainingRef.current)) * 0.55 * runtimeModifiersRef.current.enemy_density));
-    engineRef.current.spawnChaosBurst(3);
+    nextWaveSpawnBudgetRef.current = Math.max(4, Math.ceil((activeEnemies + Math.max(1, DEFAULT_LEVEL_AMMO_COUNT)) * 0.55 * runtimeModifiersRef.current.enemy_density));
     breathingCountdownRef.current = Math.round(DEFAULT_LEVEL_TIMER_SECONDS * runtimeModifiersRef.current.wave_duration);
     breathingTotalRef.current = breathingCountdownRef.current;
-    breathingVictoryAnnouncedRef.current = false;
-    const nextWave = waveNumberRef.current + 1;
+    const cfg = configRef.current;
+    if (cfg) {
+      const frozenConfig = { ...cfg, game_session: { ...cfg.game_session, max_balls_spawned: engineRef.current.getLaunchedCount() } };
+      configRef.current = frozenConfig;
+      setConfig(frozenConfig);
+      engineRef.current.updateConfig(frozenConfig);
+    }
+    engineRef.current.setRuntimeModifiers(toEngineRuntimeModifiers(runtimeModifiersRef.current, 99));
     setBreathingWave((prev) => ({
       ...prev,
       waveNumber: waveNumberRef.current,
       phase: "breathing",
       countdownRemaining: breathingCountdownRef.current,
-      message: `vague ${nextWave} arrive`,
+      message: outcome === "victory" ? "Victoire" : "Défaite",
       aiAnalyzing: true,
       alveoles: [],
-      victoryPulse: false,
+      victoryPulse: outcome === "victory",
+      outcome,
     }));
     requestBreathingAlveoles("breathing_wave");
-  }, [requestBreathingAlveoles]);
+  }, [requestBreathingAlveoles, syncRuntimeConfig]);
 
   // Load config and initialize engine
   useEffect(() => {
@@ -295,44 +301,11 @@ export function useGameEngine(): UseGameEngineResult {
           while (timerTickAccumulatorRef.current >= 0.1) {
             timerTickAccumulatorRef.current -= 0.1;
             if (breathingActiveRef.current) {
-              breathingCountdownRef.current = Math.max(0, Math.round((breathingCountdownRef.current - 0.1) * 10) / 10);
-              const progress = 1 - breathingCountdownRef.current / Math.max(0.1, breathingTotalRef.current);
-              syncRuntimeConfig(runtimeModifiersRef.current, 1 + progress * 98);
-              const activeEnemies = engineRef.current.getEnemyBallCount();
-              if (activeEnemies === 0 && !breathingVictoryAnnouncedRef.current) {
-                breathingVictoryAnnouncedRef.current = true;
-                setBreathingWave((prev) => ({ ...prev, message: "Victory!", victoryPulse: true }));
-              } else if (breathingCountdownRef.current <= 0) {
-                const hadVictory = breathingVictoryAnnouncedRef.current || activeEnemies === 0;
-                if (!hadVictory) {
-                  setBreathingWave((prev) => ({ ...prev, message: `vague ${waveNumberRef.current} toujours en vie`, victoryPulse: false }));
-                }
-                const activeRemainder = engineRef.current.getEnemyBallCount();
-                const spawnBudget = Math.max(4, nextWaveSpawnBudgetRef.current);
-                engineRef.current.resetShotProgression();
-                if (!breathingReloadedRef.current) ammoRemainingRef.current += Math.max(6, Math.ceil((spawnBudget + activeRemainder) * 1.25 * runtimeModifiersRef.current.ammo_count));
-                breathingReloadedRef.current = false;
-                timerRemainingRef.current = Math.round(DEFAULT_LEVEL_TIMER_SECONDS * runtimeModifiersRef.current.wave_duration);
-                waveNumberRef.current += 1;
-                const baseForWave = baseConfigRef.current ?? cfg;
-                const waveColor = pickDifferentWaveColor(baseForWave);
-                const coloredBase = withSingleWaveColor(baseForWave, waveColor);
-                const currentMax = coloredBase.game_session?.max_balls_spawned ?? engineRef.current.getLaunchedCount();
-                const nextConfig = { ...coloredBase, game_session: { ...coloredBase.game_session, max_balls_spawned: Math.max(currentMax, engineRef.current.getLaunchedCount() + spawnBudget) } };
-                baseConfigRef.current = nextConfig;
-                configRef.current = nextConfig;
-                setConfig(nextConfig);
-                engineRef.current.updateConfig(nextConfig);
-                syncRuntimeConfig(runtimeModifiersRef.current, 1);
-                breathingActiveRef.current = false;
-                breathingCountdownRef.current = 0;
-                setBreathingWave((prev) => ({ ...prev, waveNumber: waveNumberRef.current, phase: "active", countdownRemaining: 0, message: `vague ${waveNumberRef.current} active`, victoryPulse: false }));
-              } else if (!breathingVictoryAnnouncedRef.current) {
-                setBreathingWave((prev) => ({ ...prev, countdownRemaining: breathingCountdownRef.current }));
-              }
+              setBreathingWave((prev) => ({ ...prev, countdownRemaining: breathingCountdownRef.current }));
             } else {
-              const lowAmmo = ammoRemainingRef.current <= Math.max(0, Math.ceil((engineRef.current.getCurrentLevel()?.ammo_count ?? DEFAULT_LEVEL_AMMO_COUNT) * 0.14));
-              if (lowAmmo) beginBreathingWave();
+              const activeEnemies = engineRef.current.getEnemyBallCount();
+              if (activeEnemies === 0 && engineRef.current.getLaunchedCount() > 0) beginBreathingWave("victory");
+              else if (ammoRemainingRef.current <= 0) beginBreathingWave("defeat");
             }
           }
         }
@@ -409,10 +382,9 @@ export function useGameEngine(): UseGameEngineResult {
     waveNumberRef.current = 1;
     lastWaveColorRef.current = null;
     breathingActiveRef.current = false;
-    breathingReloadedRef.current = false;
     breathingCountdownRef.current = 0;
     syncRuntimeConfig(runtimeModifiersRef.current, 1);
-    setBreathingWave({ waveNumber: 1, phase: "active", countdownRemaining: 0, message: "vague 1 active", aiAnalyzing: false, alveoles: [], victoryPulse: false });
+    setBreathingWave({ waveNumber: 1, phase: "active", countdownRemaining: 0, message: "vague 1 active", aiAnalyzing: false, alveoles: [], victoryPulse: false, outcome: null });
     const q = buildQueue(cfg.gameplay_controls.queue_size, cfg.gameplay_controls.player_projectile_distribution ?? { light: 0.6, heavy: 0.3, mega: 0.1 });
     queueRef.current = q;
     setPlayerQueue(q);
@@ -442,7 +414,7 @@ export function useGameEngine(): UseGameEngineResult {
     publishRetryReason("manual");
     pausedRef.current = true;
     setIsRunning(false);
-  }, [publishRetryReason]);
+  }, [beginBreathingWave]);
 
   const goToBoss = useCallback(() => {
     const cfg = configRef.current;
@@ -494,7 +466,7 @@ export function useGameEngine(): UseGameEngineResult {
     if (!cfg || !engineRef.current || pausedRef.current || retryReasonRef.current) return null;
     const bossPhase = engineRef.current.isBossPhase();
     if (!bossPhase && ammoRemainingRef.current <= 0) {
-      beginBreathingWave();
+      beginBreathingWave("defeat");
       return null;
     }
     const types = cfg.gameplay_controls.shot_types;
@@ -512,11 +484,11 @@ export function useGameEngine(): UseGameEngineResult {
         ammoRemaining: ammoRemainingRef.current,
         retryReason: null,
       } : prev);
-      if (ammoRemainingRef.current <= 0) beginBreathingWave();
+      if (ammoRemainingRef.current <= 0) beginBreathingWave("defeat");
     }
 
     return resolved;
-  }, [publishRetryReason]);
+  }, [beginBreathingWave]);
 
   const toggleGrenade = useCallback((dir: Vec2, effect: string = "ring"): boolean => {
     if (!engineRef.current || pausedRef.current) return false;
@@ -786,11 +758,33 @@ export function useGameEngine(): UseGameEngineResult {
     const activeRemainder = engineRef.current?.getEnemyBallCount() ?? 0;
     const add = Math.max(6, Math.ceil((nextWaveSpawnBudgetRef.current + activeRemainder) * 1.25 * runtimeModifiersRef.current.ammo_count));
     ammoRemainingRef.current += add;
+    engineRef.current?.addGrenades(Math.max(1, Math.ceil(add / 20)));
+    setGrenadesLeft(engineRef.current?.getGrenadesLeft() ?? grenadesLeft);
     engineRef.current?.resetShotProgression();
-    if (breathingActiveRef.current) { breathingReloadedRef.current = true; breathingCountdownRef.current = 0; }
     setGameState((prev) => prev ? { ...prev, ammoRemaining: ammoRemainingRef.current, lightShotDamage: engineRef.current?.getCurrentLightShotDamage() ?? prev.lightShotDamage } : prev);
-    if (!breathingActiveRef.current) beginBreathingWave();
-  }, [beginBreathingWave]);
+  }, [grenadesLeft]);
+
+  const launchNextWave = useCallback(() => {
+    const cfg = configRef.current;
+    if (!cfg || !engineRef.current || !breathingActiveRef.current) return;
+    const spawnBudget = Math.max(4, nextWaveSpawnBudgetRef.current);
+    timerRemainingRef.current = Math.round(DEFAULT_LEVEL_TIMER_SECONDS * runtimeModifiersRef.current.wave_duration);
+    waveNumberRef.current += 1;
+    const baseForWave = baseConfigRef.current ?? cfg;
+    const waveColor = pickDifferentWaveColor(baseForWave);
+    const coloredBase = withSingleWaveColor(baseForWave, waveColor);
+    const currentMax = coloredBase.game_session?.max_balls_spawned ?? engineRef.current.getLaunchedCount();
+    const nextConfig = { ...coloredBase, game_session: { ...coloredBase.game_session, max_balls_spawned: Math.max(currentMax, engineRef.current.getLaunchedCount() + spawnBudget) } };
+    baseConfigRef.current = nextConfig;
+    configRef.current = nextConfig;
+    setConfig(nextConfig);
+    engineRef.current.updateConfig(nextConfig);
+    syncRuntimeConfig(runtimeModifiersRef.current, 1);
+    breathingActiveRef.current = false;
+    breathingCountdownRef.current = 0;
+    engineRef.current.spawnChaosBurst(3);
+    setBreathingWave((prev) => ({ ...prev, waveNumber: waveNumberRef.current, phase: "active", countdownRemaining: 0, message: `vague ${waveNumberRef.current} active`, victoryPulse: false, outcome: null }));
+  }, [pickDifferentWaveColor, syncRuntimeConfig, withSingleWaveColor]);
 
   const requestContextualAlveoles = useCallback(() => {
     requestBreathingAlveoles("idle_micro_pause", ["longer_waves", "different_enemy_balls"]);
@@ -813,6 +807,6 @@ export function useGameEngine(): UseGameEngineResult {
     pause, resume, reset, setArena,
     shoot, setLauncherColor, setCustomTerrainDistribution, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, applyRuntimeConfig, launchLevel, launchBossLevel, launchTemporaryBallTest, openRetryMenu, goToBoss, playBossRush, classifyHold, toggleGrenade, placeMine, upgradeBetterShot, grenadesLeft,
     setDifficulty, difficulty, setHpAdjustment, hpAdjustment,
-    breathingWave, runtimeModifiers, applyAlveole, reloadWave, requestContextualAlveoles, setRuntimeModifiersFromSettings, resetRuntimeModifiers,
+    breathingWave, runtimeModifiers, applyAlveole, reloadWave, launchNextWave, requestContextualAlveoles, setRuntimeModifiersFromSettings, resetRuntimeModifiers,
   };
 }
