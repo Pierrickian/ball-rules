@@ -13,6 +13,7 @@ import { LevelsMenu } from "./LevelsMenu";
 import { BossMenu } from "./BossMenu";
 import { EffectsMenu } from "./EffectsMenu";
 import { DifficultyMenu } from "./DifficultyMenu";
+import { RuntimeSettingsMenu } from "./RuntimeSettingsMenu";
 import { ChangeMenu } from "../change/ChangeMenu";
 
 function DownloadApkButton() {
@@ -46,8 +47,11 @@ export function Menu({
   onGrenadeEffectChange,
   debugExplosionTexture,
   onDebugExplosionTextureChange,
+  runtimeModifiers,
+  onRuntimeModifiersChange,
+  onRuntimeModifiersReset,
 }: MenuProps) {
-  const [view, setView] = useState<MenuView>(evolutionInitialText ? "evolution" : "main");
+  const [view, setView] = useState<MenuView>(evolutionInitialText ? "evolution" : "settings");
   const [changeEvolutionText, setChangeEvolutionText] = useState("");
 
   useEffect(() => {
@@ -63,6 +67,7 @@ export function Menu({
       {view === "main" && (
         <MainMenu
           config={config}
+          onSettings={() => setView("settings")}
           onChange={() => setView("change")}
           onEvolution={() => { setChangeEvolutionText(""); setView("evolution"); }}
           onRules={() => setView("rules")}
@@ -79,6 +84,7 @@ export function Menu({
           onClose={onClose}
         />
       )}
+      {view === "settings"       && <RuntimeSettingsMenu runtimeModifiers={runtimeModifiers} onRuntimeModifiersChange={onRuntimeModifiersChange} onReset={onRuntimeModifiersReset} onBack={() => setView("main")} />}
       {view === "change"         && <ChangeMenu config={config} currentLevelIndex={currentLevelIndex} currentLevelNumber={currentLevelNumber} onApplyChangeConfig={onApplyInstantConfig} onOpenEvolution={(text) => { setChangeEvolutionText(text); setView("evolution"); }} onClose={onClose} onBack={() => setView("main")} />}
       {view === "evolution"      && <EvolutionMenu evolutionRequest={evolutionRequest} initialText={changeEvolutionText || evolutionInitialText} currentLevelNumber={currentLevelNumber} difficulty={difficulty} hpAdjustment={hpAdjustment} onBack={() => setView("main")} />}
       {view === "rules"          && <RulesMenu      config={config} onBack={() => setView("main")} />}

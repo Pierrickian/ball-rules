@@ -26,13 +26,15 @@ export function playerShoot(
   targetX: number,
   targetY: number,
   holdSeconds: number,
-  color: BallColor
+  color: BallColor,
+  shotOverride?: Partial<ShotTypeConfig> & { color_tint?: string; effect?: string; visualColor?: BallColor; forceStopsOnHit?: boolean }
 ): Ball | null {
   const controls = engine.config.gameplay_controls;
   if (!controls) return null;
   const shotKind = engine.classifyShot(holdSeconds);
-  const shotCfg = controls.shot_types[shotKind];
-  if (!shotCfg) return null;
+  const baseShotCfg = controls.shot_types[shotKind];
+  if (!baseShotCfg) return null;
+  const shotCfg = { ...baseShotCfg, ...(shotOverride ?? {}) };
 
   const arena = engine.getArena();
   const inset = (controls.shot_origin?.inset_factor ?? 0.04) * arena.halfH * 2;
@@ -50,7 +52,7 @@ export function playerShoot(
   const speed = shotCfg.speed;
 
   const projectile = new Ball(
-    color,
+    shotOverride?.visualColor ?? color,
     baseSize,
     origin,
     { x: dir.x * speed, y: dir.y * speed },
@@ -64,6 +66,7 @@ export function playerShoot(
     shotKind,
     damage: shotCfg.damage,
     passesThroughBalls: shotCfg.passes_through_balls,
+    forceStopsOnHit: shotOverride?.forceStopsOnHit === true,
     remainingWallBounces: shotCfg.wall_bounces,
     lifetime: 0,
     damagedIds: new Map<string, number>(),
@@ -72,7 +75,7 @@ export function playerShoot(
     comboPositionSum: { x: 0, y: 0 },
     comboFinalized: false,
     colorTint: shotCfg.color_tint ?? null,
-    effect: shotKind === 'mega' ? 'nova' : shotKind === 'heavy' ? 'shock' : 'pulse',
+    effect: shotOverride?.effect ?? (shotKind === 'mega' ? 'nova' : shotKind === 'heavy' ? 'shock' : 'pulse'),
   };
   engine.balls.set(projectile.id, projectile);
   engine.emitEvent({ type: "ball_spawned", ball: projectile.getState() }, "external");
@@ -110,6 +113,16 @@ export function processPendingCommands(engine: PlayerProjectileApiContext): void
       continue;
     }
 
+    if (command.type === "place_mine") {
+      const baseDiameter = getPlayerBaseDiameter(engine.config);
+      const mine = new Ball('gray', BallSize.SMALL, { ...command.position }, { x: 0, y: 0 }, baseDiameter * 1.75, 'player_projectile', BounceCondition.AGAINST_OBSTACLE, 999, 999);
+      mine.metadata = { isProjectile: true, isMine: true, damagedIds: new Map<string, number>(), colorTint: '#ff4d7a', effect: command.effect };
+      engine.balls.set(mine.id, mine);
+      engine.emitEvent({ type: 'ball_spawned', ball: mine.getState() }, "update");
+      engine.emitEvent({ type: 'mine_placed', mineId: mine.id, position: { ...mine.position } }, "update");
+      continue;
+    }
+
     if (command.type === "detonate_active_grenade") {
       const grenadeId = engine.activeGrenadeId;
       engine.activeGrenadeId = null;
@@ -127,19 +140,50 @@ export function processPendingCommands(engine: PlayerProjectileApiContext): void
 }
 
 export function explodeGrenade(engine: PlayerProjectileApiContext, grenade: Ball): void {
+  explodeAreaDamage(engine, grenade, 'grenade_exploded', String(grenade.metadata?.effect ?? 'ring'));
+}
+
+export function explodeMine(engine: PlayerProjectileApiContext, mine: Ball): void {
+  explodeAreaDamage(engine, mine, 'mine_exploded', String(mine.metadata?.effect ?? 'mine'));
+}
+
+function explodeAreaDamage(engine: PlayerProjectileApiContext, source: Ball, reason: 'grenade_exploded' | 'mine_exploded', effect: string): void {
   const radius = getPlayerBaseDiameter(engine.config) * 3;
   for (const other of engine.balls.values()) {
-    if (!other.isAlive || other.id===grenade.id || other.isProjectile() || other.color==='orange') continue;
-    const dx = other.position.x - grenade.position.x; const dy = other.position.y - grenade.position.y;
+    if (!other.isAlive || other.id===source.id || other.isProjectile() || other.color==='orange') continue;
+    const dx = other.position.x - source.position.x; const dy = other.position.y - source.position.y;
     const reach = radius + other.diameter / 2;
     if (Math.sqrt(dx*dx+dy*dy) <= reach) engine.damageBall(other, 10, 'killed_by_grenade');
   }
-  grenade.isAlive = false;
-  engine.emitEvent({ type: 'ball_despawned', ballId: grenade.id, reason: 'grenade_exploded', position: { ...grenade.position }, velocity: { ...grenade.velocity }, effect: String(grenade.metadata?.effect ?? 'ring') }, "update");
+  source.isAlive = false;
+  engine.emitEvent({ type: 'ball_despawned', ballId: source.id, reason, position: { ...source.position }, velocity: { ...source.velocity }, effect }, "update");
 }
 
 export function handlePlayerProjectile(this: void, ball: Ball, delta: number, ctx: RuleContext): void {
   const metaAny = ball.metadata as Record<string, unknown>;
+  if (metaAny.isMine === true) {
+    const triggered = ctx.allBalls.some((other) => (
+      other.id !== ball.id &&
+      other.isAlive &&
+      !other.isProjectile() &&
+      other.color !== "orange" &&
+      ball.isCollidingWith(other)
+    ));
+    if (triggered) {
+      explodeMine({
+        balls: new Map(ctx.allBalls.map((b) => [b.id, b])),
+        config: ctx.config,
+        pendingCommands: [],
+        activeGrenadeId: null,
+        getArena: () => ctx.arena,
+        classifyShot: () => "light",
+        damageBall: ctx.damageBall,
+        emitEvent: (event) => ctx.events.push(event),
+      }, ball);
+    }
+    return;
+  }
+
   if (metaAny.isGrenade === true) {
     const stuckToId = typeof metaAny.stuckToId === "string" ? metaAny.stuckToId : null;
     if (stuckToId) {
@@ -188,6 +232,7 @@ export function handlePlayerProjectile(this: void, ball: Ball, delta: number, ct
   const meta = ball.metadata as {
     damage: number;
     passesThroughBalls: boolean;
+    forceStopsOnHit?: boolean;
     remainingWallBounces: number;
     lifetime: number;
     damagedIds: Map<string, number>;
@@ -262,7 +307,7 @@ export function handlePlayerProjectile(this: void, ball: Ball, delta: number, ct
         continue;
       }
 
-      if (!meta.passesThroughBalls) {
+      if (meta.forceStopsOnHit || !meta.passesThroughBalls) {
         finalizePlayerProjectileCombo(ball, ctx);
         ctx.despawnBall(ball, "projectile_hit_ball");
         return;

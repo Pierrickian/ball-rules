@@ -3,9 +3,10 @@ import { InstantCreationMenu } from "../InstantCreationMenu";
 import { CLOSE_BTN, MENU_BTN, PANEL, TITLE } from "./menuStyles";
 
 export function MainMenu({
-  config, onChange, onEvolution, onDifficulty, onRules, onLevels, onBoss, onBalls, onTerrain, onPlayerColors, onHowToAsk, onReleaseNotes, onEffects, onApplyInstantConfig, onClose,
+  config, onSettings, onChange, onEvolution, onDifficulty, onRules, onLevels, onBoss, onBalls, onTerrain, onPlayerColors, onHowToAsk, onReleaseNotes, onEffects, onApplyInstantConfig, onClose,
 }: {
   config:           GameConfig;
+  onSettings:       () => void;
   onChange:         () => void;
   onEvolution:      () => void;
   onDifficulty:     () => void;
@@ -27,6 +28,13 @@ export function MainMenu({
         <div style={TITLE}>Menu</div>
         <div style={{ fontSize: 20, fontWeight: "bold", color: "#1e90ff" }}>Ball Game</div>
       </div>
+      <button style={MENU_BTN} onClick={onSettings}>
+        <span style={{ fontSize: 20 }}>⚙️</span>
+        <div>
+          <div style={{ fontWeight: "bold" }}>Settings</div>
+          <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Langue, hormones et réglages experts</div>
+        </div>
+      </button>
       <button style={MENU_BTN} onClick={onChange}>
         <span style={{ fontSize: 20 }}>🍯</span>
         <div>

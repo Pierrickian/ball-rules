@@ -87,12 +87,14 @@ export function HUD({ gameState, config, isRunning, levelTimerSeconds, shotsRema
         </div>
 
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 18, minWidth: 210, transform: "translateX(-30px)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 16 }}>⏳</span>
-            <span style={{ fontSize: 20, fontWeight: "bold", color: "#ffd166", minWidth: 48, textAlign: "center" }}>
-              {levelTimerSeconds === null ? "∞" : `${Math.max(0, Math.ceil(levelTimerSeconds))}s`}
-            </span>
-          </div>
+          {levelTimerSeconds !== null && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 16 }}>⏳</span>
+              <span style={{ fontSize: 20, fontWeight: "bold", color: "#ffd166", minWidth: 48, textAlign: "center" }}>
+                {`${Math.max(0, Math.ceil(levelTimerSeconds))}s`}
+              </span>
+            </div>
+          )}
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <span style={{ fontSize: 16 }}>🎯</span>
             <span style={{ fontSize: 20, fontWeight: "bold", color: "#7afcff", minWidth: 32, textAlign: "center" }}>
@@ -135,7 +137,7 @@ export function HUD({ gameState, config, isRunning, levelTimerSeconds, shotsRema
           {isRunning ? "⏸" : "▶"}
         </button>
         <button onClick={onReset} style={BTN}>↺</button>
-        {breathingWave.phase === "breathing" && <button onClick={onReload} style={{ ...BTN, borderColor: "#7afcff", color: "#eaffff" }}>Reload</button>}
+        {breathingWave.phase === "breathing" && <button onClick={onReload} style={{ ...BTN, borderColor: "#7afcff", color: "#eaffff" }}>Recharger</button>}
       </div>
 
       {/* config-driven keepalive */}

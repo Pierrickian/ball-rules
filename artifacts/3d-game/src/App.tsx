@@ -19,13 +19,14 @@ import { RetryOverlay } from "./game/RetryOverlay";
 import { AddFeaturePortal } from "./game/AddFeaturePortal";
 import { submitEvolutionRequest } from "./game/evolutionRequest";
 import type { GameConfig, GameState, ShotKind, Vec2 } from "./engine/types";
+import type { GameplayAlveole } from "./engine/runtimeModifiers";
 import { ChargeBar, IncomingBallsOverlay, PlayerQueue } from "./AppOverlays";
 
 function App() {
   const {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
-    shoot, setCustomTerrainDistribution, setActiveLevel, setLevelWeights, applyRuntimeConfig, openRetryMenu, goToBoss, playBossRush, classifyHold, toggleGrenade, grenadesLeft, setDifficulty, difficulty, setHpAdjustment, hpAdjustment, breathingWave, applyAlveole, reloadWave, requestContextualAlveoles,
+    shoot, setCustomTerrainDistribution, setActiveLevel, setLevelWeights, applyRuntimeConfig, openRetryMenu, goToBoss, playBossRush, classifyHold, toggleGrenade, placeMine, upgradeBetterShot, grenadesLeft, setDifficulty, difficulty, setHpAdjustment, hpAdjustment, breathingWave, runtimeModifiers, applyAlveole, reloadWave, requestContextualAlveoles, setRuntimeModifiersFromSettings, resetRuntimeModifiers,
   } = useGameEngine();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -46,11 +47,18 @@ function App() {
   const [grenadeEffect, setGrenadeEffect] = useState(() => localStorage.getItem("bg_effect_grenade") ?? "spark");
   const [debugExplosionTexture, setDebugExplosionTexture] = useState(() => localStorage.getItem("bg_debug_explosion_texture") === "1");
   const [autoFire, setAutoFire] = useState(false);
+  const [minePlacementMode, setMinePlacementMode] = useState(false);
+  const [betterShotChooserOpen, setBetterShotChooserOpen] = useState(false);
   const [addFeaturePortalOpen, setAddFeaturePortalOpen] = useState(false);
   const [evolutionInitialText, setEvolutionInitialText] = useState("");
   const [grenadeAwardPopups, setGrenadeAwardPopups] = useState<Array<{ id: number; amount: number }>>([]);
   const [grenadeFlashKey, setGrenadeFlashKey] = useState(0);
   const [idleMicroPauseOpen, setIdleMicroPauseOpen] = useState(false);
+  const [waveNoticeUntil, setWaveNoticeUntil] = useState(0);
+  const [funnelAwaitingReload, setFunnelAwaitingReload] = useState(false);
+  const [funnelDismissed, setFunnelDismissed] = useState(false);
+  const [selectedAlveoleIds, setSelectedAlveoleIds] = useState<string[]>([]);
+  const [uiNow, setUiNow] = useState(() => Date.now());
   const hadPlayerInputRef = useRef(false);
   useEffect(() => { localStorage.setItem("bg_effect_ball", ballEffect); }, [ballEffect]);
   useEffect(() => { localStorage.setItem("bg_effect_grenade", grenadeEffect); }, [grenadeEffect]);
@@ -85,6 +93,25 @@ function App() {
   useEffect(() => { lockOnRef.current = lockOn; }, [lockOn]);
   useEffect(() => { lockedBallIdRef.current = lockedBallId; }, [lockedBallId]);
   useEffect(() => { homingOnRef.current = homingOn; }, [homingOn]);
+
+  useEffect(() => {
+    if (breathingWave.phase !== "breathing") return;
+    const id = window.setInterval(() => setUiNow(Date.now()), 250);
+    return () => window.clearInterval(id);
+  }, [breathingWave.phase]);
+
+  useEffect(() => {
+    if (breathingWave.phase === "breathing") {
+      setWaveNoticeUntil(Date.now() + 3000);
+      setFunnelAwaitingReload(false);
+      setFunnelDismissed(false);
+      setSelectedAlveoleIds([]);
+    } else {
+      setFunnelAwaitingReload(false);
+      setFunnelDismissed(false);
+      setSelectedAlveoleIds([]);
+    }
+  }, [breathingWave.phase, breathingWave.waveNumber]);
 
   const handleMenuOpen = () => { setEvolutionInitialText(""); setAddFeaturePortalOpen(false); pause(); setMenuOpen(true); };
   const handleApplyInstantConfig = (nextConfig: GameConfig, options?: { reset?: boolean; playtestTarget?: unknown }) => {
@@ -175,6 +202,7 @@ function App() {
     hadPlayerInputRef.current = true;
     setIdleMicroPauseOpen(false);
     if (menuOpenRef.current || !isRunningRef.current) return;
+    if (minePlacementMode) return;
     pointerActiveRef.current = true;
     lastTargetRef.current = { x: gameX, y: gameY };
     const dx = gameX;
@@ -248,6 +276,12 @@ function App() {
   const handlePointerUp = (gameX: number, gameY: number) => {
     hadPlayerInputRef.current = true;
     setIdleMicroPauseOpen(false);
+    if (minePlacementMode) {
+      if (!menuOpenRef.current && isRunningRef.current && placeMine({ x: gameX, y: gameY }, "mine")) setMinePlacementMode(false);
+      cycleStartRef.current = performance.now();
+      setHoldTime(0);
+      return;
+    }
     if (!pointerActiveRef.current) return;
     pointerActiveRef.current = false;
     if (!menuOpenRef.current && isRunningRef.current) {
@@ -372,6 +406,23 @@ function App() {
     return "light";
   })();
 
+  const visibleAlveoles = breathingWave.alveoles;
+  const showWaveNotice = breathingWave.phase === "breathing" && uiNow < waveNoticeUntil && !funnelDismissed;
+  const showGameFunnel = breathingWave.phase === "breathing" && !showWaveNotice && !funnelDismissed;
+  const selectedAlveoles = selectedAlveoleIds
+    .map((id) => visibleAlveoles.find((alveole) => alveole.id === id))
+    .filter((alveole): alveole is GameplayAlveole => Boolean(alveole));
+  const handlePlayFunnel = () => {
+    for (const alveole of selectedAlveoles) applyAlveole(alveole);
+    setSelectedAlveoleIds([]);
+    setFunnelAwaitingReload(true);
+  };
+  const handleReloadFunnel = () => {
+    reloadWave();
+    setFunnelDismissed(true);
+    setFunnelAwaitingReload(false);
+  };
+
   return (
     <div
       style={{
@@ -434,6 +485,10 @@ function App() {
           0%, 100% { transform: translateY(0) scale(1); opacity: .92; }
           50% { transform: translateY(-2px) scale(1.025); opacity: 1; }
         }
+        @keyframes mine-placement-pulse {
+          0%, 100% { transform: scale(1); box-shadow: 0 0 0 rgba(255,77,122,0); }
+          50% { transform: scale(1.08); box-shadow: 0 0 22px rgba(255,77,122,.75); }
+        }
         @keyframes grenade-award-float {
           0% { opacity: 0; transform: translateY(8px) scale(0.8); }
           20% { opacity: 1; transform: translateY(0) scale(1.05); }
@@ -447,6 +502,14 @@ function App() {
       >
         💣 {grenadesLeft}
       </button>
+      <button
+        onClick={() => setMinePlacementMode((v) => !v)}
+        title={minePlacementMode ? "Cancel mine placement" : "Place mine"}
+        style={{position:"absolute", right:16, bottom:206, width:56, height:56, borderRadius:"50%", border:`2px solid ${minePlacementMode ? "#ff4d7a" : "#aab4c4"}`, background: minePlacementMode ? "radial-gradient(circle at 30% 30%, #ff4d7a, #30101c)" : "radial-gradient(circle at 30% 30%, #889, #223)", color:"#fff", zIndex:12, fontWeight:"bold", animation: minePlacementMode ? "mine-placement-pulse 0.8s ease-in-out infinite" : undefined}}
+      >
+        🧨
+      </button>
+      {minePlacementMode && <div style={{ position:"absolute", right:84, bottom:220, zIndex:12, pointerEvents:"none", color:"#ffd6e2", fontWeight:900, textShadow:"0 0 8px #000" }}>Release in field</div>}
       {grenadeAwardPopups.map((popup, index) => (
         <div
           key={popup.id}
@@ -475,14 +538,28 @@ function App() {
         >
           {autoFire ? "Auto Fire ON" : "Auto Fire"}
         </button>
+        <button
+          onClick={() => setBetterShotChooserOpen((v) => !v)}
+          style={{ border:"1px solid #c084fc", background: (gameState.betterShotLevel ?? 0) > 0 ? "#7e22ce" : "rgba(0,0,0,.55)", color:"#f3e8ff", borderRadius:8, padding:"6px 12px", fontWeight:700, minWidth: 118, whiteSpace: "nowrap" }}
+        >
+          Better Shot {(gameState.betterShotLevel ?? 0) > 0 ? `+${gameState.betterShotLevel}` : ""}
+        </button>
       </div>
+      {betterShotChooserOpen && (
+        <div style={{ position:"absolute", left:"50%", transform:"translateX(-50%)", bottom:96, zIndex:14, display:"flex", gap:8, padding:10, borderRadius:14, background:"rgba(12,6,28,.9)", border:"1px solid rgba(192,132,252,.55)", boxShadow:"0 0 24px rgba(126,34,206,.35)" }}>
+          <button onClick={() => { setLockOn(true); setBetterShotChooserOpen(false); }} style={{ border:"1px solid #1e90ff", background:"rgba(30,144,255,.22)", color:"#dbeafe", borderRadius:8, padding:"7px 10px", fontWeight:800 }}>lock</button>
+          <button onClick={() => { setLockOn(true); setHomingOn(true); setBetterShotChooserOpen(false); }} style={{ border:"1px solid #00d4aa", background:"rgba(0,212,170,.22)", color:"#ccfbf1", borderRadius:8, padding:"7px 10px", fontWeight:800 }}>homing</button>
+          <button onClick={() => { setAutoFire(true); setBetterShotChooserOpen(false); }} style={{ border:"1px solid #ff9f1c", background:"rgba(255,159,28,.22)", color:"#ffedd5", borderRadius:8, padding:"7px 10px", fontWeight:800 }}>auto fire</button>
+          <button onClick={() => { upgradeBetterShot(); setBetterShotChooserOpen(false); }} style={{ border:"1px solid #c084fc", background:"rgba(192,132,252,.22)", color:"#f3e8ff", borderRadius:8, padding:"7px 10px", fontWeight:800 }}>shifted shots</button>
+        </div>
+      )}
 
       <button
         onClick={handleMenuOpen}
-        style={{ position: "absolute", top: 12, right: 12, zIndex: 95, pointerEvents: "all", background: "rgba(10,20,50,0.92)", color: "#c0d8ff", border: "1px solid rgba(30,144,255,0.5)", borderRadius: 8, padding: "6px 14px", fontSize: 16, cursor: "pointer" }}
-        title="Menu"
+        style={{ position: "absolute", top: 12, right: 12, zIndex: 95, pointerEvents: "all", background: "rgba(10,20,50,0.92)", color: "#c0d8ff", border: "1px solid rgba(30,144,255,0.5)", borderRadius: 8, padding: "7px 12px", fontSize: 13, fontWeight: 900, cursor: "pointer" }}
+        title="Settings"
       >
-        ☰
+        Settings
       </button>
       <button
         onClick={openRetryMenu}
@@ -505,30 +582,34 @@ function App() {
         onSubmitRandomIdea={submitRandomIdeaFromAdd}
       />
 
-      <div style={{ position:"absolute", left:12, top:118, zIndex:20, pointerEvents:"none", display:"flex", flexDirection:"column", gap:8, maxWidth:320 }}>
-        <div style={{ padding:"10px 12px", borderRadius:16, background:"linear-gradient(135deg, rgba(0,14,32,.72), rgba(17,40,62,.52))", border:"1px solid rgba(122,252,255,.32)", color:"#eaffff", boxShadow:"0 0 28px rgba(0,210,255,.18)", backdropFilter:"blur(10px)", animation:"alveole-breathe 2.4s ease-in-out infinite" }}>
-          <div style={{ fontSize:10, textTransform:"uppercase", letterSpacing:2.4, color:"#7afcff" }}>Wave respirante</div>
-          <div style={{ fontSize:20, fontWeight:900, textShadow:"0 0 12px rgba(122,252,255,.55)" }}>{breathingWave.message}</div>
-          {breathingWave.phase === "breathing" && (
-            <div style={{ marginTop:6, fontSize:12, color:"#b8d8ff" }}>
-              Respiration {Math.ceil(breathingWave.countdownRemaining)}s · {breathingWave.aiAnalyzing ? "analyse IA simulée…" : "alvéoles prêtes"}
-            </div>
-          )}
-        </div>
-        {(breathingWave.phase === "breathing" || breathingWave.alveoles.length > 0 || idleMicroPauseOpen) && (
-          <div style={{ pointerEvents:"all", padding:10, borderRadius:16, background:"rgba(3,10,24,.78)", border:"1px solid rgba(255,255,255,.16)", backdropFilter:"blur(10px)", boxShadow:"0 12px 34px rgba(0,0,0,.28)" }}>
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:8 }}>
-              <span style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:"#ffd166" }}>{idleMicroPauseOpen ? "micro-pause intelligente" : "alvéoles gameplay"}</span>
-              {breathingWave.phase === "breathing" && <button onClick={reloadWave} style={{ border:"1px solid #7afcff", background:"rgba(122,252,255,.14)", color:"#eaffff", borderRadius:999, padding:"5px 10px", fontWeight:800, cursor:"pointer" }}>Reload</button>}
-            </div>
-            <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
-              {breathingWave.alveoles.map((alveole) => (
-                <button key={alveole.id} onClick={() => { hadPlayerInputRef.current = true; setIdleMicroPauseOpen(false); applyAlveole(alveole); }} title={alveole.description} style={{ border:"1px solid rgba(122,252,255,.4)", background:"radial-gradient(circle at 30% 20%, rgba(122,252,255,.22), rgba(30,70,100,.24))", color:"#f3ffff", borderRadius:999, padding:"8px 11px", fontWeight:800, cursor:"pointer", boxShadow:"0 0 16px rgba(122,252,255,.12)", animation:"alveole-breathe 2.8s ease-in-out infinite" }}>
-                  {alveole.label}
-                </button>
-              ))}
-              {breathingWave.aiAnalyzing && breathingWave.alveoles.length === 0 && <span style={{ color:"#9db8d6", fontSize:12 }}>3–4 secondes d'analyse locale…</span>}
-            </div>
+      <div style={{ position:"absolute", left:"50%", top:78, transform:"translateX(-50%)", zIndex:20, pointerEvents:"none", display:"flex", flexDirection:"column", gap:8, width:"min(88vw, 430px)" }}>
+        {showWaveNotice && (
+          <div style={{ padding:"8px 12px", borderRadius:14, background:"rgba(0,14,32,.82)", border:"1px solid rgba(122,252,255,.32)", color:"#eaffff", boxShadow:"0 0 20px rgba(0,210,255,.18)", backdropFilter:"blur(10px)", textAlign:"center" }}>
+            <div style={{ fontSize:18, fontWeight:900, textShadow:"0 0 12px rgba(122,252,255,.55)" }}>{breathingWave.message}</div>
+            <div style={{ marginTop:4, fontSize:12, color:"#b8d8ff" }}>{Math.ceil(breathingWave.countdownRemaining)}s</div>
+          </div>
+        )}
+        {showGameFunnel && (
+          <div style={{ pointerEvents:"all", padding:10, borderRadius:16, background:"rgba(3,10,24,.86)", border:"1px solid rgba(255,255,255,.16)", backdropFilter:"blur(10px)", boxShadow:"0 12px 34px rgba(0,0,0,.28)" }}>
+            <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:"#7afcff", marginBottom:8 }}>Game</div>
+            {funnelAwaitingReload || (!breathingWave.aiAnalyzing && visibleAlveoles.length === 0) ? (
+              <button onClick={handleReloadFunnel} style={{ border:"1px solid #7afcff", background:"rgba(122,252,255,.14)", color:"#eaffff", borderRadius:999, padding:"8px 14px", fontWeight:900, cursor:"pointer", width:"100%" }}>Recharger</button>
+            ) : (
+              <>
+                <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+                  {visibleAlveoles.map((alveole) => {
+                    const selected = selectedAlveoleIds.includes(alveole.id);
+                    return (
+                      <button key={alveole.id} onClick={() => setSelectedAlveoleIds((prev) => selected ? prev.filter((id) => id !== alveole.id) : [...prev, alveole.id])} title={alveole.description} style={{ border:`1px solid ${selected ? "#ffd166" : "rgba(122,252,255,.4)"}`, background:selected ? "rgba(255,209,102,.22)" : "radial-gradient(circle at 30% 20%, rgba(122,252,255,.22), rgba(30,70,100,.24))", color:"#f3ffff", borderRadius:999, padding:"8px 11px", fontWeight:800, cursor:"pointer", boxShadow:"0 0 16px rgba(122,252,255,.12)" }}>
+                        {alveole.label}
+                      </button>
+                    );
+                  })}
+                  {breathingWave.aiAnalyzing && visibleAlveoles.length === 0 && <span style={{ color:"#9db8d6", fontSize:12 }}>Analyse locale…</span>}
+                </div>
+                {visibleAlveoles.length > 0 && <button onClick={handlePlayFunnel} style={{ marginTop:10, border:"1px solid #66ffbb", background:"rgba(102,255,187,.16)", color:"#d7ffec", borderRadius:999, padding:"8px 14px", fontWeight:900, cursor:"pointer", width:"100%" }}>Play</button>}
+              </>
+            )}
           </div>
         )}
       </div>
@@ -536,13 +617,13 @@ function App() {
         gameState={gameState}
         config={config}
         isRunning={isRunning}
-        levelTimerSeconds={isBossPhase ? null : levelTimerSeconds}
+        levelTimerSeconds={isBossPhase || breathingWave.phase !== "breathing" ? null : breathingWave.countdownRemaining}
         shotsRemaining={isBossPhase ? null : shotsRemaining}
         onPause={pause}
         onResume={resume}
         onReset={reset}
         breathingWave={breathingWave}
-        onReload={reloadWave}
+        onReload={handleReloadFunnel}
       />
 
       {gameState.bossMasteredActive && (
@@ -587,6 +668,9 @@ function App() {
           onGrenadeEffectChange={setGrenadeEffect}
           debugExplosionTexture={debugExplosionTexture}
           onDebugExplosionTextureChange={setDebugExplosionTexture}
+          runtimeModifiers={runtimeModifiers}
+          onRuntimeModifiersChange={setRuntimeModifiersFromSettings}
+          onRuntimeModifiersReset={resetRuntimeModifiers}
         />
       )}
     </div>
