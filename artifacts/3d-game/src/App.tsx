@@ -51,6 +51,9 @@ function App() {
   const [addFeaturePortalOpen, setAddFeaturePortalOpen] = useState(false);
   const [evolutionInitialText, setEvolutionInitialText] = useState("");
   const [grenadeAwardPopups, setGrenadeAwardPopups] = useState<Array<{ id: number; amount: number }>>([]);
+  const [starPopups, setStarPopups] = useState<Array<{ id: number; label: string; kind: "earned" | "lost" }>>([]);
+  const [ammoWarningPopups, setAmmoWarningPopups] = useState<Array<{ id: number }>>([]);
+  const [reloadFlashKey, setReloadFlashKey] = useState(0);
   const [grenadeFlashKey, setGrenadeFlashKey] = useState(0);
   const [idleMicroPauseOpen, setIdleMicroPauseOpen] = useState(false);
   const [waveNoticeUntil, setWaveNoticeUntil] = useState(0);
@@ -62,14 +65,39 @@ function App() {
   const [waveResult, setWaveResult] = useState<null | { outcome: "victory" | "defeat"; durationSeconds: number; reloadCount: number; maxCombo: number; previousRecord: number; combos: Record<string, number> }>(null);
   const waveStartedAtRef = useRef(performance.now());
   const waveReloadCountRef = useRef(0);
+  const preWaveReloadCountRef = useRef(0);
   const waveMaxComboRef = useRef(0);
-  const previousComboRecordRef = useRef(0);
+  const previousWaveMaxComboRef = useRef(0);
   const waveCombosRef = useRef<Record<string, number>>({});
   const ammoEndNoticeShownRef = useRef(false);
+  const comboStarShownRef = useRef(false);
+  const timeStarShownRef = useRef(false);
+  const reloadStarLostShownRef = useRef(false);
+  const lastAmmoWarningAtRef = useRef(0);
   const hadPlayerInputRef = useRef(false);
   useEffect(() => { localStorage.setItem("bg_effect_ball", ballEffect); }, [ballEffect]);
   useEffect(() => { localStorage.setItem("bg_effect_grenade", grenadeEffect); }, [grenadeEffect]);
   useEffect(() => { localStorage.setItem("bg_debug_explosion_texture", debugExplosionTexture ? "1" : "0"); }, [debugExplosionTexture]);
+  const showStarPopup = (label: string, kind: "earned" | "lost" = "earned") => {
+    const id = Date.now() + Math.random();
+    setStarPopups((prev) => [...prev, { id, label, kind }]);
+    window.setTimeout(() => {
+      setStarPopups((prev) => prev.filter((popup) => popup.id !== id));
+    }, 1300);
+  };
+
+  const showAmmoWarning = () => {
+    const now = Date.now();
+    if (now - lastAmmoWarningAtRef.current < 700) return;
+    lastAmmoWarningAtRef.current = now;
+    const id = now + Math.random();
+    setAmmoWarningPopups((prev) => [...prev, { id }]);
+    setReloadFlashKey((prev) => prev + 1);
+    window.setTimeout(() => {
+      setAmmoWarningPopups((prev) => prev.filter((popup) => popup.id !== id));
+    }, 1200);
+  };
+
   useEffect(() => {
     for (const event of lastEvents) {
       if (event.type === "grenade_awarded") {
@@ -85,6 +113,10 @@ function App() {
       if (event.type === "combo_popup") {
         waveMaxComboRef.current = Math.max(waveMaxComboRef.current, event.streak);
         waveCombosRef.current[event.label] = (waveCombosRef.current[event.label] ?? 0) + 1;
+        if (!comboStarShownRef.current && event.streak > previousWaveMaxComboRef.current) {
+          comboStarShownRef.current = true;
+          showStarPopup("Combo Star", "earned");
+        }
       }
     }
   }, [lastEvents]);
@@ -118,13 +150,15 @@ function App() {
         durationSeconds: Math.max(0, (performance.now() - waveStartedAtRef.current) / 1000),
         reloadCount: waveReloadCountRef.current,
         maxCombo: waveMaxComboRef.current,
-        previousRecord: previousComboRecordRef.current,
+        previousRecord: previousWaveMaxComboRef.current,
         combos: { ...waveCombosRef.current },
       };
       setWaveResult(result);
-      if (result.maxCombo > previousComboRecordRef.current) {
-        previousComboRecordRef.current = result.maxCombo;
+      if (result.outcome === "victory" && !timeStarShownRef.current) {
+        timeStarShownRef.current = true;
+        showStarPopup("Time Star", "earned");
       }
+      previousWaveMaxComboRef.current = result.maxCombo;
       setWaveNoticeUntil(Date.now() + 3000);
       setWaveUiStage("notice");
       setSelectedAlveoleIds([]);
@@ -180,6 +214,10 @@ function App() {
   };
 
   const tryShootBall = (targetX: number, targetY: number, holdSeconds: number): boolean => {
+    if (!isBossPhase && shotsRemaining <= 0) {
+      showAmmoWarning();
+      return false;
+    }
     return shoot(targetX, targetY, holdSeconds) !== null;
   };
 
@@ -438,6 +476,14 @@ function App() {
     );
   }
 
+  const CartridgeIcon = ({ dimmed = false }: { dimmed?: boolean }) => (
+    <span aria-hidden="true" style={{ display:"inline-flex", gap:2, alignItems:"center", justifyContent:"center" }}>
+      {[0, 1, 2].map((idx) => (
+        <span key={idx} style={{ width:6, height:18, borderRadius:"2px 2px 4px 4px", background: dimmed ? "#6b7280" : "linear-gradient(180deg, #ffe8a3 0%, #ffd166 58%, #b7791f 59%, #8a4f16 100%)", border:"1px solid rgba(255,255,255,.38)", boxShadow: dimmed ? "none" : "0 0 7px rgba(255,209,102,.45)", display:"inline-block" }} />
+      ))}
+    </span>
+  );
+
   const currentShotKind: ShotKind = (() => {
     const types = config.gameplay_controls.shot_types;
     if (holdTime > types.mega.min_hold_seconds) return "mega";
@@ -448,6 +494,7 @@ function App() {
   const visibleAlveoles = breathingWave.alveoles;
   const rawTimerSeconds = gameState.timerSecondsRemaining ?? Infinity;
   const finalCountdownSeconds = Number.isFinite(rawTimerSeconds) ? rawTimerSeconds : null;
+  const reloadNeedsAttention = !isBossPhase && shotsRemaining <= 0;
   const showWaveNotice = breathingWave.phase === "breathing" && waveUiStage === "notice" && uiNow < waveNoticeUntil;
   const showResultsFrame = breathingWave.phase === "breathing" && waveUiStage === "results" && waveResult !== null;
   const showGameFunnel = breathingWave.phase === "breathing" && waveUiStage === "evolution";
@@ -456,14 +503,23 @@ function App() {
     .filter((alveole): alveole is GameplayAlveole => Boolean(alveole));
   const handleGameplayReload = () => {
     reloadWave();
-    waveReloadCountRef.current += 1;
+    const targetReloadRef = breathingWave.phase === "breathing" ? preWaveReloadCountRef : waveReloadCountRef;
+    targetReloadRef.current += 1;
+    if (targetReloadRef.current > 1 && !reloadStarLostShownRef.current) {
+      reloadStarLostShownRef.current = true;
+      showStarPopup("Reload Star Lost", "lost");
+    }
   };
   const resetWaveTracking = () => {
     waveStartedAtRef.current = performance.now();
-    waveReloadCountRef.current = 0;
+    waveReloadCountRef.current = preWaveReloadCountRef.current;
+    preWaveReloadCountRef.current = 0;
     waveMaxComboRef.current = 0;
     waveCombosRef.current = {};
     ammoEndNoticeShownRef.current = false;
+    comboStarShownRef.current = false;
+    timeStarShownRef.current = false;
+    reloadStarLostShownRef.current = waveReloadCountRef.current > 1;
     setAmmoEndNoticeVisible(false);
   };
   const handlePlayFunnel = () => {
@@ -472,8 +528,6 @@ function App() {
     if (betterShotSelected) upgradeBetterShot();
     setBetterShotSelected(false);
     resetWaveTracking();
-    reloadWave();
-    waveReloadCountRef.current += 1;
     launchNextWave();
     setWaveUiStage("none");
   };
@@ -567,13 +621,30 @@ function App() {
           20% { opacity: 1; transform: translateY(0) scale(1.05); }
           100% { opacity: 0; transform: translateY(-34px) scale(1); }
         }
+        @keyframes star-popup-earned {
+          0% { opacity: 0; transform: translate(-50%, 16px) scale(.72) rotate(-8deg); }
+          18% { opacity: 1; transform: translate(-50%, -8px) scale(1.18) rotate(4deg); }
+          45% { transform: translate(-50%, 0) scale(1) rotate(-2deg); }
+          100% { opacity: 0; transform: translate(-50%, -48px) scale(1.04) rotate(2deg); }
+        }
+        @keyframes star-popup-lost {
+          0% { opacity: 0; transform: translate(-50%, -22px) scale(1.08) rotate(7deg); }
+          18% { opacity: 1; transform: translate(-50%, 0) scale(1) rotate(-4deg); }
+          100% { opacity: 0; transform: translate(-50%, 46px) scale(.82) rotate(12deg); }
+        }
+        @keyframes reload-needs-ammo-flash {
+          0%, 100% { transform: scale(1); box-shadow: 0 0 0 rgba(122,252,255,0); }
+          50% { transform: scale(1.13); box-shadow: 0 0 24px rgba(122,252,255,.95), 0 0 36px rgba(255,209,102,.48); }
+        }
       `}</style>
       <button
+        key={`reload-${reloadFlashKey}`}
         onClick={handleGameplayReload}
-        style={{position:"absolute", left:16, bottom:140, width:56, height:56, borderRadius:"50%", border:"2px solid #7afcff", background:"radial-gradient(circle at 30% 30%, #366, #123)", color:"#eaffff", zIndex:12, fontWeight:"bold"}}
+        style={{position:"absolute", left:16, bottom:140, width:56, height:56, borderRadius:"50%", border:"2px solid #7afcff", background:"radial-gradient(circle at 30% 30%, #366, #123)", color:"#eaffff", zIndex:12, fontWeight:"bold", display:"grid", placeItems:"center", animation: reloadNeedsAttention ? "reload-needs-ammo-flash 0.7s ease-in-out infinite" : reloadFlashKey > 0 ? "reload-needs-ammo-flash 0.42s ease-in-out 5" : undefined}}
         title="Recharger"
+        aria-label="Recharger"
       >
-        ↻
+        <CartridgeIcon />
       </button>
       <button
         key={`grenade-${grenadeFlashKey}`}
@@ -596,6 +667,23 @@ function App() {
           style={{ position:"absolute", right:28, bottom:200 + index * 18, zIndex:13, pointerEvents:"none", color:"#ffed9a", fontWeight:900, fontSize:22, textShadow:"0 0 10px #000, 0 0 12px #ff9f1c", animation:"grenade-award-float 0.9s ease-out forwards" }}
         >
           +{popup.amount}
+        </div>
+      ))}
+      {starPopups.map((popup, index) => (
+        <div
+          key={popup.id}
+          style={{ position:"absolute", left:"50%", top:210 + index * 58, zIndex:14, pointerEvents:"none", display:"flex", alignItems:"center", gap:10, padding:"9px 14px", borderRadius:999, border:`1px solid ${popup.kind === "lost" ? "rgba(156,163,175,.72)" : "rgba(255,209,102,.82)"}`, background: popup.kind === "lost" ? "rgba(15,23,42,.84)" : "rgba(60,40,5,.82)", color: popup.kind === "lost" ? "#d1d5db" : "#fff4b8", fontWeight:950, fontSize:18, letterSpacing:.5, textShadow:"0 0 10px #000", boxShadow: popup.kind === "lost" ? "0 0 18px rgba(100,116,139,.28)" : "0 0 24px rgba(255,209,102,.42)", animation:`${popup.kind === "lost" ? "star-popup-lost" : "star-popup-earned"} 1.3s ease-out forwards` }}
+        >
+          <span style={{ fontSize:26, color: popup.kind === "lost" ? "#9ca3af" : "#ffd166", filter: popup.kind === "lost" ? "grayscale(1)" : "drop-shadow(0 0 9px rgba(255,209,102,.88))" }}>★</span>
+          <span>{popup.label}</span>
+        </div>
+      ))}
+      {ammoWarningPopups.map((popup, index) => (
+        <div
+          key={popup.id}
+          style={{ position:"absolute", left:20, bottom:204 + index * 34, zIndex:14, pointerEvents:"none", padding:"8px 12px", borderRadius:999, border:"1px solid rgba(122,252,255,.55)", background:"rgba(3,10,24,.86)", color:"#eaffff", fontWeight:950, textShadow:"0 0 8px #000", animation:"grenade-award-float 1.2s ease-out forwards" }}
+        >
+          Plus de munitions
         </div>
       ))}
       <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", bottom: 52, display: "flex", gap: 8, zIndex: 12 }}>
@@ -662,8 +750,7 @@ function App() {
         )}
         {showResultsFrame && waveResult && (
           <div style={{ pointerEvents:"all", padding:12, borderRadius:16, background:"rgba(3,10,24,.9)", border:"1px solid rgba(255,255,255,.16)", backdropFilter:"blur(10px)", boxShadow:"0 12px 34px rgba(0,0,0,.28)", color:"#eaffff" }}>
-            <div style={{ fontSize:24, fontWeight:900, color:"#ffd166", textAlign:"center" }}>Combo score {waveResult.maxCombo * 100}</div>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginTop:10, fontSize:12 }}>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginTop:2, fontSize:12 }}>
               <span>Record précédent x{waveResult.previousRecord}</span><span>Max vague x{waveResult.maxCombo}</span>
               <span>Rechargements {waveResult.reloadCount}</span><span>Temps {waveResult.durationSeconds.toFixed(1)}s</span>
             </div>

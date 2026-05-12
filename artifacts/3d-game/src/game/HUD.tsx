@@ -43,11 +43,12 @@ export function HUD({ gameState, config, isRunning, levelTimerSeconds, shotsRema
   const ammo = gameState.ammoRemaining ?? 50;
   const bossPhase = gameState.isBossPhase === true;
 
-  const Counter = ({ icon, label, value, color }: { icon: string; label: string; value: string; color: string }) => (
-    <div style={{ minWidth: 64 }}>
-      <div style={{ fontSize: 9, color: "#667899", textTransform: "uppercase", letterSpacing: 2 }}>{label}</div>
-      <div style={{ fontSize: 18, fontWeight: "bold", color, lineHeight: 1, textShadow: `0 0 8px ${color}77` }}>{icon} {value}</div>
-    </div>
+  const CartridgeIcon = () => (
+    <span aria-hidden="true" style={{ display: "inline-flex", gap: 2, alignItems: "center" }}>
+      {[0, 1, 2].map((idx) => (
+        <span key={idx} style={{ width: 5, height: 15, borderRadius: "2px 2px 4px 4px", background: "linear-gradient(180deg, #ffe8a3 0%, #ffd166 58%, #b7791f 59%, #8a4f16 100%)", border: "1px solid rgba(255,255,255,.35)", boxShadow: "0 0 6px rgba(255,209,102,.42)", display: "inline-block" }} />
+      ))}
+    </span>
   );
 
   return (
@@ -95,7 +96,7 @@ export function HUD({ gameState, config, isRunning, levelTimerSeconds, shotsRema
             </div>
           )}
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 16 }}>🎯</span>
+            <CartridgeIcon />
             <span style={{ fontSize: 20, fontWeight: "bold", color: "#7afcff", minWidth: 32, textAlign: "center" }}>
               {shotsRemaining === null ? "∞" : shotsRemaining}
             </span>

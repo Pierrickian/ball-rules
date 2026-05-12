@@ -307,7 +307,8 @@ export function useGameEngine(): UseGameEngineResult {
               setBreathingWave((prev) => ({ ...prev, countdownRemaining: breathingCountdownRef.current }));
             } else {
               const activeEnemies = engineRef.current.getEnemyBallCount();
-              const regularWaveCleared = activeEnemies === 0 && engineRef.current.getLaunchedCount() > 0;
+              const waveHadActivity = engineRef.current.getLaunchedCount() > 0 || waveEndSpawnPausedRef.current || finalCountdownActiveRef.current;
+              const regularWaveCleared = activeEnemies === 0 && waveHadActivity;
               if (regularWaveCleared && engineRef.current.hasCurrentLevelBoss() && !visibleState.sessionCleared) {
                 engineRef.current.completeRegularWaveForBoss();
                 finalCountdownActiveRef.current = false;

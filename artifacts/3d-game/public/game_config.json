@@ -790,6 +790,7 @@
     ]
   },
   "release_notes": [
+    "Étoiles live et recharge manuelle",
     "Boss attendu avant évolution",
     "Oranges stoppées en fin de vague",
     "Décompte final et étoiles animées",
@@ -808,8 +809,7 @@
     "Random profond ajoute éléments MTC et hormones avant validation directe",
     "Add Random propose des types de features validables directement",
     "Portail créatif Add Feature",
-    "Bouton ajout vers Evolution guidée",
-    "Retry boss et grenades mieux guidés"
+    "Bouton ajout vers Evolution guidée"
   ],
   "debug": {
     "show_velocities": false,
