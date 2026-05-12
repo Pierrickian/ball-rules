@@ -1,14 +1,16 @@
 import type { GameConfig } from "../../engine/types";
 import { CLOSE_BTN, PANEL, TITLE } from "./menuStyles";
+import { useI18n } from "../i18n";
 
 export function RulesMenu({ config, onBack }: { config: GameConfig; onBack: () => void }) {
+  const { t } = useI18n();
   const concept = config.game_rules_concept;
   return (
     <div style={PANEL}>
       <div>
-        <div style={TITLE}>Concept</div>
+        <div style={TITLE}>{t("rules.concept")}</div>
         <div style={{ fontSize: 18, fontWeight: "bold", color: "#1e90ff", marginBottom: 10 }}>
-          {concept?.title ?? "Règles du jeu"}
+          {concept?.title ?? t("menu.rules")}
         </div>
         <p style={{ fontSize: 13, color: "#99b0d4", lineHeight: 1.6, marginBottom: 14 }}>
           {concept?.concept}
@@ -22,7 +24,7 @@ export function RulesMenu({ config, onBack }: { config: GameConfig; onBack: () =
           ))}
         </div>
       </div>
-      <button style={CLOSE_BTN} onClick={onBack}>← Retour</button>
+      <button style={CLOSE_BTN} onClick={onBack}>{t("menu.back")}</button>
     </div>
   );
 }

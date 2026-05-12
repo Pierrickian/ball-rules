@@ -82,7 +82,7 @@ export function HUD({ gameState, config, isRunning, levelTimerSeconds, shotsRema
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14 }}>
         <div style={{ minWidth: 72 }}>
-          <div style={{ fontSize: 9, color: "#445", textTransform: "uppercase", letterSpacing: 3 }}>Restantes</div>
+          <div style={{ fontSize: 9, color: "#445", textTransform: "uppercase", letterSpacing: 3 }}>{t("hud.remaining")}</div>
           <div style={{ fontSize: 20, fontWeight: "bold", color: "#1e90ff", lineHeight: 1 }}>{activeBalls}</div>
         </div>
 

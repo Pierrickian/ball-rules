@@ -17,9 +17,13 @@ export interface InstantConfigPatchResult {
 export const SUPPORTED_INSTANT_CONFIG_CAPABILITIES = new Set([
   "level.timer_seconds",
   "level.ammo_count",
+  "level.max_balls_spawned",
+  "level.spawn_interval_seconds",
   "level.launch_color_weights",
   "timer_seconds",
   "ammo_count",
+  "max_balls_spawned",
+  "spawn_interval_seconds",
   "launch_color_weights",
   "spawnWeight",
   "ball.spawnWeight",
@@ -212,6 +216,12 @@ function numberValue(value: unknown, label: string, min: number): number {
   return Math.round(next);
 }
 
+function decimalValue(value: unknown, label: string, min: number): number {
+  const next = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(next) || next < min) throw new Error(`${label} must be a number greater than or equal to ${min}.`);
+  return next;
+}
+
 function weightsValue(value: unknown, config: GameConfig): Partial<Record<BallColor, number>> {
   const parsed = typeof value === "string" ? JSON.parse(value) : value;
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
@@ -274,6 +284,26 @@ export function buildInstantConfigPatch(config: GameConfig, intent: FeatureInten
     return {
       nextConfig: patchLevel(config, levelId, { ammo_count: ammoCount }),
       summary: `Applied for this session: level ${levelId} ammo is now ${ammoCount}.`,
+      requiresReset: true,
+      playtestTarget: { kind: "level", levelId },
+    };
+  }
+
+  if (key === "level.max_balls_spawned" || key === "max_balls_spawned") {
+    const maxBallsSpawned = numberValue(value, "Enemy spawn count", 1);
+    return {
+      nextConfig: patchLevel(config, levelId, { max_balls_spawned: maxBallsSpawned }),
+      summary: `Applied for this session: level ${levelId} enemy spawn count is now ${maxBallsSpawned}.`,
+      requiresReset: true,
+      playtestTarget: { kind: "level", levelId },
+    };
+  }
+
+  if (key === "level.spawn_interval_seconds" || key === "spawn_interval_seconds") {
+    const spawnIntervalSeconds = decimalValue(value, "Spawn cadence", 0.05);
+    return {
+      nextConfig: patchLevel(config, levelId, { spawn_interval_seconds: spawnIntervalSeconds }),
+      summary: `Applied for this session: level ${levelId} spawn cadence is now every ${spawnIntervalSeconds}s.`,
       requiresReset: true,
       playtestTarget: { kind: "level", levelId },
     };

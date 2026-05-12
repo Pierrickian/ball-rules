@@ -201,6 +201,10 @@ export interface LevelEntry {
   dark_green_heal_bonus_percent?: number;
   timer_seconds?: number;
   ammo_count?: number;
+  /** Optional runtime/story override for how many enemies the orange launcher can spawn on this level. */
+  max_balls_spawned?: number;
+  /** Optional runtime/story override for the orange launcher spawn interval on this level. Lower values mean a faster cadence. */
+  spawn_interval_seconds?: number;
 }
 
 export interface LevelsConfig {

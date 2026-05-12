@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import type { GameConfig } from "../../engine/types";
 import { CLOSE_BTN, PANEL, TITLE } from "./menuStyles";
+import { useI18n } from "../i18n";
 import { SnapSlider } from "./SnapSlider";
 
 export interface TerrainMenuProps {
@@ -10,6 +11,7 @@ export interface TerrainMenuProps {
 }
 
 export function TerrainMenu({ config, onArenaChange, onBack }: TerrainMenuProps) {
+  const { t } = useI18n();
   const aspectRule = config.level_rules.aspect_ratio;
   const resRule    = config.level_rules.arena_resolution;
 
@@ -53,13 +55,13 @@ export function TerrainMenu({ config, onArenaChange, onBack }: TerrainMenuProps)
   return (
     <div style={PANEL}>
       <div>
-        <div style={TITLE}>Terrain</div>
-        <div style={{ fontSize: 18, fontWeight: "bold", color: "#1e90ff" }}>Ratio &amp; Résolution</div>
+        <div style={TITLE}>{t("menu.terrain")}</div>
+        <div style={{ fontSize: 18, fontWeight: "bold", color: "#1e90ff" }}>{t("terrain.heading")}</div>
       </div>
 
       <div style={{ background: "rgba(6,16,48,0.8)", border: "1px solid rgba(30,144,255,0.2)", borderRadius: 12, padding: "14px 14px 16px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
-          <div style={{ ...TITLE, marginBottom: 0 }}>Ratio d'aspect</div>
+          <div style={{ ...TITLE, marginBottom: 0 }}>{t("terrain.aspect")}</div>
           <div style={{ fontSize: 11, color: "#556" }}>{ratio._market}</div>
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -89,12 +91,12 @@ export function TerrainMenu({ config, onArenaChange, onBack }: TerrainMenuProps)
 
       <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 16, background: "rgba(6,16,48,0.6)", borderRadius: 10, padding: "12px 18px", border: "1px solid rgba(30,144,255,0.12)" }}>
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 9, color: "#334", letterSpacing: 2, textTransform: "uppercase" }}>Largeur</div>
+          <div style={{ fontSize: 9, color: "#334", letterSpacing: 2, textTransform: "uppercase" }}>{t("terrain.width")}</div>
           <div style={{ fontSize: 26, fontWeight: "bold", color: "#1e90ff", lineHeight: 1.1 }}>{Math.round(width)}</div>
         </div>
         <div style={{ color: "#223", fontSize: 22 }}>×</div>
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 9, color: "#334", letterSpacing: 2, textTransform: "uppercase" }}>Hauteur</div>
+          <div style={{ fontSize: 9, color: "#334", letterSpacing: 2, textTransform: "uppercase" }}>{t("terrain.height")}</div>
           <div style={{ fontSize: 26, fontWeight: "bold", color: "#1e90ff", lineHeight: 1.1 }}>{Math.round(height)}</div>
         </div>
       </div>
@@ -131,7 +133,7 @@ export function TerrainMenu({ config, onArenaChange, onBack }: TerrainMenuProps)
         ↺ Réinitialiser au défaut
       </button>
 
-      <button style={CLOSE_BTN} onClick={onBack}>← Retour</button>
+      <button style={CLOSE_BTN} onClick={onBack}>{t("menu.back")}</button>
     </div>
   );
 }

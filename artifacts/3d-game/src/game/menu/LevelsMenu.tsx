@@ -3,6 +3,7 @@ import type { BallColor, GameConfig } from "../../engine/types";
 import { CLOSE_BTN, PANEL, TITLE } from "./menuStyles";
 import { launcherColors } from "./colorHelpers";
 import { normalizeWeights, WeightsEditor } from "./weightsHelpers";
+import { useI18n } from "../i18n";
 
 export function LevelsMenu({
   config,
@@ -21,6 +22,7 @@ export function LevelsMenu({
   onClose: () => void;
   onBack: () => void;
 }) {
+  const { t } = useI18n();
   const levels = config.levels?.list ?? [];
   const colors = launcherColors(config);
   const [index, setIndex] = useState(() =>
@@ -61,11 +63,11 @@ export function LevelsMenu({
   return (
     <div style={{ ...PANEL, width: "min(94vw, 440px)", maxHeight: "94vh", padding: "22px 18px", overflow: "hidden" }}>
       <div style={{ flexShrink: 0 }}>
-        <div style={TITLE}>Niveau</div>
+        <div style={TITLE}>{t("menu.level")}</div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
           <div style={{ fontSize: 16, fontWeight: "bold", color: "#1e90ff" }}>{index + 1} / {pageCount}</div>
-          {isCurrent && <div style={{ fontSize: 10, letterSpacing: 1.5, fontWeight: "bold", color: "#0a1628", background: "#1e90ff", padding: "3px 8px", borderRadius: 8 }}>★ NIVEAU ACTIF</div>}
-          {isCustom && <div style={{ fontSize: 10, letterSpacing: 1.5, fontWeight: "bold", color: "#062016", background: "#66ffbb", padding: "3px 8px", borderRadius: 8 }}>CUSTOM</div>}
+          {isCurrent && <div style={{ fontSize: 10, letterSpacing: 1.5, fontWeight: "bold", color: "#0a1628", background: "#1e90ff", padding: "3px 8px", borderRadius: 8 }}>{t("levels.active")}</div>}
+          {isCustom && <div style={{ fontSize: 10, letterSpacing: 1.5, fontWeight: "bold", color: "#062016", background: "#66ffbb", padding: "3px 8px", borderRadius: 8 }}>{t("common.custom")}</div>}
         </div>
       </div>
 
@@ -74,30 +76,30 @@ export function LevelsMenu({
           {isCustom ? (
             <>
               <div>
-                <div style={{ fontSize: 10, color: "#445", letterSpacing: 1.5 }}>NIVEAU CUSTOM</div>
-                <div style={{ fontSize: 18, fontWeight: "bold", color: "#ddeeff", marginTop: 4 }}>Partie custom</div>
+                <div style={{ fontSize: 10, color: "#445", letterSpacing: 1.5 }}>{t("levels.customLabel")}</div>
+                <div style={{ fontSize: 18, fontWeight: "bold", color: "#ddeeff", marginTop: 4 }}>{t("levels.customGame")}</div>
               </div>
               <div style={{ fontSize: 13, color: "#aac2dc", lineHeight: 1.6 }}>
-                Compose une répartition de balles de terrain avec le même contrôleur que « Couleur terrain », puis lance directement la partie depuis le carrousel.
+                {t("levels.customHelp")}
               </div>
               <div>
-                <div style={TITLE}>Répartition terrain</div>
+                <div style={TITLE}>{t("levels.fieldDistribution")}</div>
                 <WeightsEditor config={config} colors={colors} weights={customWeights} onChange={setCustomWeights} />
               </div>
             </>
           ) : lvl ? (
             <>
               <div>
-                <div style={{ fontSize: 10, color: "#445", letterSpacing: 1.5 }}>NIVEAU {lvl.id}</div>
+                <div style={{ fontSize: 10, color: "#445", letterSpacing: 1.5 }}>{t("levels.levelId", { id: lvl.id })}</div>
                 <div style={{ fontSize: 18, fontWeight: "bold", color: "#ddeeff", marginTop: 4 }}>{lvl.name}</div>
               </div>
               <div style={{ fontSize: 13, color: "#aac2dc", lineHeight: 1.6 }}>{lvl.description}</div>
               <div>
-                <div style={TITLE}>Pondération des balles lancées</div>
+                <div style={TITLE}>{t("levels.launchWeights")}</div>
                 {renderLevelWeights()}
               </div>
               <div style={{ fontSize: 11, color: "#556677", lineHeight: 1.5, marginTop: "auto" }}>
-                Tu progresses au niveau suivant en nettoyant le terrain. Quand le dernier niveau est nettoyé, le jeu repart au niveau 1.
+                {t("levels.progressHelp")}
               </div>
             </>
           ) : null}
@@ -111,22 +113,22 @@ export function LevelsMenu({
       </div>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexShrink: 0 }}>
-        <button onClick={prev} style={{ ...CLOSE_BTN, flex: 1, textAlign: "center", color: "#aac8f0", borderColor: "rgba(30,144,255,0.4)" }}>← Précédent</button>
+        <button onClick={prev} style={{ ...CLOSE_BTN, flex: 1, textAlign: "center", color: "#aac8f0", borderColor: "rgba(30,144,255,0.4)" }}>{t("common.previous")}</button>
         <button
           onClick={() => {
             if (isCustom) onTerrainDistributionPlay(normalizeWeights(customWeights));
             else onLevelSelect(levelIndex);
             onClose();
           }}
-          title={isCustom ? "Lancer une partie custom" : isCurrent && lvl ? `Relancer le niveau ${lvl.id} (${lvl.name})` : lvl ? `Jouer le niveau ${lvl.id} (${lvl.name})` : "Jouer"}
+          title={isCustom ? t("levels.playCustomTitle") : isCurrent && lvl ? t("levels.replayTitle", { id: lvl.id, name: lvl.name }) : lvl ? t("levels.playTitle", { id: lvl.id, name: lvl.name }) : t("levels.playFallback")}
           style={{ ...CLOSE_BTN, flex: 1, textAlign: "center", color: "#0a1628", background: isCustom ? "#66ffbb" : "#1e90ff", borderColor: isCustom ? "#66ffbb" : "#1e90ff", fontWeight: "bold", boxShadow: "0 0 12px rgba(30,144,255,0.55)" }}
         >
-          {isCustom ? "▶ Custom" : isCurrent ? "▶ Rejouer" : "▶ Jouer"}
+          {isCustom ? t("levels.customPlay") : isCurrent ? t("levels.replay") : t("common.play")}
         </button>
-        <button onClick={next} style={{ ...CLOSE_BTN, flex: 1, textAlign: "center", color: "#aac8f0", borderColor: "rgba(30,144,255,0.4)" }}>Suivant →</button>
+        <button onClick={next} style={{ ...CLOSE_BTN, flex: 1, textAlign: "center", color: "#aac8f0", borderColor: "rgba(30,144,255,0.4)" }}>{t("common.next")}</button>
       </div>
 
-      <button style={{ ...CLOSE_BTN, flexShrink: 0 }} onClick={onBack}>← Retour</button>
+      <button style={{ ...CLOSE_BTN, flexShrink: 0 }} onClick={onBack}>{t("menu.back")}</button>
     </div>
   );
 }

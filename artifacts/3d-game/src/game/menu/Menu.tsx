@@ -17,9 +17,10 @@ import { RuntimeSettingsMenu } from "./RuntimeSettingsMenu";
 import { ChangeMenu } from "../change/ChangeMenu";
 
 function DownloadApkButton() {
+  const { t } = useI18n();
   return (
     <a href={APK_DOWNLOAD_URL} target="_blank" rel="noreferrer" style={DOWNLOAD_APK_BTN}>
-      ⬇️ Download APK
+      {t("menu.downloadApk")}
     </a>
   );
 }

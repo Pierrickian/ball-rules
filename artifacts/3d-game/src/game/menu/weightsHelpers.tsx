@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { BallColor, GameConfig } from "../../engine/types";
 import { CLOSE_BTN } from "./menuStyles";
+import { useI18n } from "../i18n";
 
 
 export function normalizeWeights(weights: Record<BallColor, number>): Record<BallColor, number> {
@@ -54,6 +55,7 @@ export function WeightsEditor({
   onChange: (weights: Record<BallColor, number>) => void;
   compact?: boolean;
 }) {
+  const { t } = useI18n();
   const normalized = normalizeWeights(weights);
   const entries = (Object.keys(normalized) as BallColor[]).filter((color) => colors.includes(color));
   const selectable = colors.filter((color) => !entries.includes(color));
@@ -70,7 +72,7 @@ export function WeightsEditor({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: compact ? 8 : 10 }}>
       {entries.length === 0 ? (
-        <div style={{ fontSize: 12, color: "#778", fontStyle: "italic" }}>Aucune balle sélectionnée.</div>
+        <div style={{ fontSize: 12, color: "#778", fontStyle: "italic" }}>{t("common.noneSelected")}</div>
       ) : entries.map((color) => {
         const entry = config.ball_colors[color];
         const pct = Math.round((normalized[color] ?? 0) * 100);
@@ -97,7 +99,7 @@ export function WeightsEditor({
           >
             {selectable.map((color) => <option key={color} value={color}>● {config.ball_colors[color]?._label ?? color}</option>)}
           </select>
-          <button onClick={addColor} aria-label="Ajouter une balle" title="Ajouter une balle" style={{ ...CLOSE_BTN, marginTop: 0, alignSelf: "stretch", minWidth: 44, padding: "8px 12px", fontSize: 18, color: "#0a1628", background: "#66ffbb", borderColor: "#66ffbb", fontWeight: 900 }}>+</button>
+          <button onClick={addColor} aria-label={t("common.addBall")} title={t("common.addBall")} style={{ ...CLOSE_BTN, marginTop: 0, alignSelf: "stretch", minWidth: 44, padding: "8px 12px", fontSize: 18, color: "#0a1628", background: "#66ffbb", borderColor: "#66ffbb", fontWeight: 900 }}>+</button>
         </div>
       )}
     </div>

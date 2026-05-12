@@ -1,3 +1,4 @@
+import { useI18n } from "./i18n";
 export function RetryOverlay({
   reason,
   levelNumber,
@@ -11,11 +12,12 @@ export function RetryOverlay({
   onSkipLevel: () => void;
   onGoToBoss: () => void;
 }) {
+  const { t } = useI18n();
   const subtitle = reason === "manual"
-    ? "Go to the boss, retry or skip to the next level."
+    ? t("retry.manual")
     : reason === "timeout"
-      ? "Temps écoulé"
-      : "Munitions épuisées";
+      ? t("retry.timeout")
+      : t("retry.ammo");
 
   const actionButton = (label: string, onClick: () => void, primary = false) => (
     <button
@@ -58,19 +60,19 @@ export function RetryOverlay({
       }}
     >
       <div onClick={(event) => event.stopPropagation()} style={{ width: "min(92vw, 430px)", maxHeight: "calc(100vh - 24px)", overflowY: "auto", display: "flex", flexDirection: "column", alignItems: "stretch", gap: 12, cursor: "default", paddingRight: 4 }}>
-        <div style={{ textAlign: "center", fontSize: 72, fontWeight: 900, color: "#ff4d7a", letterSpacing: 8, textShadow: "0 0 16px #ff4d7a" }}>RETRY</div>
-        <div style={{ textAlign: "center", fontSize: 18 }}>{subtitle} — cliquez le fond pour rejouer</div>
+        <div style={{ textAlign: "center", fontSize: 72, fontWeight: 900, color: "#ff4d7a", letterSpacing: 8, textShadow: "0 0 16px #ff4d7a" }}>{t("retry.title")}</div>
+        <div style={{ textAlign: "center", fontSize: 18 }}>{subtitle} — {t("retry.clickToReplay")}</div>
 
         <section style={{ background: "rgba(0,0,0,0.38)", border: "1px solid rgba(255,77,122,0.34)", borderRadius: 16, padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
           <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 11, letterSpacing: 3, color: "#ff9fca", textTransform: "uppercase" }}>level</div>
+            <div style={{ fontSize: 11, letterSpacing: 3, color: "#ff9fca", textTransform: "uppercase" }}>{t("retry.level")}</div>
             <div style={{ fontSize: 24, fontWeight: 900 }}>#{levelNumber}</div>
           </div>
 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            {actionButton("Retry", onRetry, true)}
-            {actionButton("Go to the boss", onGoToBoss)}
-            {actionButton("Skip level", onSkipLevel)}
+            {actionButton(t("retry.retry"), onRetry, true)}
+            {actionButton(t("retry.goBoss"), onGoToBoss)}
+            {actionButton(t("retry.skip"), onSkipLevel)}
           </div>
         </section>
       </div>
