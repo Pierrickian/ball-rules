@@ -13,7 +13,8 @@ import { LevelsMenu } from "./LevelsMenu";
 import { BossMenu } from "./BossMenu";
 import { EffectsMenu } from "./EffectsMenu";
 import { DifficultyMenu } from "./DifficultyMenu";
-import { useI18n } from "../i18n";
+import { RuntimeSettingsMenu } from "./RuntimeSettingsMenu";
+import { ChangeMenu } from "../change/ChangeMenu";
 
 function DownloadApkButton() {
   const { t } = useI18n();
@@ -47,21 +48,20 @@ export function Menu({
   onGrenadeEffectChange,
   debugExplosionTexture,
   onDebugExplosionTextureChange,
+  language,
+  onLanguageChange,
+  runtimeModifiers,
+  onRuntimeModifiersChange,
+  onRuntimeModifiersReset,
 }: MenuProps) {
-  const [view, setView] = useState<MenuView>(evolutionInitialText ? "evolution" : "main");
-  const [evolutionDraft, setEvolutionDraft] = useState(evolutionInitialText);
+  const [view, setView] = useState<MenuView>(evolutionInitialText ? "evolution" : "settings");
+  const [changeEvolutionText, setChangeEvolutionText] = useState("");
 
   useEffect(() => {
-    setEvolutionDraft(evolutionInitialText);
-  }, [evolutionInitialText]);
-
-  const openEvolutionWithPrompt = (preprompt: string) => {
-    setEvolutionDraft(preprompt);
-    setView("evolution");
-  };
-
-  useEffect(() => {
-    if (evolutionInitialText) setView("evolution");
+    if (evolutionInitialText) {
+      setChangeEvolutionText("");
+      setView("evolution");
+    }
   }, [evolutionInitialText]);
 
   return (
@@ -70,8 +70,9 @@ export function Menu({
       {view === "main" && (
         <MainMenu
           config={config}
-          onEvolution={() => { setEvolutionDraft(evolutionInitialText); setView("evolution"); }}
-          onEvolutionPrompt={openEvolutionWithPrompt}
+          onSettings={() => setView("settings")}
+          onChange={() => setView("change")}
+          onEvolution={() => { setChangeEvolutionText(""); setView("evolution"); }}
           onRules={() => setView("rules")}
           onLevels={() => setView("levels")}
           onBoss={() => setView("boss")}
@@ -86,7 +87,9 @@ export function Menu({
           onClose={onClose}
         />
       )}
-      {view === "evolution"      && <EvolutionMenu evolutionRequest={evolutionRequest} initialText={evolutionDraft} currentLevelNumber={currentLevelNumber} difficulty={difficulty} hpAdjustment={hpAdjustment} onBack={() => setView("main")} />}
+      {view === "settings"       && <RuntimeSettingsMenu language={language} onLanguageChange={onLanguageChange} runtimeModifiers={runtimeModifiers} onRuntimeModifiersChange={onRuntimeModifiersChange} onReset={onRuntimeModifiersReset} onBack={() => setView("main")} />}
+      {view === "change"         && <ChangeMenu config={config} currentLevelIndex={currentLevelIndex} currentLevelNumber={currentLevelNumber} onApplyChangeConfig={onApplyInstantConfig} onOpenEvolution={(text) => { setChangeEvolutionText(text); setView("evolution"); }} onClose={onClose} onBack={() => setView("main")} />}
+      {view === "evolution"      && <EvolutionMenu evolutionRequest={evolutionRequest} initialText={changeEvolutionText || evolutionInitialText} currentLevelNumber={currentLevelNumber} difficulty={difficulty} hpAdjustment={hpAdjustment} onBack={() => setView("main")} />}
       {view === "rules"          && <RulesMenu      config={config} onBack={() => setView("main")} />}
       {view === "levels"         && <LevelsMenu config={config} currentLevelIndex={currentLevelIndex} onLevelSelect={onLevelSelect} onLevelWeightsChange={onLevelWeightsChange} onTerrainDistributionPlay={onTerrainDistributionPlay} onClose={onClose} onBack={() => setView("main")} />}
       {view === "boss"           && <BossMenu config={config} onPlayBossRush={onPlayBossRush} onClose={onClose} onBack={() => setView("main")} />}

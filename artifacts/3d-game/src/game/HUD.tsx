@@ -4,7 +4,7 @@
 // ============================================================
 
 import type { GameConfig, GameState } from "../engine/types";
-import { useI18n } from "./i18n";
+import type { BreathingWaveState } from "../engine/useGameEngine";
 
 interface HUDProps {
   gameState: GameState;
@@ -15,6 +15,7 @@ interface HUDProps {
   onPause: () => void;
   onResume: () => void;
   onReset: () => void;
+  breathingWave: BreathingWaveState;
 }
 
 const BTN: React.CSSProperties = {
@@ -30,8 +31,7 @@ const BTN: React.CSSProperties = {
   letterSpacing: 1,
 };
 
-export function HUD({ gameState, config, isRunning, levelTimerSeconds, shotsRemaining, onPause, onResume, onReset }: HUDProps) {
-  const { t } = useI18n();
+export function HUD({ gameState, config, isRunning, levelTimerSeconds, shotsRemaining, onPause, onResume, onReset, breathingWave }: HUDProps) {
   const activeBalls = Array.from(gameState.balls.values()).filter(
     (b) => b.isAlive && b.color !== "orange" && b.metadata?.isProjectile !== true
   ).length;
@@ -43,11 +43,12 @@ export function HUD({ gameState, config, isRunning, levelTimerSeconds, shotsRema
   const ammo = gameState.ammoRemaining ?? 50;
   const bossPhase = gameState.isBossPhase === true;
 
-  const Counter = ({ icon, label, value, color }: { icon: string; label: string; value: string; color: string }) => (
-    <div style={{ minWidth: 64 }}>
-      <div style={{ fontSize: 9, color: "#667899", textTransform: "uppercase", letterSpacing: 2 }}>{label}</div>
-      <div style={{ fontSize: 18, fontWeight: "bold", color, lineHeight: 1, textShadow: `0 0 8px ${color}77` }}>{icon} {value}</div>
-    </div>
+  const CartridgeIcon = () => (
+    <span aria-hidden="true" style={{ display: "inline-flex", gap: 2, alignItems: "center" }}>
+      {[0, 1, 2].map((idx) => (
+        <span key={idx} style={{ width: 5, height: 15, borderRadius: "2px 2px 4px 4px", background: "linear-gradient(180deg, #ffe8a3 0%, #ffd166 58%, #b7791f 59%, #8a4f16 100%)", border: "1px solid rgba(255,255,255,.35)", boxShadow: "0 0 6px rgba(255,209,102,.42)", display: "inline-block" }} />
+      ))}
+    </span>
   );
 
   return (
@@ -86,14 +87,16 @@ export function HUD({ gameState, config, isRunning, levelTimerSeconds, shotsRema
         </div>
 
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 18, minWidth: 210, transform: "translateX(-30px)" }}>
+          {levelTimerSeconds !== null && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 16 }}>⏳</span>
+              <span style={{ fontSize: 20, fontWeight: "bold", color: "#ffd166", minWidth: 48, textAlign: "center", display: "inline-block", animation: "ammo-countdown-pulse 0.85s ease-in-out infinite" }}>
+                {`${Math.max(0, Math.ceil(levelTimerSeconds))}s`}
+              </span>
+            </div>
+          )}
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 16 }}>⏳</span>
-            <span style={{ fontSize: 20, fontWeight: "bold", color: "#ffd166", minWidth: 48, textAlign: "center" }}>
-              {levelTimerSeconds === null ? "∞" : `${Math.max(0, Math.ceil(levelTimerSeconds))}s`}
-            </span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 16 }}>🎯</span>
+            <CartridgeIcon />
             <span style={{ fontSize: 20, fontWeight: "bold", color: "#7afcff", minWidth: 32, textAlign: "center" }}>
               {shotsRemaining === null ? "∞" : shotsRemaining}
             </span>
@@ -105,7 +108,7 @@ export function HUD({ gameState, config, isRunning, levelTimerSeconds, shotsRema
         {/* Session progress */}
         <div style={{ width: "56%", minWidth: 150 }}>
           <div style={{ fontSize: 9, color: "#445", textTransform: "uppercase", letterSpacing: 3, marginBottom: 3 }}>
-            {t("hud.wave", { launched, max })}
+            Vague {breathingWave.waveNumber} · {launched}/{max}
           </div>
           <div style={{
             height: 6, background: "rgba(30,144,255,0.15)",

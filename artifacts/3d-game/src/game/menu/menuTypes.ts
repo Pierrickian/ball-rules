@@ -1,6 +1,7 @@
 import type { BallColor, EvolutionRequestConfig, GameConfig } from "../../engine/types";
+import type { RuntimeModifiers } from "../../engine/runtimeModifiers";
 
-export type MenuView = "main" | "evolution" | "rules" | "balls" | "terrain" | "player_colors" | "how_to_ask" | "release_notes" | "levels" | "boss" | "effects" | "difficulty";
+export type MenuView = "main" | "settings" | "change" | "evolution" | "rules" | "balls" | "terrain" | "player_colors" | "how_to_ask" | "release_notes" | "levels" | "boss" | "effects" | "difficulty";
 
 const APK_DOWNLOAD_URL = "https://github.com/Pierrickian/ball-rules/releases/latest/download/ball-rules.apk";
 
@@ -40,4 +41,9 @@ export interface MenuProps {
   onGrenadeEffectChange: (effect: string) => void;
   debugExplosionTexture: boolean;
   onDebugExplosionTextureChange: (value: boolean) => void;
+  runtimeModifiers: RuntimeModifiers;
+  onRuntimeModifiersChange: (modifiers: RuntimeModifiers) => void;
+  onRuntimeModifiersReset: () => void;
+  language: "fr" | "en";
+  onLanguageChange: (language: "fr" | "en") => void;
 }

@@ -27,8 +27,10 @@ import type {
   ShotTypeConfig,
   Vec2,
 } from "./types";
+import type { RuntimeEngineModifiers } from "./runtimeModifiers";
 import { BallSize, BounceCondition } from "./types";
 import type { Arena2D, PendingCommand, RuleContext } from "./engineMath";
+import { weightedPickColor } from "./engineMath";
 import {
   applyMovement,
   getArena,
@@ -79,8 +81,12 @@ export class GameEngine {
   /** Orange launchers waiting their delay before firing.
    *  Each entry tracks the launcher ball's id and remaining seconds. */
   private pendingLaunches: Array<{ launcherId: string; remaining: number }> = [];
+  private pendingChaosSpawns: Array<{ remaining: number }> = [];
+  private orangeSpawningPaused = false;
   private activeGrenadeId: string | null = null;
   private grenadesLeft = 5;
+  private lightShotsFired = 0;
+  private betterShotLevel = 0;
 
   private launchedCount = 0;
   private pendingEvents: GameEvent[] = [];
@@ -108,6 +114,13 @@ export class GameEngine {
   private difficultyBonusHp = 0;
   private hpAdjustment = 0;
   private comboStreak = 0;
+  private runtimeModifiers: RuntimeEngineModifiers = {
+    spawnIntervalMultiplier: 1,
+    enemySpeedMultiplier: 1,
+    enemyHpMultiplier: 1,
+    gameplaySpeedMultiplier: 1,
+    enemyDensityMultiplier: 1,
+  };
 
   constructor(config: GameConfig, initialLevelIndex = 0) {
     this.config = config;
@@ -209,6 +222,8 @@ export class GameEngine {
       bossHintMessage: this.bossHintRemaining > 0 ? this.bossHintMessage : "",
       bossMasteredActive: this.bossMasteredRemaining > 0,
       isBossPhase: this.isBossPhase(),
+      lightShotDamage: this.getCurrentLightShotDamage(),
+      betterShotLevel: this.betterShotLevel,
       hospital: this.hospital ? {
         isActive: this.hospital.hp > 0,
         x: this.hospital.x,
@@ -251,6 +266,22 @@ export class GameEngine {
   }
   setDifficultyBonusHp(bonus: number): void { this.difficultyBonusHp = Math.max(0, Math.floor(bonus)); }
 
+  setRuntimeModifiers(modifiers: RuntimeEngineModifiers): void {
+    this.runtimeModifiers = modifiers;
+  }
+
+  setOrangeSpawningPaused(paused: boolean): void {
+    this.orangeSpawningPaused = paused;
+    if (paused) this.orangeSpawnTimer = 0;
+  }
+
+  addGrenades(amount: number): void {
+    const safe = Math.max(0, Math.floor(amount));
+    if (safe <= 0) return;
+    this.grenadesLeft += safe;
+    this.pendingEvents.push({ type: "grenade_awarded", amount: safe, reason: "runtime_alveole" });
+  }
+
   /** Relative HP tuning selected by the player for the current retry/level. */
   setHpAdjustment(adjustment: number): void {
     this.hpAdjustment = Math.max(-10, Math.min(10, Math.round(adjustment)));
@@ -258,6 +289,28 @@ export class GameEngine {
 
   getLaunchedCount(): number {
     return this.launchedCount;
+  }
+
+  hasCurrentLevelBoss(): boolean {
+    return Boolean(this.getCurrentLevel()?.boss);
+  }
+
+  /**
+   * When the regular wave is cleared during the low-ammo end phase, stop
+   * waiting for the original spawn cap so a configured boss can enter before
+   * the inter-wave evolution menu is shown.
+   */
+  completeRegularWaveForBoss(): void {
+    if (!this.hasCurrentLevelBoss() || this.bossSpawned) return;
+    const currentMax = this.config.game_session?.max_balls_spawned ?? 20;
+    if (this.launchedCount >= currentMax) return;
+    this.config = {
+      ...this.config,
+      game_session: {
+        ...this.config.game_session,
+        max_balls_spawned: this.launchedCount,
+      },
+    };
   }
 
   /** Number of "enemy" balls currently alive (excludes orange launchers and player projectiles). */
@@ -302,8 +355,15 @@ export class GameEngine {
    * holdSeconds determines the shot kind via gameplay_controls.shot_types.
    * color is the next ball from the player's queue.
    */
-  playerShoot(targetX: number, targetY: number, holdSeconds: number, color: BallColor): Ball | null {
-    return shootPlayerProjectile(this.projectileApiContext(), targetX, targetY, holdSeconds, color);
+  playerShoot(targetX: number, targetY: number, holdSeconds: number, color: BallColor, forcedKind?: ShotKind): Ball | null {
+    const shotKind = forcedKind ?? this.classifyShot(holdSeconds);
+    const override = this.buildShotOverride(shotKind);
+    const shotHold = forcedKind ? this.holdSecondsForShotKind(forcedKind) : holdSeconds;
+    const projectile = shootPlayerProjectile(this.projectileApiContext(), targetX, targetY, shotHold, color, override);
+    if (!projectile) return null;
+    if (shotKind === "light") this.lightShotsFired += 1;
+    else this.resetShotProgression();
+    return projectile;
   }
 
   classifyShot(holdSeconds: number): ShotKind {
@@ -320,6 +380,77 @@ export class GameEngine {
   }
 
   getGrenadesLeft(): number { return this.grenadesLeft; }
+
+  getCurrentLightShotDamage(): number {
+    const base = this.config.gameplay_controls?.shot_types?.light?.damage ?? 1;
+    return Math.min(20, base + Math.floor(this.lightShotsFired / 2));
+  }
+
+  getBetterShotLevel(): number { return this.betterShotLevel; }
+
+  upgradeBetterShot(): number {
+    this.betterShotLevel += 1;
+    return this.betterShotLevel;
+  }
+
+  resetShotProgression(): void {
+    this.lightShotsFired = 0;
+  }
+
+  private holdSecondsForShotKind(kind: ShotKind): number {
+    const types = this.config.gameplay_controls?.shot_types;
+    if (!types) return 0;
+    if (kind === "mega") return types.mega.min_hold_seconds;
+    if (kind === "heavy") return types.heavy.min_hold_seconds;
+    return types.light.min_hold_seconds;
+  }
+
+  private buildShotOverride(kind: ShotKind): (Partial<ShotTypeConfig> & { color_tint?: string; effect?: string; visualColor?: BallColor; forceStopsOnHit?: boolean }) | undefined {
+    const types = this.config.gameplay_controls?.shot_types;
+    const base = types?.[kind];
+    if (!base) return undefined;
+    const override: Partial<ShotTypeConfig> & { color_tint?: string; effect?: string; visualColor?: BallColor; forceStopsOnHit?: boolean } = {};
+    if (kind === "light") override.damage = this.getCurrentLightShotDamage();
+    if (this.betterShotLevel <= 0) return Object.keys(override).length ? override : undefined;
+
+    if (kind === "light") {
+      const heavy = types.heavy;
+      override.damage = heavy.damage;
+      override.passes_through_balls = heavy.passes_through_balls;
+      override.wall_bounces = heavy.wall_bounces;
+      override.diameter_multiplier = heavy.diameter_multiplier;
+      override.speed = heavy.speed;
+      override.color_tint = heavy.color_tint;
+      override.visualColor = "yellow";
+      override.effect = "shock";
+      return override;
+    }
+
+    if (kind === "heavy") {
+      const mega = types.mega;
+      override.damage = mega.damage;
+      override.passes_through_balls = mega.passes_through_balls;
+      override.wall_bounces = mega.wall_bounces;
+      override.diameter_multiplier = mega.diameter_multiplier;
+      override.speed = mega.speed;
+      override.color_tint = mega.color_tint;
+      override.visualColor = "pink";
+      override.effect = "nova";
+      return override;
+    }
+
+    const degree = this.betterShotLevel;
+    const palette = ["#66ffbb", "#66d9ff", "#b967ff", "#ff4d7a", "#fff066", "#7cff6b"];
+    const visualColors: BallColor[] = ["turquoise", "cyan", "purple", "blue", "red", "light_green"];
+    override.damage = base.damage + 5 * degree;
+    override.wall_bounces = base.wall_bounces + degree;
+    override.passes_through_balls = false;
+    override.forceStopsOnHit = true;
+    override.color_tint = palette[(degree - 1) % palette.length];
+    override.visualColor = visualColors[(degree - 1) % visualColors.length];
+    override.effect = degree % 2 === 0 ? "spark" : "wave";
+    return override;
+  }
 
   private emitEvent(event: GameEvent, source: "update" | "external"): void {
     if (source === "update") {
@@ -348,6 +479,42 @@ export class GameEngine {
 
   // ARCHITECTURE NOTE: any gameplay mutation that must produce visual effects
   // must be funneled through update() to guarantee event delivery to rendering.
+  placeMine(position: Vec2, effect: string = 'mine'): boolean {
+    const arena = this.getArena();
+    if (position.x < -arena.halfW || position.x > arena.halfW || position.y < -arena.halfH || position.y > arena.halfH) return false;
+    this.pendingCommands.push({ type: "place_mine", position: { ...position }, effect });
+    return true;
+  }
+
+  spawnChaosBurst(count = 3): void {
+    for (let i = 0; i < count; i += 1) {
+      this.pendingChaosSpawns.push({ remaining: i * 0.12 });
+    }
+  }
+
+  private updatePendingChaosSpawns(delta: number): void {
+    if (this.pendingChaosSpawns.length === 0) return;
+    const arena = this.getArena();
+    const level = this.getCurrentLevel();
+    const speed = this.config.gameplay.orange.launch_config.speed ?? 30;
+    const stillPending: Array<{ remaining: number }> = [];
+    for (const pending of this.pendingChaosSpawns) {
+      pending.remaining -= delta;
+      if (pending.remaining > 0) {
+        stillPending.push(pending);
+        continue;
+      }
+      const color = (level?.launch_color_weights
+        ? weightedPickColor(this.config, level.launch_color_weights)
+        : null) ?? (this.config.gameplay.orange.launch_config.color as BallColor);
+      const x = -arena.halfW + 0.5 + Math.random() * Math.max(1, arena.halfW * 2 - 1);
+      const y = arena.halfH - 0.5;
+      this.spawnBall(color, BallSize.SMALL, { x, y }, { x: (Math.random() - 0.5) * speed * 0.45, y: -Math.abs(speed) }, undefined, undefined);
+      this.launchedCount += 1;
+    }
+    this.pendingChaosSpawns = stillPending;
+  }
+
   toggleGrenade(direction: Vec2, effect: string = 'ring'): boolean {
     if (this.activeGrenadeId) {
       this.pendingCommands.push({ type: "detonate_active_grenade" });
@@ -369,6 +536,7 @@ export class GameEngine {
   // Main Update Loop
   // --------------------------------------------------------
   update(delta: number): GameState {
+    delta *= this.runtimeModifiers.gameplaySpeedMultiplier;
     this.pendingEvents = [...this.queuedExternalEvents];
     this.queuedExternalEvents = [];
     this.isInsideUpdate = true;
@@ -377,6 +545,8 @@ export class GameEngine {
 
     // Process cross-frame gameplay intentions before rule handlers.
     this.processPendingCommands();
+
+    this.updatePendingChaosSpawns(delta);
 
     // Spawn orange launchers (capped by max_balls_spawned)
     this.updateOrangeSpawn(delta, arena);
@@ -414,6 +584,7 @@ export class GameEngine {
       computeHpGrowDiameter: (ball) => this.computeHpGrowDiameter(ball),
       getComboStreak: () => this.comboStreak,
       setComboStreak: (streak) => { this.comboStreak = streak; },
+      resetShotProgression: () => { this.resetShotProgression(); },
       clearActiveGrenade: (grenadeId) => { if (this.activeGrenadeId === grenadeId) this.activeGrenadeId = null; },
     };
 
@@ -654,6 +825,14 @@ export class GameEngine {
     if (color === "red" && options?.isBoss !== true) {
       maxHp = Math.min(maxHp, 8);
       hp = Math.min(hp, maxHp);
+    }
+    if (options?.bypassHpBonuses !== true && options?.isBoss !== true && rule !== "player_projectile" && color !== "orange") {
+      hp = Math.max(1, Math.round(hp * this.runtimeModifiers.enemyHpMultiplier));
+      maxHp = Math.max(1, Math.round(maxHp * this.runtimeModifiers.enemyHpMultiplier));
+      velocity = {
+        x: velocity.x * this.runtimeModifiers.enemySpeedMultiplier,
+        y: velocity.y * this.runtimeModifiers.enemySpeedMultiplier,
+      };
     }
     const ball = new Ball(color, size, position, velocity, diameter, rule, bounceCondition, hp, maxHp, options?.isBoss === true);
 

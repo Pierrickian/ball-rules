@@ -4,7 +4,8 @@ import { BallSize } from "./types";
 
 export type PendingCommand =
   | { type: "launch_grenade"; direction: Vec2; effect: string }
-  | { type: "detonate_active_grenade" };
+  | { type: "detonate_active_grenade" }
+  | { type: "place_mine"; position: Vec2; effect: string };
 
 export interface Arena2D {
   halfW: number;
@@ -39,6 +40,7 @@ export interface RuleContext {
   computeHpGrowDiameter: (ball: Ball) => number;
   getComboStreak: () => number;
   setComboStreak: (streak: number) => void;
+  resetShotProgression: () => void;
   clearActiveGrenade: (grenadeId: string) => void;
 }
 

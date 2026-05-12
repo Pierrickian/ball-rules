@@ -9,10 +9,11 @@ interface Arena2D {
 }
 
 export function updateOrangeSpawn(this: any, delta: number, arena: Arena2D): void {
-  const max = this.getCurrentLevel()?.max_balls_spawned ?? this.config.game_session?.max_balls_spawned ?? 20;
+  if (this.orangeSpawningPaused) return;
+  const max = this.config.game_session?.max_balls_spawned ?? 20;
   if (this.launchedCount >= max) return; // hard cap
 
-  const interval = this.getCurrentLevel()?.spawn_interval_seconds ?? this.config.gameplay.orange.spawn.interval_seconds;
+  const interval = this.config.gameplay.orange.spawn.interval_seconds * (this.runtimeModifiers?.spawnIntervalMultiplier ?? 1);
   this.orangeSpawnTimer += delta;
   if (this.orangeSpawnTimer >= interval) {
     this.orangeSpawnTimer = 0;
@@ -80,7 +81,7 @@ export function performOrangeLaunch(this: any, launcher: Ball, arena: Arena2D): 
 
   const levelOverride = lvl?.launch_overrides?.[color];
   const size = (levelOverride?.size as BallSize) ?? (launchCfg.size as BallSize) ?? BallSize.SMALL;
-  const speed = launchCfg.speed ?? 4.5;
+  const speed = (launchCfg.speed ?? 4.5) * (this.runtimeModifiers?.enemySpeedMultiplier ?? 1);
   const toCenter = normalize({ x: -launcher.position.x, y: -launcher.position.y });
   const randomAngle = (Math.random() - 0.5) * Math.PI * 0.8;
   const cos = Math.cos(randomAngle);

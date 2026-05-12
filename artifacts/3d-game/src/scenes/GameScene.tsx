@@ -39,7 +39,7 @@ interface GameSceneProps {
 
 interface SpawnedExplosion {
   id: string;
-  kind: "ball" | "grenade" | "deflagration";
+  kind: "ball" | "grenade" | "mine" | "deflagration";
   effect: string;
   position: { x: number; y: number };
   velocity: { x: number; y: number };
@@ -100,9 +100,9 @@ function Scene({ gameState, config, events, aimDirection, ballEffect, grenadeEff
     const now = Date.now();
     const fresh = events
       .filter((e): e is Extract<GameEvent, { type: "ball_despawned" }> => e.type === "ball_despawned" && !!e.position)
-      .filter((e) => e.reason === "killed_by_player" || e.reason === "killed_by_grenade" || e.reason === "grenade_exploded")
+      .filter((e) => e.reason === "killed_by_player" || e.reason === "killed_by_grenade" || e.reason === "grenade_exploded" || e.reason === "mine_exploded")
       .flatMap((ev, i) => {
-        const kind = ev.reason === "grenade_exploded" ? "grenade" as const : "ball" as const;
+        const kind = ev.reason === "grenade_exploded" ? "grenade" as const : ev.reason === "mine_exploded" ? "mine" as const : "ball" as const;
         const baseFx = {
           id: `${ev.ballId}-${ev.reason}-${i}-${now}`,
           kind,
@@ -112,6 +112,7 @@ function Scene({ gameState, config, events, aimDirection, ballEffect, grenadeEff
           spawnedAt: now,
           expiresAt: now + (kind === "ball" ? 1000 : 2000),
         };
+        if (ev.reason === "mine_exploded") return [{ ...baseFx, expiresAt: now + 1400 }];
         if (ev.reason !== "grenade_exploded") return [baseFx];
         return [
           baseFx,
@@ -187,13 +188,7 @@ function Scene({ gameState, config, events, aimDirection, ballEffect, grenadeEff
         const t = Math.max(0, Math.min(1, (now - ev.spawnedAt) / total));
         const inertia = t - 0.5 * t * t;
         const pos = { x: ev.position.x + ev.velocity.x * inertia, y: ev.position.y + ev.velocity.y * inertia };
-        const fade = 1 - t;
-        const scale = 0.75 + t * 1.35;
         const effect = ev.effect;
-        const isBall = ev.kind === "ball";
-        const color = isBall
-          ? (effect === "shock" ? "#ffe089" : effect === "nova" ? "#9de0ff" : "#66ccff")
-          : (effect === "flash" ? "#fff2b5" : effect === "smoke" ? "#aab4c4" : effect === "flare" ? "#ffb35c" : effect === "shard" ? "#7fd0ff" : "#ffcc66");
         return (
           <group key={ev.id} position={[pos.x, 0.14, -pos.y]}>
             <ExplosionSprite kind={ev.kind} effect={effect} t={t} baseBallDiameter={baseDiameter} debugTexture={debugExplosionTexture} />

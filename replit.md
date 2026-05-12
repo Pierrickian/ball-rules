@@ -145,10 +145,10 @@ Pour ajouter / éditer un niveau :
 
 ### Localisation UI
 
-- Toute nouvelle chaîne visible par les joueurs DOIT être ajoutée au système de localisation `artifacts/3d-game/src/game/i18n.tsx` avec une clé explicite et une valeur française + anglaise.
-- La langue par défaut est le français ; ne pas écrire la langue sélectionnée dans `public/game_config.json`.
-- Utiliser `useI18n().t("clé")` pour les libellés, boutons, tooltips, messages de succès/erreur, overlays et textes de menus.
-- Si un texte visible inclut une valeur dynamique, utiliser l'interpolation de `t(key, params)` plutôt qu'une chaîne codée en dur.
+- Tout texte affiché au joueur doit être localisé par défaut, sauf demande explicite contraire.
+- Chaque nouveau texte UI doit avoir une version française et anglaise.
+- Les textes doivent réagir au changement de langue runtime sans nécessiter de rechargement.
+- Ne pas afficher simultanément les deux langues pour un même message, sauf si la demande utilisateur l'exige explicitement.
 
 ### Règles développeur
 
