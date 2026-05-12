@@ -790,6 +790,7 @@
     ]
   },
   "release_notes": [
+    "Time up et tirs légers réinitialisés",
     "Étoiles live et recharge manuelle",
     "Boss attendu avant évolution",
     "Oranges stoppées en fin de vague",
@@ -808,8 +809,7 @@
     "Random Add valide directement les prompts sans ouvrir Evolution",
     "Random profond ajoute éléments MTC et hormones avant validation directe",
     "Add Random propose des types de features validables directement",
-    "Portail créatif Add Feature",
-    "Bouton ajout vers Evolution guidée"
+    "Portail créatif Add Feature"
   ],
   "debug": {
     "show_velocities": false,

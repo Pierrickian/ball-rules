@@ -77,7 +77,7 @@ export function HpPopups({ events }: HpPopupsProps) {
     <>
       {popups.map((p) => {
         const isHeal = p.kind === "heal";
-        const color = isHeal ? "#5cff9a" : "#ff5a5a";
+        const color = isHeal ? "#5cff9a" : "#d95f02";
         const sign = isHeal ? "+" : "-";
         return (
           <Html

@@ -360,7 +360,9 @@ export class GameEngine {
     const override = this.buildShotOverride(shotKind);
     const shotHold = forcedKind ? this.holdSecondsForShotKind(forcedKind) : holdSeconds;
     const projectile = shootPlayerProjectile(this.projectileApiContext(), targetX, targetY, shotHold, color, override);
-    if (projectile && shotKind === "light") this.lightShotsFired += 1;
+    if (!projectile) return null;
+    if (shotKind === "light") this.lightShotsFired += 1;
+    else this.resetShotProgression();
     return projectile;
   }
 
@@ -582,6 +584,7 @@ export class GameEngine {
       computeHpGrowDiameter: (ball) => this.computeHpGrowDiameter(ball),
       getComboStreak: () => this.comboStreak,
       setComboStreak: (streak) => { this.comboStreak = streak; },
+      resetShotProgression: () => { this.resetShotProgression(); },
       clearActiveGrenade: (grenadeId) => { if (this.activeGrenadeId === grenadeId) this.activeGrenadeId = null; },
     };
 

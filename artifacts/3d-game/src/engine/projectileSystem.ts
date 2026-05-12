@@ -323,6 +323,7 @@ export function handlePlayerProjectile(this: void, ball: Ball, delta: number, ct
 
 export function finalizePlayerProjectileCombo(ball: Ball, ctx: RuleContext): void {
   const meta = ball.metadata as {
+    shotKind?: ShotKind;
     hitCount?: number;
     killCount?: number;
     comboPositionSum?: Vec2;
@@ -333,6 +334,7 @@ export function finalizePlayerProjectileCombo(ball: Ball, ctx: RuleContext): voi
 
   const hitCount = meta.hitCount ?? 0;
   const killCount = meta.killCount ?? 0;
+  if (meta.shotKind === "light" && hitCount === 0) ctx.resetShotProgression();
   let comboType: string | null = null;
   let label: string | null = null;
   let tier = 0;

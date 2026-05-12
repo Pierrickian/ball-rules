@@ -40,6 +40,7 @@ export interface RuleContext {
   computeHpGrowDiameter: (ball: Ball) => number;
   getComboStreak: () => number;
   setComboStreak: (streak: number) => void;
+  resetShotProgression: () => void;
   clearActiveGrenade: (grenadeId: string) => void;
 }
 

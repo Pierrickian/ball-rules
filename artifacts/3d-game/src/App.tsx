@@ -53,6 +53,7 @@ function App() {
   const [grenadeAwardPopups, setGrenadeAwardPopups] = useState<Array<{ id: number; amount: number }>>([]);
   const [starPopups, setStarPopups] = useState<Array<{ id: number; label: string; kind: "earned" | "lost" }>>([]);
   const [ammoWarningPopups, setAmmoWarningPopups] = useState<Array<{ id: number }>>([]);
+  const [timeUpNoticeUntil, setTimeUpNoticeUntil] = useState(0);
   const [reloadFlashKey, setReloadFlashKey] = useState(0);
   const [grenadeFlashKey, setGrenadeFlashKey] = useState(0);
   const [idleMicroPauseOpen, setIdleMicroPauseOpen] = useState(false);
@@ -70,6 +71,7 @@ function App() {
   const previousWaveMaxComboRef = useRef(0);
   const waveCombosRef = useRef<Record<string, number>>({});
   const ammoEndNoticeShownRef = useRef(false);
+  const ammoEndNoticeArmedRef = useRef(true);
   const comboStarShownRef = useRef(false);
   const timeStarShownRef = useRef(false);
   const reloadStarLostShownRef = useRef(false);
@@ -154,12 +156,14 @@ function App() {
         combos: { ...waveCombosRef.current },
       };
       setWaveResult(result);
-      if (result.outcome === "victory" && !timeStarShownRef.current) {
+      if (!timeStarShownRef.current) {
         timeStarShownRef.current = true;
-        showStarPopup("Time Star", "earned");
+        showStarPopup(result.outcome === "victory" ? "Kill Star / Étoile Kill" : "Kill Star Lost / Étoile Kill perdue", result.outcome === "victory" ? "earned" : "lost");
       }
       previousWaveMaxComboRef.current = result.maxCombo;
-      setWaveNoticeUntil(Date.now() + 3000);
+      const noticeUntil = Date.now() + 2000;
+      setTimeUpNoticeUntil(noticeUntil);
+      setWaveNoticeUntil(noticeUntil);
       setWaveUiStage("notice");
       setSelectedAlveoleIds([]);
       setBetterShotSelected(false);
@@ -229,9 +233,11 @@ function App() {
   const retryReason = gameState?.retryReason ?? null;
   const shotsRemaining = gameState?.ammoRemaining ?? 50;
 
+  useEffect(() => { if (shotsRemaining > 15) ammoEndNoticeArmedRef.current = true; }, [shotsRemaining]);
+
   useEffect(() => {
     if (breathingWave.phase !== "active") return;
-    if (shotsRemaining > 15 || ammoEndNoticeShownRef.current) return;
+    if (shotsRemaining > 15 || ammoEndNoticeShownRef.current || !ammoEndNoticeArmedRef.current) return;
     ammoEndNoticeShownRef.current = true;
     setAmmoEndNoticeVisible(true);
     const timer = window.setTimeout(() => setAmmoEndNoticeVisible(false), 3000);
@@ -496,6 +502,7 @@ function App() {
   const finalCountdownSeconds = Number.isFinite(rawTimerSeconds) ? rawTimerSeconds : null;
   const reloadNeedsAttention = !isBossPhase && shotsRemaining <= 0;
   const showWaveNotice = breathingWave.phase === "breathing" && waveUiStage === "notice" && uiNow < waveNoticeUntil;
+  const showTimeUpNotice = showWaveNotice && uiNow < timeUpNoticeUntil;
   const showResultsFrame = breathingWave.phase === "breathing" && waveUiStage === "results" && waveResult !== null;
   const showGameFunnel = breathingWave.phase === "breathing" && waveUiStage === "evolution";
   const selectedAlveoles = selectedAlveoleIds
@@ -517,6 +524,7 @@ function App() {
     waveMaxComboRef.current = 0;
     waveCombosRef.current = {};
     ammoEndNoticeShownRef.current = false;
+    ammoEndNoticeArmedRef.current = shotsRemaining > 15;
     comboStarShownRef.current = false;
     timeStarShownRef.current = false;
     reloadStarLostShownRef.current = waveReloadCountRef.current > 1;
@@ -580,6 +588,15 @@ function App() {
         <div style={{ position:"absolute", inset:0, display:"grid", placeItems:"center", pointerEvents:"none", zIndex:11 }}>
           <div style={{ marginTop:118, fontSize:24, fontWeight:800, letterSpacing:1.5, color:"#ffe8a3", textShadow:"0 0 16px #000, 0 0 10px #ff8c00", textTransform:"uppercase" }}>
             {gameState.bossHintMessage}
+          </div>
+        </div>
+      )}
+
+      {showTimeUpNotice && (
+        <div style={{ position:"absolute", inset:0, display:"grid", placeItems:"center", pointerEvents:"none", zIndex:11 }}>
+          <div style={{ fontSize:52, fontWeight:950, letterSpacing:5, color:"#fff", textAlign:"center", textShadow:"0 0 24px #ff7a00, 0 0 8px #000", textTransform:"uppercase" }}>
+            Time up
+            <div style={{ fontSize:24, letterSpacing:2, marginTop:6, color:"#ffe8a3" }}>Temps écoulé</div>
           </div>
         </div>
       )}
@@ -742,12 +759,6 @@ function App() {
             Fin de vague — ressources basses
           </div>
         )}
-        {showWaveNotice && (
-          <div style={{ padding:"8px 12px", borderRadius:14, background:"rgba(0,14,32,.82)", border:"1px solid rgba(122,252,255,.32)", color:"#eaffff", boxShadow:"0 0 20px rgba(0,210,255,.18)", backdropFilter:"blur(10px)", textAlign:"center" }}>
-            <div style={{ fontSize:18, fontWeight:900, textShadow:"0 0 12px rgba(122,252,255,.55)" }}>{breathingWave.message}</div>
-            <div style={{ marginTop:4, fontSize:12, color:"#b8d8ff" }}>{Math.ceil(breathingWave.countdownRemaining)}s</div>
-          </div>
-        )}
         {showResultsFrame && waveResult && (
           <div style={{ pointerEvents:"all", padding:12, borderRadius:16, background:"rgba(3,10,24,.9)", border:"1px solid rgba(255,255,255,.16)", backdropFilter:"blur(10px)", boxShadow:"0 12px 34px rgba(0,0,0,.28)", color:"#eaffff" }}>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginTop:2, fontSize:12 }}>
@@ -756,7 +767,7 @@ function App() {
             </div>
             <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:10, marginTop:14 }}>
               {[
-                { key:"fast", title:"Rapide", condition:"Victoire", earned: waveResult.outcome === "victory" },
+                { key:"fast", title:"Rapide", condition:"Kill Star", earned: waveResult.outcome === "victory" },
                 { key:"expert", title:"Expert", condition:"1 seule recharge", earned: waveResult.reloadCount <= 1 },
                 { key:"pro", title:"Pro", condition:"Record multiplicateur battu", earned: waveResult.maxCombo > waveResult.previousRecord },
               ].map((star, index) => (

@@ -133,6 +133,7 @@ export function useGameEngine(): UseGameEngineResult {
   const finalCountdownActiveRef = useRef(false);
   const finalCountdownRemainingRef = useRef<number>(Infinity);
   const waveEndSpawnPausedRef = useRef(false);
+  const lowAmmoHysteresisArmedRef = useRef(true);
 
   useEffect(() => { runtimeModifiersRef.current = runtimeModifiers; }, [runtimeModifiers]);
 
@@ -146,6 +147,7 @@ export function useGameEngine(): UseGameEngineResult {
     const bossPhase = engineRef.current?.isBossPhase() ?? false;
     timerRemainingRef.current = Infinity;
     ammoRemainingRef.current = bossPhase ? Infinity : Math.round((lvl?.ammo_count ?? DEFAULT_LEVEL_AMMO_COUNT) * runtimeModifiersRef.current.ammo_count);
+    lowAmmoHysteresisArmedRef.current = ammoRemainingRef.current > 15;
     timerTickAccumulatorRef.current = 0;
   }, []);
 
@@ -217,7 +219,7 @@ export function useGameEngine(): UseGameEngineResult {
       waveNumber: waveNumberRef.current,
       phase: "breathing",
       countdownRemaining: breathingCountdownRef.current,
-      message: outcome === "victory" ? "Victoire" : "Défaite",
+      message: "Time up / Temps écoulé",
       aiAnalyzing: true,
       alveoles: [],
       victoryPulse: outcome === "victory",
@@ -317,11 +319,12 @@ export function useGameEngine(): UseGameEngineResult {
               } else if (regularWaveCleared) {
                 beginBreathingWave("victory");
               } else {
-                if (ammoRemainingRef.current <= 15 && !waveEndSpawnPausedRef.current) {
+                if (ammoRemainingRef.current > 15) lowAmmoHysteresisArmedRef.current = true;
+                if (lowAmmoHysteresisArmedRef.current && ammoRemainingRef.current <= 15 && !waveEndSpawnPausedRef.current) {
                   waveEndSpawnPausedRef.current = true;
                   engineRef.current.setOrangeSpawningPaused(true);
                 }
-                if (ammoRemainingRef.current <= 10 && !finalCountdownActiveRef.current) {
+                if (lowAmmoHysteresisArmedRef.current && ammoRemainingRef.current <= 10 && !finalCountdownActiveRef.current) {
                   finalCountdownActiveRef.current = true;
                   finalCountdownRemainingRef.current = DEFAULT_LEVEL_TIMER_SECONDS;
                   timerRemainingRef.current = finalCountdownRemainingRef.current;
@@ -411,6 +414,7 @@ export function useGameEngine(): UseGameEngineResult {
     lastWaveColorRef.current = null;
     finalCountdownActiveRef.current = false;
     finalCountdownRemainingRef.current = Infinity;
+    lowAmmoHysteresisArmedRef.current = ammoRemainingRef.current > 15;
     waveEndSpawnPausedRef.current = false;
     engineRef.current.setOrangeSpawningPaused(false);
     breathingActiveRef.current = false;
@@ -788,6 +792,7 @@ export function useGameEngine(): UseGameEngineResult {
     const activeRemainder = engineRef.current?.getEnemyBallCount() ?? 0;
     const add = Math.max(6, Math.ceil((nextWaveSpawnBudgetRef.current + activeRemainder) * 1.25 * runtimeModifiersRef.current.ammo_count));
     ammoRemainingRef.current += add;
+    if (ammoRemainingRef.current > 15) lowAmmoHysteresisArmedRef.current = true;
     engineRef.current?.addGrenades(Math.max(1, Math.ceil(add / 20)));
     setGrenadesLeft(engineRef.current?.getGrenadesLeft() ?? grenadesLeft);
     engineRef.current?.resetShotProgression();
@@ -800,6 +805,7 @@ export function useGameEngine(): UseGameEngineResult {
     const spawnBudget = Math.max(4, nextWaveSpawnBudgetRef.current);
     finalCountdownActiveRef.current = false;
     finalCountdownRemainingRef.current = Infinity;
+    lowAmmoHysteresisArmedRef.current = ammoRemainingRef.current > 15;
     waveEndSpawnPausedRef.current = false;
     engineRef.current.setOrangeSpawningPaused(false);
     timerRemainingRef.current = Infinity;
