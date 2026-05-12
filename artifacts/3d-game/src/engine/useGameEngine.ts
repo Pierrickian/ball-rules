@@ -132,6 +132,7 @@ export function useGameEngine(): UseGameEngineResult {
   const lastWaveColorRef = useRef<BallColor | null>(null);
   const finalCountdownActiveRef = useRef(false);
   const finalCountdownRemainingRef = useRef<number>(Infinity);
+  const waveEndSpawnPausedRef = useRef(false);
 
   useEffect(() => { runtimeModifiersRef.current = runtimeModifiers; }, [runtimeModifiers]);
 
@@ -309,6 +310,10 @@ export function useGameEngine(): UseGameEngineResult {
               if (activeEnemies === 0 && engineRef.current.getLaunchedCount() > 0) {
                 beginBreathingWave("victory");
               } else {
+                if (ammoRemainingRef.current <= 15 && !waveEndSpawnPausedRef.current) {
+                  waveEndSpawnPausedRef.current = true;
+                  engineRef.current.setOrangeSpawningPaused(true);
+                }
                 if (ammoRemainingRef.current <= 10 && !finalCountdownActiveRef.current) {
                   finalCountdownActiveRef.current = true;
                   finalCountdownRemainingRef.current = DEFAULT_LEVEL_TIMER_SECONDS;
@@ -399,6 +404,8 @@ export function useGameEngine(): UseGameEngineResult {
     lastWaveColorRef.current = null;
     finalCountdownActiveRef.current = false;
     finalCountdownRemainingRef.current = Infinity;
+    waveEndSpawnPausedRef.current = false;
+    engineRef.current.setOrangeSpawningPaused(false);
     breathingActiveRef.current = false;
     breathingCountdownRef.current = 0;
     syncRuntimeConfig(runtimeModifiersRef.current, 1);
@@ -786,6 +793,8 @@ export function useGameEngine(): UseGameEngineResult {
     const spawnBudget = Math.max(4, nextWaveSpawnBudgetRef.current);
     finalCountdownActiveRef.current = false;
     finalCountdownRemainingRef.current = Infinity;
+    waveEndSpawnPausedRef.current = false;
+    engineRef.current.setOrangeSpawningPaused(false);
     timerRemainingRef.current = Infinity;
     waveNumberRef.current += 1;
     const baseForWave = baseConfigRef.current ?? cfg;

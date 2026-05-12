@@ -790,6 +790,7 @@
     ]
   },
   "release_notes": [
+    "Oranges stoppées en fin de vague",
     "Décompte final et étoiles animées",
     "Better Shot dans le Game",
     "Résultats de vague et Play",
@@ -808,8 +809,7 @@
     "Portail créatif Add Feature",
     "Bouton ajout vers Evolution guidée",
     "Retry boss et grenades mieux guidés",
-    "Boss niveau 1 vulnérable aux grenades",
-    "Niveau violet magnétique ajouté"
+    "Boss niveau 1 vulnérable aux grenades"
   ],
   "debug": {
     "show_velocities": false,

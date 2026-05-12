@@ -82,6 +82,7 @@ export class GameEngine {
    *  Each entry tracks the launcher ball's id and remaining seconds. */
   private pendingLaunches: Array<{ launcherId: string; remaining: number }> = [];
   private pendingChaosSpawns: Array<{ remaining: number }> = [];
+  private orangeSpawningPaused = false;
   private activeGrenadeId: string | null = null;
   private grenadesLeft = 5;
   private lightShotsFired = 0;
@@ -267,6 +268,11 @@ export class GameEngine {
 
   setRuntimeModifiers(modifiers: RuntimeEngineModifiers): void {
     this.runtimeModifiers = modifiers;
+  }
+
+  setOrangeSpawningPaused(paused: boolean): void {
+    this.orangeSpawningPaused = paused;
+    if (paused) this.orangeSpawnTimer = 0;
   }
 
   addGrenades(amount: number): void {
