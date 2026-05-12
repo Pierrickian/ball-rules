@@ -291,6 +291,28 @@ export class GameEngine {
     return this.launchedCount;
   }
 
+  hasCurrentLevelBoss(): boolean {
+    return Boolean(this.getCurrentLevel()?.boss);
+  }
+
+  /**
+   * When the regular wave is cleared during the low-ammo end phase, stop
+   * waiting for the original spawn cap so a configured boss can enter before
+   * the inter-wave evolution menu is shown.
+   */
+  completeRegularWaveForBoss(): void {
+    if (!this.hasCurrentLevelBoss() || this.bossSpawned) return;
+    const currentMax = this.config.game_session?.max_balls_spawned ?? 20;
+    if (this.launchedCount >= currentMax) return;
+    this.config = {
+      ...this.config,
+      game_session: {
+        ...this.config.game_session,
+        max_balls_spawned: this.launchedCount,
+      },
+    };
+  }
+
   /** Number of "enemy" balls currently alive (excludes orange launchers and player projectiles). */
   isBossPhase(): boolean {
     if (this.bossIntroRemaining > 0 || this.bossMasteredRemaining > 0) return true;
