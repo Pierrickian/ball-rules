@@ -36,6 +36,12 @@ export interface BreathingWaveState {
   outcome?: "victory" | "defeat" | null;
 }
 
+export interface GameplayFeedback {
+  ammoAdded: number;
+  grenadesAdded: number;
+  effects?: Partial<RuntimeModifiers>;
+}
+
 export interface UseGameEngineResult {
   gameState: GameState | null;
   config: GameConfig | null;
@@ -70,8 +76,8 @@ export interface UseGameEngineResult {
   hpAdjustment: number;
   breathingWave: BreathingWaveState;
   runtimeModifiers: RuntimeModifiers;
-  applyAlveole: (alveole: GameplayAlveole) => void;
-  reloadWave: () => void;
+  applyAlveole: (alveole: GameplayAlveole) => GameplayFeedback;
+  reloadWave: () => GameplayFeedback;
   launchNextWave: () => void;
   requestContextualAlveoles: () => void;
   setRuntimeModifiersFromSettings: (modifiers: RuntimeModifiers) => void;
@@ -773,30 +779,39 @@ export function useGameEngine(): UseGameEngineResult {
   }, [doReset]);
 
 
-  const applyAlveole = useCallback((alveole: GameplayAlveole) => {
+  const applyAlveole = useCallback((alveole: GameplayAlveole): GameplayFeedback => {
     const next = applyAlveoleModifier(runtimeModifiersRef.current, alveole);
     runtimeModifiersRef.current = next;
     setRuntimeModifiers(next);
     syncRuntimeConfig(next, breathingActiveRef.current ? 2 : 1);
+    let ammoAdded = 0;
+    let grenadesAdded = 0;
     if (alveole.effects.ammo_count && alveole.effects.ammo_count > 1) {
-      ammoRemainingRef.current += Math.max(2, Math.round(4 * (alveole.effects.ammo_count - 1) * 5));
+      ammoAdded = Math.max(2, Math.round(4 * (alveole.effects.ammo_count - 1) * 5));
+      ammoRemainingRef.current += ammoAdded;
+      if (ammoRemainingRef.current > 15) lowAmmoHysteresisArmedRef.current = true;
     }
     if (alveole.effects.grenade_count && alveole.effects.grenade_count > 1) {
-      engineRef.current?.addGrenades(Math.max(1, Math.round((alveole.effects.grenade_count - 1) * 4)));
+      grenadesAdded = Math.max(1, Math.round((alveole.effects.grenade_count - 1) * 4));
+      engineRef.current?.addGrenades(grenadesAdded);
       setGrenadesLeft(engineRef.current?.getGrenadesLeft() ?? grenadesLeft);
     }
+    setGameState((prev) => prev ? { ...prev, ammoRemaining: ammoRemainingRef.current } : prev);
     setBreathingWave((prev) => ({ ...prev, message: `${alveole.label} appliqué`, alveoles: prev.alveoles.filter((item) => item.id !== alveole.id) }));
+    return { ammoAdded, grenadesAdded, effects: alveole.effects };
   }, [grenadesLeft, syncRuntimeConfig]);
 
-  const reloadWave = useCallback(() => {
+  const reloadWave = useCallback((): GameplayFeedback => {
     const activeRemainder = engineRef.current?.getEnemyBallCount() ?? 0;
     const add = Math.max(6, Math.ceil((nextWaveSpawnBudgetRef.current + activeRemainder) * 1.25 * runtimeModifiersRef.current.ammo_count));
+    const grenadesAdded = Math.max(1, Math.ceil(add / 20));
     ammoRemainingRef.current += add;
     if (ammoRemainingRef.current > 15) lowAmmoHysteresisArmedRef.current = true;
-    engineRef.current?.addGrenades(Math.max(1, Math.ceil(add / 20)));
+    engineRef.current?.addGrenades(grenadesAdded);
     setGrenadesLeft(engineRef.current?.getGrenadesLeft() ?? grenadesLeft);
     engineRef.current?.resetShotProgression();
     setGameState((prev) => prev ? { ...prev, ammoRemaining: ammoRemainingRef.current, lightShotDamage: engineRef.current?.getCurrentLightShotDamage() ?? prev.lightShotDamage } : prev);
+    return { ammoAdded: add, grenadesAdded };
   }, [grenadesLeft]);
 
   const launchNextWave = useCallback(() => {
