@@ -790,6 +790,7 @@
     ]
   },
   "release_notes": [
+    "Popups étoiles plus visibles",
     "Impacts evolution plus lisibles",
     "Time up et tirs légers réinitialisés",
     "Étoiles live et recharge manuelle",
@@ -808,8 +809,7 @@
     "Instant cible mieux les formulaires",
     "Panneau Instant ajouté au menu",
     "Random Add valide directement les prompts sans ouvrir Evolution",
-    "Random profond ajoute éléments MTC et hormones avant validation directe",
-    "Add Random propose des types de features validables directement"
+    "Random profond ajoute éléments MTC et hormones avant validation directe"
   ],
   "debug": {
     "show_velocities": false,

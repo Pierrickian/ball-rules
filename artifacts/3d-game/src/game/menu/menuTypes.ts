@@ -44,4 +44,6 @@ export interface MenuProps {
   runtimeModifiers: RuntimeModifiers;
   onRuntimeModifiersChange: (modifiers: RuntimeModifiers) => void;
   onRuntimeModifiersReset: () => void;
+  language: "fr" | "en";
+  onLanguageChange: (language: "fr" | "en") => void;
 }

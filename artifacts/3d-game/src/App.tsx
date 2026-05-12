@@ -22,6 +22,8 @@ import type { GameConfig, GameState, ShotKind, Vec2 } from "./engine/types";
 import type { GameplayAlveole, RuntimeModifiers } from "./engine/runtimeModifiers";
 import { ChargeBar, IncomingBallsOverlay, PlayerQueue } from "./AppOverlays";
 
+type GameLanguage = "fr" | "en";
+
 function App() {
   const {
     gameState, config, lastEvents, isRunning, playerQueue,
@@ -29,6 +31,7 @@ function App() {
     shoot, setCustomTerrainDistribution, setActiveLevel, setLevelWeights, applyRuntimeConfig, openRetryMenu, goToBoss, playBossRush, classifyHold, toggleGrenade, placeMine, upgradeBetterShot, grenadesLeft, setDifficulty, difficulty, setHpAdjustment, hpAdjustment, breathingWave, runtimeModifiers, applyAlveole, reloadWave, launchNextWave, requestContextualAlveoles, setRuntimeModifiersFromSettings, resetRuntimeModifiers,
   } = useGameEngine();
 
+  const [language, setLanguage] = useState<GameLanguage>(() => (localStorage.getItem("bg_language") === "en" ? "en" : "fr"));
   const [menuOpen, setMenuOpen] = useState(false);
   const [holdTime, setHoldTime] = useState(0);
   const animRef = useRef<number>(0);
@@ -80,13 +83,14 @@ function App() {
   const lastAmmoWarningAtRef = useRef(0);
   const ammoAnimationTimerRef = useRef<number | null>(null);
   const hadPlayerInputRef = useRef(false);
+  useEffect(() => { localStorage.setItem("bg_language", language); }, [language]);
   useEffect(() => { localStorage.setItem("bg_effect_ball", ballEffect); }, [ballEffect]);
   useEffect(() => { localStorage.setItem("bg_effect_grenade", grenadeEffect); }, [grenadeEffect]);
   useEffect(() => { localStorage.setItem("bg_debug_explosion_texture", debugExplosionTexture ? "1" : "0"); }, [debugExplosionTexture]);
   useEffect(() => () => {
     if (ammoAnimationTimerRef.current !== null) window.clearInterval(ammoAnimationTimerRef.current);
   }, []);
-  const showStarPopup = (label: string, kind: "earned" | "lost" | "reloadLost" = "earned", durationMs = 1300) => {
+  const showStarPopup = (label: string, kind: "earned" | "lost" | "reloadLost" = "earned", durationMs = 2300) => {
     const id = Date.now() + Math.random();
     setStarPopups((prev) => [...prev, { id, label, kind }]);
     window.setTimeout(() => {
@@ -169,11 +173,11 @@ function App() {
         waveCombosRef.current[event.label] = (waveCombosRef.current[event.label] ?? 0) + 1;
         if (!comboStarShownRef.current && event.streak > previousWaveMaxComboRef.current) {
           comboStarShownRef.current = true;
-          showStarPopup("Combo Star", "earned");
+          showStarPopup(language === "en" ? "Combo Star" : "Étoile Combo", "earned");
         }
       }
     }
-  }, [lastEvents]);
+  }, [lastEvents, language]);
   // Refs that mirror UI state so window-level listeners (installed once at
   // mount) always read the latest values without re-subscribing.
   const menuOpenRef = useRef(menuOpen);
@@ -210,7 +214,7 @@ function App() {
       setWaveResult(result);
       if (!timeStarShownRef.current) {
         timeStarShownRef.current = true;
-        showStarPopup(result.outcome === "victory" ? "Kill Star / Étoile Kill" : "Kill Star Lost / Étoile Kill perdue", result.outcome === "victory" ? "earned" : "lost");
+        showStarPopup(result.outcome === "victory" ? (language === "en" ? "Kill Star" : "Étoile Kill") : (language === "en" ? "Kill Star Lost" : "Étoile Kill perdue"), result.outcome === "victory" ? "earned" : "lost");
       }
       previousWaveMaxComboRef.current = result.maxCombo;
       const noticeUntil = Date.now() + 2000;
@@ -225,7 +229,7 @@ function App() {
       setSelectedAlveoleIds([]);
       setBetterShotSelected(false);
     }
-  }, [breathingWave.phase, breathingWave.waveNumber, breathingWave.outcome]);
+  }, [breathingWave.phase, breathingWave.waveNumber, breathingWave.outcome, language]);
 
   useEffect(() => {
     if (waveUiStage !== "notice") return;
@@ -571,7 +575,7 @@ function App() {
     targetReloadRef.current += 1;
     if (targetReloadRef.current > 1) {
       reloadStarLostShownRef.current = true;
-      showStarPopup("Reload Star Lost", "reloadLost", 2300);
+      showStarPopup(language === "en" ? "Reload Star Lost" : "Étoile recharge perdue", "reloadLost", 3300);
     }
   };
   const resetWaveTracking = () => {
@@ -657,8 +661,7 @@ function App() {
       {showTimeUpNotice && (
         <div style={{ position:"absolute", inset:0, display:"grid", placeItems:"center", pointerEvents:"none", zIndex:11 }}>
           <div style={{ fontSize:52, fontWeight:950, letterSpacing:5, color:"#fff", textAlign:"center", textShadow:"0 0 24px #ff7a00, 0 0 8px #000", textTransform:"uppercase" }}>
-            Time up
-            <div style={{ fontSize:24, letterSpacing:2, marginTop:6, color:"#ffe8a3" }}>Temps écoulé</div>
+            {language === "en" ? "Time up" : "Temps écoulé"}
           </div>
         </div>
       )}
@@ -703,7 +706,7 @@ function App() {
         @keyframes star-popup-earned {
           0% { opacity: 0; transform: translate(-50%, 16px) scale(.72) rotate(-8deg); }
           18% { opacity: 1; transform: translate(-50%, -8px) scale(1.18) rotate(4deg); }
-          45% { transform: translate(-50%, 0) scale(1) rotate(-2deg); }
+          45%, 72% { opacity: 1; transform: translate(-50%, 0) scale(1) rotate(-2deg); }
           100% { opacity: 0; transform: translate(-50%, -48px) scale(1.04) rotate(2deg); }
         }
         @keyframes star-popup-lost {
@@ -765,15 +768,23 @@ function App() {
           +{popup.amount}
         </div>
       ))}
+      {starPopups.map((popup, index) => (
+        <div
+          key={`title-${popup.id}`}
+          style={{ position:"absolute", left:"50%", top:158 + index * 64, transform:"translateX(-50%)", zIndex:13, pointerEvents:"none", width:"96vw", textAlign:"center", fontSize:44, fontWeight:950, letterSpacing:5, color:"rgba(255,255,255,.2)", textShadow:"0 0 22px rgba(122,252,255,.36), 0 0 8px #000", textTransform:"uppercase", animation:`${popup.kind === "reloadLost" ? "reload-star-lost-pop" : popup.kind === "lost" ? "star-popup-lost" : "star-popup-earned"} ${popup.kind === "reloadLost" ? 3.3 : 2.3}s ease-out forwards` }}
+        >
+          {popup.label}
+        </div>
+      ))}
       {starPopups.map((popup, index) => {
         const isReloadLost = popup.kind === "reloadLost";
         const isLost = popup.kind === "lost" || isReloadLost;
         return (
           <div
             key={popup.id}
-            style={{ position:"absolute", left:"50%", top:210 + index * 64, zIndex:14, pointerEvents:"none", display:"flex", alignItems:"center", gap:12, padding:isReloadLost ? "12px 18px" : "9px 14px", borderRadius:999, border:`2px solid ${isReloadLost ? "rgba(168,85,247,.95)" : isLost ? "rgba(96,165,250,.82)" : "rgba(255,209,102,.82)"}`, background: isReloadLost ? "linear-gradient(135deg, rgba(35,18,80,.96), rgba(12,35,90,.94))" : isLost ? "rgba(15,23,42,.84)" : "rgba(60,40,5,.82)", color: isReloadLost ? "#f3e8ff" : isLost ? "#dbeafe" : "#fff4b8", fontWeight:1000, fontSize:isReloadLost ? 22 : 18, letterSpacing:isReloadLost ? 1.1 : .5, textTransform:isReloadLost ? "uppercase" : undefined, textShadow:isReloadLost ? "0 0 12px #000, 0 0 18px rgba(168,85,247,.95), 0 0 8px rgba(96,165,250,.9)" : "0 0 10px #000", boxShadow: isReloadLost ? "0 0 28px rgba(168,85,247,.65), 0 0 48px rgba(37,99,235,.38)" : isLost ? "0 0 20px rgba(96,165,250,.32)" : "0 0 24px rgba(255,209,102,.42)", animation:`${isReloadLost ? "reload-star-lost-pop" : isLost ? "star-popup-lost" : "star-popup-earned"} ${isReloadLost ? 2.3 : 1.3}s ease-out forwards` }}
+            style={{ position:"absolute", left:"50%", top:210 + index * 64, zIndex:14, pointerEvents:"none", display:"flex", alignItems:"center", gap:12, padding:isReloadLost ? "12px 18px" : "9px 14px", borderRadius:999, border:`2px solid ${isReloadLost ? "rgba(168,85,247,.95)" : isLost ? "rgba(96,165,250,.82)" : "rgba(255,209,102,.82)"}`, background: isReloadLost ? "linear-gradient(135deg, rgba(35,18,80,.96), rgba(12,35,90,.94))" : isLost ? "rgba(15,23,42,.84)" : "rgba(60,40,5,.82)", color: isReloadLost ? "#f3e8ff" : isLost ? "#dbeafe" : "#fff4b8", fontWeight:1000, fontSize:isReloadLost ? 26 : 21, letterSpacing:isReloadLost ? 1.1 : .5, textTransform:isReloadLost ? "uppercase" : undefined, textShadow:isReloadLost ? "0 0 12px #000, 0 0 18px rgba(168,85,247,.95), 0 0 8px rgba(96,165,250,.9)" : "0 0 10px #000", boxShadow: isReloadLost ? "0 0 28px rgba(168,85,247,.65), 0 0 48px rgba(37,99,235,.38)" : isLost ? "0 0 20px rgba(96,165,250,.32)" : "0 0 24px rgba(255,209,102,.42)", animation:`${isReloadLost ? "reload-star-lost-pop" : isLost ? "star-popup-lost" : "star-popup-earned"} ${isReloadLost ? 3.3 : 2.3}s ease-out forwards` }}
           >
-            <span style={{ fontSize:isReloadLost ? 34 : 26, color: isReloadLost ? "#a78bfa" : isLost ? "#60a5fa" : "#ffd166", filter: isLost ? "drop-shadow(0 0 12px rgba(96,165,250,.85))" : "drop-shadow(0 0 9px rgba(255,209,102,.88))" }}>★</span>
+            <span style={{ fontSize:isReloadLost ? 40 : 31, color: isReloadLost ? "#a78bfa" : isLost ? "#60a5fa" : "#ffd166", filter: isLost ? "drop-shadow(0 0 12px rgba(96,165,250,.85))" : "drop-shadow(0 0 9px rgba(255,209,102,.88))" }}>★</span>
             <span>{popup.label}</span>
           </div>
         );
@@ -975,6 +986,8 @@ function App() {
           onGrenadeEffectChange={setGrenadeEffect}
           debugExplosionTexture={debugExplosionTexture}
           onDebugExplosionTextureChange={setDebugExplosionTexture}
+          language={language}
+          onLanguageChange={setLanguage}
           runtimeModifiers={runtimeModifiers}
           onRuntimeModifiersChange={setRuntimeModifiersFromSettings}
           onRuntimeModifiersReset={resetRuntimeModifiers}

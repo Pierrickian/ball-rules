@@ -47,6 +47,8 @@ export function Menu({
   onGrenadeEffectChange,
   debugExplosionTexture,
   onDebugExplosionTextureChange,
+  language,
+  onLanguageChange,
   runtimeModifiers,
   onRuntimeModifiersChange,
   onRuntimeModifiersReset,
@@ -84,7 +86,7 @@ export function Menu({
           onClose={onClose}
         />
       )}
-      {view === "settings"       && <RuntimeSettingsMenu runtimeModifiers={runtimeModifiers} onRuntimeModifiersChange={onRuntimeModifiersChange} onReset={onRuntimeModifiersReset} onBack={() => setView("main")} />}
+      {view === "settings"       && <RuntimeSettingsMenu language={language} onLanguageChange={onLanguageChange} runtimeModifiers={runtimeModifiers} onRuntimeModifiersChange={onRuntimeModifiersChange} onReset={onRuntimeModifiersReset} onBack={() => setView("main")} />}
       {view === "change"         && <ChangeMenu config={config} currentLevelIndex={currentLevelIndex} currentLevelNumber={currentLevelNumber} onApplyChangeConfig={onApplyInstantConfig} onOpenEvolution={(text) => { setChangeEvolutionText(text); setView("evolution"); }} onClose={onClose} onBack={() => setView("main")} />}
       {view === "evolution"      && <EvolutionMenu evolutionRequest={evolutionRequest} initialText={changeEvolutionText || evolutionInitialText} currentLevelNumber={currentLevelNumber} difficulty={difficulty} hpAdjustment={hpAdjustment} onBack={() => setView("main")} />}
       {view === "rules"          && <RulesMenu      config={config} onBack={() => setView("main")} />}
