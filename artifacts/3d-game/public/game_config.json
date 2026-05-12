@@ -790,6 +790,7 @@
     ]
   },
   "release_notes": [
+    "Décompte final et étoiles animées",
     "Better Shot dans le Game",
     "Résultats de vague et Play",
     "Entonnoir Game et réglages hormones",
@@ -808,8 +809,7 @@
     "Bouton ajout vers Evolution guidée",
     "Retry boss et grenades mieux guidés",
     "Boss niveau 1 vulnérable aux grenades",
-    "Niveau violet magnétique ajouté",
-    "Combos centrés et multiplicateur continu"
+    "Niveau violet magnétique ajouté"
   ],
   "debug": {
     "show_velocities": false,

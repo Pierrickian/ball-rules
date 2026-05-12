@@ -89,7 +89,7 @@ export function HUD({ gameState, config, isRunning, levelTimerSeconds, shotsRema
           {levelTimerSeconds !== null && (
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ fontSize: 16 }}>⏳</span>
-              <span style={{ fontSize: 20, fontWeight: "bold", color: "#ffd166", minWidth: 48, textAlign: "center" }}>
+              <span style={{ fontSize: 20, fontWeight: "bold", color: "#ffd166", minWidth: 48, textAlign: "center", display: "inline-block", animation: "ammo-countdown-pulse 0.85s ease-in-out infinite" }}>
                 {`${Math.max(0, Math.ceil(levelTimerSeconds))}s`}
               </span>
             </div>

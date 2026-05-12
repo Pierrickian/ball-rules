@@ -54,6 +54,7 @@ function App() {
   const [grenadeFlashKey, setGrenadeFlashKey] = useState(0);
   const [idleMicroPauseOpen, setIdleMicroPauseOpen] = useState(false);
   const [waveNoticeUntil, setWaveNoticeUntil] = useState(0);
+  const [ammoEndNoticeVisible, setAmmoEndNoticeVisible] = useState(false);
   const [selectedAlveoleIds, setSelectedAlveoleIds] = useState<string[]>([]);
   const [betterShotSelected, setBetterShotSelected] = useState(false);
   const [uiNow, setUiNow] = useState(() => Date.now());
@@ -64,6 +65,7 @@ function App() {
   const waveMaxComboRef = useRef(0);
   const previousComboRecordRef = useRef(0);
   const waveCombosRef = useRef<Record<string, number>>({});
+  const ammoEndNoticeShownRef = useRef(false);
   const hadPlayerInputRef = useRef(false);
   useEffect(() => { localStorage.setItem("bg_effect_ball", ballEffect); }, [ballEffect]);
   useEffect(() => { localStorage.setItem("bg_effect_grenade", grenadeEffect); }, [grenadeEffect]);
@@ -127,6 +129,7 @@ function App() {
       setWaveUiStage("notice");
       setSelectedAlveoleIds([]);
       setBetterShotSelected(false);
+      setAmmoEndNoticeVisible(false);
     } else if (breathingWave.phase === "active") {
       setWaveUiStage("none");
       setSelectedAlveoleIds([]);
@@ -187,6 +190,15 @@ function App() {
   })();
   const retryReason = gameState?.retryReason ?? null;
   const shotsRemaining = gameState?.ammoRemaining ?? 50;
+
+  useEffect(() => {
+    if (breathingWave.phase !== "active") return;
+    if (shotsRemaining > 15 || ammoEndNoticeShownRef.current) return;
+    ammoEndNoticeShownRef.current = true;
+    setAmmoEndNoticeVisible(true);
+    const timer = window.setTimeout(() => setAmmoEndNoticeVisible(false), 3000);
+    return () => window.clearTimeout(timer);
+  }, [shotsRemaining, breathingWave.phase]);
 
   const computeInterceptTarget = (targetPos: Vec2, targetVel: Vec2, shotSpeed: number): Vec2 => {
     const shooter = { x: 0, y: -(config?.graphics.arena.height ?? 14) * 0.5 };
@@ -434,6 +446,8 @@ function App() {
   })();
 
   const visibleAlveoles = breathingWave.alveoles;
+  const rawTimerSeconds = gameState.timerSecondsRemaining ?? Infinity;
+  const finalCountdownSeconds = Number.isFinite(rawTimerSeconds) ? rawTimerSeconds : null;
   const showWaveNotice = breathingWave.phase === "breathing" && waveUiStage === "notice" && uiNow < waveNoticeUntil;
   const showResultsFrame = breathingWave.phase === "breathing" && waveUiStage === "results" && waveResult !== null;
   const showGameFunnel = breathingWave.phase === "breathing" && waveUiStage === "evolution";
@@ -449,6 +463,8 @@ function App() {
     waveReloadCountRef.current = 0;
     waveMaxComboRef.current = 0;
     waveCombosRef.current = {};
+    ammoEndNoticeShownRef.current = false;
+    setAmmoEndNoticeVisible(false);
   };
   const handlePlayFunnel = () => {
     for (const alveole of selectedAlveoles) applyAlveole(alveole);
@@ -523,6 +539,24 @@ function App() {
         @keyframes alveole-breathe {
           0%, 100% { transform: translateY(0) scale(1); opacity: .92; }
           50% { transform: translateY(-2px) scale(1.025); opacity: 1; }
+        }
+        @keyframes ammo-countdown-pulse {
+          0%, 100% { transform: scale(1); opacity: .9; text-shadow: 0 0 10px rgba(255,209,102,.55); }
+          50% { transform: scale(1.18); opacity: 1; text-shadow: 0 0 20px rgba(255,209,102,.95), 0 0 34px rgba(255,77,122,.55); }
+        }
+        @keyframes star-earned-bounce {
+          0%, 100% { transform: scale(1) rotate(-2deg); }
+          35% { transform: scale(1.2) rotate(3deg); }
+          65% { transform: scale(.96) rotate(-1deg); }
+        }
+        @keyframes star-earned-glow {
+          0%, 100% { opacity: .68; transform: scale(.88); }
+          50% { opacity: 1; transform: scale(1.18); }
+        }
+        @keyframes star-sparkle-drift {
+          0% { opacity: 0; transform: translateY(8px) scale(.65); }
+          30% { opacity: 1; }
+          100% { opacity: 0; transform: translateY(-16px) scale(1.05); }
         }
         @keyframes mine-placement-pulse {
           0%, 100% { transform: scale(1); box-shadow: 0 0 0 rgba(255,77,122,0); }
@@ -615,6 +649,11 @@ function App() {
       />
 
       <div style={{ position:"absolute", left:"50%", top:78, transform:"translateX(-50%)", zIndex:20, pointerEvents:"none", display:"flex", flexDirection:"column", gap:8, width:"min(88vw, 430px)" }}>
+        {ammoEndNoticeVisible && (
+          <div style={{ padding:"8px 12px", borderRadius:14, background:"rgba(32,18,0,.84)", border:"1px solid rgba(255,209,102,.42)", color:"#fff3c4", boxShadow:"0 0 20px rgba(255,209,102,.18)", backdropFilter:"blur(10px)", textAlign:"center", fontWeight:900 }}>
+            Fin de vague — ressources basses
+          </div>
+        )}
         {showWaveNotice && (
           <div style={{ padding:"8px 12px", borderRadius:14, background:"rgba(0,14,32,.82)", border:"1px solid rgba(122,252,255,.32)", color:"#eaffff", boxShadow:"0 0 20px rgba(0,210,255,.18)", backdropFilter:"blur(10px)", textAlign:"center" }}>
             <div style={{ fontSize:18, fontWeight:900, textShadow:"0 0 12px rgba(122,252,255,.55)" }}>{breathingWave.message}</div>
@@ -628,10 +667,35 @@ function App() {
               <span>Record précédent x{waveResult.previousRecord}</span><span>Max vague x{waveResult.maxCombo}</span>
               <span>Rechargements {waveResult.reloadCount}</span><span>Temps {waveResult.durationSeconds.toFixed(1)}s</span>
             </div>
-            <div style={{ display:"flex", gap:6, marginTop:10, flexWrap:"wrap" }}>
-              {waveResult.outcome === "victory" && <span>⭐ Rapide</span>}
-              {waveResult.reloadCount <= 1 && <span>⭐ Expert</span>}
-              {waveResult.maxCombo > waveResult.previousRecord && <span>⭐ Pro</span>}
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:10, marginTop:14 }}>
+              {[
+                { key:"fast", title:"Rapide", condition:"Victoire", earned: waveResult.outcome === "victory" },
+                { key:"expert", title:"Expert", condition:"1 seule recharge", earned: waveResult.reloadCount <= 1 },
+                { key:"pro", title:"Pro", condition:"Record multiplicateur battu", earned: waveResult.maxCombo > waveResult.previousRecord },
+              ].map((star, index) => (
+                <div key={star.key} style={{ position:"relative", minHeight:118, borderRadius:14, padding:"8px 6px 10px", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"flex-start", gap:5, background: star.earned ? "radial-gradient(circle at 50% 16%, rgba(255,209,102,.22), rgba(255,255,255,.05) 46%, rgba(0,0,0,.12))" : "rgba(255,255,255,.035)", border:`1px solid ${star.earned ? "rgba(255,209,102,.48)" : "rgba(255,255,255,.12)"}`, boxShadow: star.earned ? "0 0 20px rgba(255,209,102,.18), inset 0 0 16px rgba(255,255,255,.05)" : "inset 0 0 16px rgba(255,255,255,.03)", overflow:"hidden" }}>
+                  {star.earned && (
+                    <>
+                      <span style={{ position:"absolute", inset:18, borderRadius:"50%", background:"radial-gradient(circle, rgba(255,230,140,.48), rgba(255,209,102,.08) 52%, transparent 70%)", filter:"blur(3px)", animation:`star-earned-glow ${1.7 + index * .18}s ease-in-out infinite` }} />
+                      <span style={{ position:"absolute", left:"23%", top:18, color:"#fff6c7", fontSize:10, animation:`star-sparkle-drift ${1.4 + index * .12}s ease-in-out infinite` }}>✦</span>
+                      <span style={{ position:"absolute", right:"22%", top:34, color:"#fff6c7", fontSize:8, animation:`star-sparkle-drift ${1.55 + index * .16}s ease-in-out infinite .22s` }}>✧</span>
+                    </>
+                  )}
+                  <svg viewBox="0 0 100 100" width="58" height="58" aria-hidden="true" style={{ position:"relative", zIndex:1, overflow:"visible", animation: star.earned ? `star-earned-bounce ${1.45 + index * .12}s cubic-bezier(.25,.9,.35,1.25) infinite` : undefined, filter: star.earned ? "drop-shadow(0 0 12px rgba(255,209,102,.9)) drop-shadow(0 0 22px rgba(255,153,64,.45))" : "drop-shadow(0 0 8px rgba(255,255,255,.12))" }}>
+                    <defs>
+                      <linearGradient id={`star-fill-${star.key}`} x1="18" y1="8" x2="82" y2="92" gradientUnits="userSpaceOnUse">
+                        <stop offset="0" stopColor="#fff9bd" />
+                        <stop offset="0.45" stopColor="#ffd166" />
+                        <stop offset="1" stopColor="#ff9f1c" />
+                      </linearGradient>
+                    </defs>
+                    <polygon points="50,6 62,35 94,37 69,58 77,90 50,73 23,90 31,58 6,37 38,35" fill={star.earned ? `url(#star-fill-${star.key})` : "rgba(255,255,255,.035)"} stroke={star.earned ? "#fff6b0" : "rgba(255,255,255,.42)"} strokeWidth={star.earned ? 3 : 4} strokeLinejoin="round" />
+                    {!star.earned && <polygon points="50,19 58,40 80,42 63,56 68,78 50,66 32,78 37,56 20,42 42,40" fill="rgba(255,255,255,.045)" stroke="rgba(255,255,255,.16)" strokeWidth="2" strokeLinejoin="round" />}
+                  </svg>
+                  <div style={{ position:"relative", zIndex:1, fontSize:13, fontWeight:900, color: star.earned ? "#fff4b8" : "rgba(230,240,255,.62)", textShadow: star.earned ? "0 0 12px rgba(255,209,102,.72), 0 0 4px #000" : "0 0 4px #000" }}>{star.title}</div>
+                  <div style={{ position:"relative", zIndex:1, fontSize:9.5, lineHeight:1.15, color: star.earned ? "#ffe8a3" : "rgba(184,216,255,.55)", textAlign:"center" }}>{star.condition}</div>
+                </div>
+              ))}
             </div>
             <div style={{ marginTop:10, fontSize:12, color:"#b8d8ff" }}>
               {Object.entries(waveResult.combos).length === 0 ? "Aucun combo" : Object.entries(waveResult.combos).map(([name, count]) => <div key={name}>{name} × {count}</div>)}
@@ -664,7 +728,7 @@ function App() {
         gameState={gameState}
         config={config}
         isRunning={isRunning}
-        levelTimerSeconds={isBossPhase || !showWaveNotice ? null : breathingWave.countdownRemaining}
+        levelTimerSeconds={isBossPhase ? null : finalCountdownSeconds}
         shotsRemaining={isBossPhase ? null : shotsRemaining}
         onPause={pause}
         onResume={resume}

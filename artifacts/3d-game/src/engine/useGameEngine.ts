@@ -130,6 +130,8 @@ export function useGameEngine(): UseGameEngineResult {
   const aiRequestIdRef = useRef(0);
   const nextWaveSpawnBudgetRef = useRef(8);
   const lastWaveColorRef = useRef<BallColor | null>(null);
+  const finalCountdownActiveRef = useRef(false);
+  const finalCountdownRemainingRef = useRef<number>(Infinity);
 
   useEffect(() => { runtimeModifiersRef.current = runtimeModifiers; }, [runtimeModifiers]);
 
@@ -141,7 +143,7 @@ export function useGameEngine(): UseGameEngineResult {
   const applyLevelLimits = useCallback(() => {
     const lvl = engineRef.current?.getCurrentLevel();
     const bossPhase = engineRef.current?.isBossPhase() ?? false;
-    timerRemainingRef.current = bossPhase ? Infinity : Math.round(DEFAULT_LEVEL_TIMER_SECONDS * runtimeModifiersRef.current.wave_duration);
+    timerRemainingRef.current = Infinity;
     ammoRemainingRef.current = bossPhase ? Infinity : Math.round((lvl?.ammo_count ?? DEFAULT_LEVEL_AMMO_COUNT) * runtimeModifiersRef.current.ammo_count);
     timerTickAccumulatorRef.current = 0;
   }, []);
@@ -304,8 +306,22 @@ export function useGameEngine(): UseGameEngineResult {
               setBreathingWave((prev) => ({ ...prev, countdownRemaining: breathingCountdownRef.current }));
             } else {
               const activeEnemies = engineRef.current.getEnemyBallCount();
-              if (activeEnemies === 0 && engineRef.current.getLaunchedCount() > 0) beginBreathingWave("victory");
-              else if (ammoRemainingRef.current <= 0) beginBreathingWave("defeat");
+              if (activeEnemies === 0 && engineRef.current.getLaunchedCount() > 0) {
+                beginBreathingWave("victory");
+              } else {
+                if (ammoRemainingRef.current <= 10 && !finalCountdownActiveRef.current) {
+                  finalCountdownActiveRef.current = true;
+                  finalCountdownRemainingRef.current = DEFAULT_LEVEL_TIMER_SECONDS;
+                  timerRemainingRef.current = finalCountdownRemainingRef.current;
+                }
+                if (finalCountdownActiveRef.current) {
+                  finalCountdownRemainingRef.current = Math.max(0, Math.round((finalCountdownRemainingRef.current - 0.1) * 10) / 10);
+                  timerRemainingRef.current = finalCountdownRemainingRef.current;
+                  if (finalCountdownRemainingRef.current <= 0) beginBreathingWave("defeat");
+                } else {
+                  timerRemainingRef.current = Infinity;
+                }
+              }
             }
           }
         }
@@ -313,7 +329,7 @@ export function useGameEngine(): UseGameEngineResult {
         setGameState({
           ...visibleState,
           time: timestamp / 1000,
-          timerSecondsRemaining: bossPhase ? Infinity : timerRemainingRef.current,
+          timerSecondsRemaining: bossPhase ? Infinity : (finalCountdownActiveRef.current ? finalCountdownRemainingRef.current : Infinity),
           ammoRemaining: bossPhase ? Infinity : ammoRemainingRef.current,
           retryReason: retryReasonRef.current,
           isBossPhase: bossPhase,
@@ -381,6 +397,8 @@ export function useGameEngine(): UseGameEngineResult {
     applyLevelLimits();
     waveNumberRef.current = 1;
     lastWaveColorRef.current = null;
+    finalCountdownActiveRef.current = false;
+    finalCountdownRemainingRef.current = Infinity;
     breathingActiveRef.current = false;
     breathingCountdownRef.current = 0;
     syncRuntimeConfig(runtimeModifiersRef.current, 1);
@@ -466,7 +484,6 @@ export function useGameEngine(): UseGameEngineResult {
     if (!cfg || !engineRef.current || pausedRef.current || retryReasonRef.current) return null;
     const bossPhase = engineRef.current.isBossPhase();
     if (!bossPhase && ammoRemainingRef.current <= 0) {
-      beginBreathingWave("defeat");
       return null;
     }
     const types = cfg.gameplay_controls.shot_types;
@@ -484,7 +501,6 @@ export function useGameEngine(): UseGameEngineResult {
         ammoRemaining: ammoRemainingRef.current,
         retryReason: null,
       } : prev);
-      if (ammoRemainingRef.current <= 0) beginBreathingWave("defeat");
     }
 
     return resolved;
@@ -768,7 +784,9 @@ export function useGameEngine(): UseGameEngineResult {
     const cfg = configRef.current;
     if (!cfg || !engineRef.current || !breathingActiveRef.current) return;
     const spawnBudget = Math.max(4, nextWaveSpawnBudgetRef.current);
-    timerRemainingRef.current = Math.round(DEFAULT_LEVEL_TIMER_SECONDS * runtimeModifiersRef.current.wave_duration);
+    finalCountdownActiveRef.current = false;
+    finalCountdownRemainingRef.current = Infinity;
+    timerRemainingRef.current = Infinity;
     waveNumberRef.current += 1;
     const baseForWave = baseConfigRef.current ?? cfg;
     const waveColor = pickDifferentWaveColor(baseForWave);
