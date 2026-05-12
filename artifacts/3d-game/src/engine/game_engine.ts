@@ -385,7 +385,7 @@ export class GameEngine {
 
     if (kind === "light") {
       const heavy = types.heavy;
-      override.damage = this.getCurrentLightShotDamage();
+      override.damage = heavy.damage;
       override.passes_through_balls = heavy.passes_through_balls;
       override.wall_bounces = heavy.wall_bounces;
       override.diameter_multiplier = heavy.diameter_multiplier;

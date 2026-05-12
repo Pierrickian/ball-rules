@@ -376,7 +376,7 @@
       "hit_immunity_ms": 200,
       "_hit_immunity_ms_comment": "Immunité temporaire (ms) après impact: évite les doubles touches immédiates, mais autorise une retouche après rebond.",
       "light_damage_progression": "Tous les 2 tirs légers, dégâts +1 jusqu’à 20; Recharger réinitialise.",
-      "better_shot_progression": "Better Shot peut activer lock, homing, auto fire, ou décaler les effets de tir; les méga tirs décalés gagnent +5 dégâts et +1 rebond par degré.",
+      "better_shot_progression": "Better Shot ajoute un nouveau tir plus puissant au cran maximal; les tirs existants se décalent vers le cran inférieur et la progression est répétable.",
       "mine_trigger": "La mine n’a plus de timer: elle explose quand une balle de terrain passe dessus."
     },
     "yellow_blinker": {
@@ -790,6 +790,7 @@
     ]
   },
   "release_notes": [
+    "Better Shot dans le Game",
     "Résultats de vague et Play",
     "Entonnoir Game et réglages hormones",
     "Mines et tirs évolutifs",
@@ -808,8 +809,7 @@
     "Retry boss et grenades mieux guidés",
     "Boss niveau 1 vulnérable aux grenades",
     "Niveau violet magnétique ajouté",
-    "Combos centrés et multiplicateur continu",
-    "Popups de combos pour tirs remarquables"
+    "Combos centrés et multiplicateur continu"
   ],
   "debug": {
     "show_velocities": false,

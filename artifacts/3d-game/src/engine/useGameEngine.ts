@@ -470,7 +470,7 @@ export function useGameEngine(): UseGameEngineResult {
       return null;
     }
     const types = cfg.gameplay_controls.shot_types;
-    const effective: ShotKind = holdSeconds >= (types.mega?.max_hold_seconds ?? 0.8) ? "mega" : holdSeconds >= (types.heavy?.max_hold_seconds ?? 0.3) ? "heavy" : "light";
+    const effective: ShotKind = holdSeconds >= (types.mega?.min_hold_seconds ?? 0.8) ? "mega" : holdSeconds >= (types.heavy?.min_hold_seconds ?? 0.3) ? "heavy" : "light";
     const resolved: ShotKind = forcedKind ?? effective;
     const holdForResolved = holdSeconds;
     const projectileColor: BallColor = resolved === "light" ? "white" : resolved === "heavy" ? "yellow" : "pink";

@@ -48,7 +48,6 @@ function App() {
   const [debugExplosionTexture, setDebugExplosionTexture] = useState(() => localStorage.getItem("bg_debug_explosion_texture") === "1");
   const [autoFire, setAutoFire] = useState(false);
   const [minePlacementMode, setMinePlacementMode] = useState(false);
-  const [betterShotChooserOpen, setBetterShotChooserOpen] = useState(false);
   const [addFeaturePortalOpen, setAddFeaturePortalOpen] = useState(false);
   const [evolutionInitialText, setEvolutionInitialText] = useState("");
   const [grenadeAwardPopups, setGrenadeAwardPopups] = useState<Array<{ id: number; amount: number }>>([]);
@@ -56,6 +55,7 @@ function App() {
   const [idleMicroPauseOpen, setIdleMicroPauseOpen] = useState(false);
   const [waveNoticeUntil, setWaveNoticeUntil] = useState(0);
   const [selectedAlveoleIds, setSelectedAlveoleIds] = useState<string[]>([]);
+  const [betterShotSelected, setBetterShotSelected] = useState(false);
   const [uiNow, setUiNow] = useState(() => Date.now());
   const [waveUiStage, setWaveUiStage] = useState<"none" | "notice" | "results" | "evolution">("none");
   const [waveResult, setWaveResult] = useState<null | { outcome: "victory" | "defeat"; durationSeconds: number; reloadCount: number; maxCombo: number; previousRecord: number; combos: Record<string, number> }>(null);
@@ -126,9 +126,11 @@ function App() {
       setWaveNoticeUntil(Date.now() + 3000);
       setWaveUiStage("notice");
       setSelectedAlveoleIds([]);
+      setBetterShotSelected(false);
     } else if (breathingWave.phase === "active") {
       setWaveUiStage("none");
       setSelectedAlveoleIds([]);
+      setBetterShotSelected(false);
     }
   }, [breathingWave.phase, breathingWave.waveNumber, breathingWave.outcome]);
 
@@ -451,6 +453,8 @@ function App() {
   const handlePlayFunnel = () => {
     for (const alveole of selectedAlveoles) applyAlveole(alveole);
     setSelectedAlveoleIds([]);
+    if (betterShotSelected) upgradeBetterShot();
+    setBetterShotSelected(false);
     resetWaveTracking();
     reloadWave();
     waveReloadCountRef.current += 1;
@@ -580,21 +584,7 @@ function App() {
         >
           {autoFire ? "Auto Fire ON" : "Auto Fire"}
         </button>
-        <button
-          onClick={() => setBetterShotChooserOpen((v) => !v)}
-          style={{ border:"1px solid #c084fc", background: (gameState.betterShotLevel ?? 0) > 0 ? "#7e22ce" : "rgba(0,0,0,.55)", color:"#f3e8ff", borderRadius:8, padding:"6px 12px", fontWeight:700, minWidth: 118, whiteSpace: "nowrap" }}
-        >
-          Better Shot {(gameState.betterShotLevel ?? 0) > 0 ? `+${gameState.betterShotLevel}` : ""}
-        </button>
       </div>
-      {betterShotChooserOpen && (
-        <div style={{ position:"absolute", left:"50%", transform:"translateX(-50%)", bottom:96, zIndex:14, display:"flex", gap:8, padding:10, borderRadius:14, background:"rgba(12,6,28,.9)", border:"1px solid rgba(192,132,252,.55)", boxShadow:"0 0 24px rgba(126,34,206,.35)" }}>
-          <button onClick={() => { setLockOn(true); setBetterShotChooserOpen(false); }} style={{ border:"1px solid #1e90ff", background:"rgba(30,144,255,.22)", color:"#dbeafe", borderRadius:8, padding:"7px 10px", fontWeight:800 }}>lock</button>
-          <button onClick={() => { setLockOn(true); setHomingOn(true); setBetterShotChooserOpen(false); }} style={{ border:"1px solid #00d4aa", background:"rgba(0,212,170,.22)", color:"#ccfbf1", borderRadius:8, padding:"7px 10px", fontWeight:800 }}>homing</button>
-          <button onClick={() => { setAutoFire(true); setBetterShotChooserOpen(false); }} style={{ border:"1px solid #ff9f1c", background:"rgba(255,159,28,.22)", color:"#ffedd5", borderRadius:8, padding:"7px 10px", fontWeight:800 }}>auto fire</button>
-          <button onClick={() => { upgradeBetterShot(); setBetterShotChooserOpen(false); }} style={{ border:"1px solid #c084fc", background:"rgba(192,132,252,.22)", color:"#f3e8ff", borderRadius:8, padding:"7px 10px", fontWeight:800 }}>shifted shots</button>
-        </div>
-      )}
 
       <button
         onClick={handleMenuOpen}
@@ -661,6 +651,9 @@ function App() {
                   </button>
                 );
               })}
+              <button onClick={() => setBetterShotSelected((v) => !v)} title="Ajoute un nouveau tir plus puissant au cran maximum" style={{ border:`1px solid ${betterShotSelected ? "#ffd166" : "rgba(192,132,252,.55)"}`, background: betterShotSelected ? "rgba(255,209,102,.22)" : "rgba(192,132,252,.18)", color:"#f3e8ff", borderRadius:999, padding:"8px 11px", fontWeight:900, cursor:"pointer", boxShadow:"0 0 16px rgba(192,132,252,.12)" }}>
+                Better Shot +{(gameState.betterShotLevel ?? 0) + 1}
+              </button>
               {breathingWave.aiAnalyzing && visibleAlveoles.length === 0 && <span style={{ color:"#9db8d6", fontSize:12 }}>Analyse locale…</span>}
             </div>
             <button onClick={handlePlayFunnel} style={{ marginTop:10, border:"1px solid #66ffbb", background:"rgba(102,255,187,.16)", color:"#d7ffec", borderRadius:999, padding:"8px 14px", fontWeight:900, cursor:"pointer", width:"100%" }}>Play</button>
