@@ -4,7 +4,7 @@ import { CLOSE_BTN, MENU_BTN, PANEL, TITLE } from "./menuStyles";
 import { useI18n } from "../i18n";
 
 export function MainMenu({
-  config, onSettings, onChange, onEvolution, onDifficulty, onRules, onLevels, onBoss, onBalls, onTerrain, onPlayerColors, onHowToAsk, onReleaseNotes, onEffects, onApplyInstantConfig, onClose,
+  config, onSettings, onChange, onEvolution, onEvolutionPrompt, onDifficulty, onRules, onLevels, onBoss, onBalls, onTerrain, onPlayerColors, onHowToAsk, onReleaseNotes, onEffects, onApplyInstantConfig, onClose,
 }: {
   config:           GameConfig;
   onSettings:       () => void;

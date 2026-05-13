@@ -18,21 +18,20 @@ import { Menu } from "./game/Menu";
 import { RetryOverlay } from "./game/RetryOverlay";
 import { AddFeaturePortal } from "./game/AddFeaturePortal";
 import { submitEvolutionRequest } from "./game/evolutionRequest";
+import { LanguageToggle } from "./game/LanguageToggle";
+import { I18nProvider, readStoredLanguage, useI18n, type Language } from "./game/i18n";
 import type { GameConfig, GameState, ShotKind, Vec2 } from "./engine/types";
 import type { GameplayAlveole, RuntimeModifiers } from "./engine/runtimeModifiers";
 import { ChargeBar, IncomingBallsOverlay, PlayerQueue } from "./AppOverlays";
 
-type GameLanguage = "fr" | "en";
-
 function AppContent() {
-  const { t } = useI18n();
+  const { t, language, setLanguage } = useI18n();
   const {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
     shoot, setCustomTerrainDistribution, setActiveLevel, setLevelWeights, applyRuntimeConfig, openRetryMenu, goToBoss, playBossRush, classifyHold, toggleGrenade, placeMine, upgradeBetterShot, grenadesLeft, setDifficulty, difficulty, setHpAdjustment, hpAdjustment, breathingWave, runtimeModifiers, applyAlveole, reloadWave, launchNextWave, requestContextualAlveoles, setRuntimeModifiersFromSettings, resetRuntimeModifiers,
   } = useGameEngine();
 
-  const [language, setLanguage] = useState<GameLanguage>(() => (localStorage.getItem("bg_language") === "en" ? "en" : "fr"));
   const [menuOpen, setMenuOpen] = useState(false);
   const [holdTime, setHoldTime] = useState(0);
   const animRef = useRef<number>(0);
