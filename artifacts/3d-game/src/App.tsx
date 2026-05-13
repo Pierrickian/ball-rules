@@ -23,6 +23,7 @@ import { I18nProvider, readStoredLanguage, useI18n, type Language } from "./game
 import type { GameConfig, GameState, ShotKind, Vec2 } from "./engine/types";
 import type { GameplayAlveole, RuntimeModifiers } from "./engine/runtimeModifiers";
 import { ChargeBar, IncomingBallsOverlay, PlayerQueue } from "./AppOverlays";
+import { currentCheckpoint, debugLabel, type RuntimeStepperSnapshot } from "./game/runtimeStepper";
 
 function AppContent() {
   const { t, language, setLanguage } = useI18n();
@@ -552,6 +553,19 @@ function AppContent() {
     return "light";
   })();
 
+  const runtimeStepperSnapshot: RuntimeStepperSnapshot = {
+    wavePhase: breathingWave.phase,
+    waveUiStage,
+    hasBossBall: Array.from(gameState.balls.values()).some((ball) => Boolean(ball.isAlive && ball.isBoss)),
+    bossIntroActive: Boolean(gameState.bossIntroActive),
+    bossMasteredActive: Boolean(gameState.bossMasteredActive),
+    bossPhaseActive: Boolean(gameState.isBossPhase),
+    sessionCleared: gameState.sessionCleared,
+    lastEventTypes: lastEvents.map((event) => event.type),
+  };
+  const runtimeCheckpoint = currentCheckpoint(runtimeStepperSnapshot);
+  const runtimeDebugLabel = debugLabel(runtimeStepperSnapshot);
+
   const visibleAlveoles = breathingWave.alveoles;
   const rawTimerSeconds = gameState.timerSecondsRemaining ?? Infinity;
   const finalCountdownSeconds = Number.isFinite(rawTimerSeconds) ? rawTimerSeconds : null;
@@ -621,6 +635,8 @@ function AppContent() {
         WebkitTouchCallout: "none",
         overscrollBehavior: "none",
       }}
+      data-runtime-checkpoint={runtimeCheckpoint}
+      data-runtime-label={runtimeDebugLabel}
     >
       {/* 3D Scene */}
       <div style={{ position: "absolute", inset: 0, touchAction: "none" }}>
