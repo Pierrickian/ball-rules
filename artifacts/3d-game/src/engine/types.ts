@@ -95,6 +95,15 @@ export interface BallState {
   isBoss?: boolean;
 }
 
+export type RuntimePhase =
+  | "wave_active"
+  | "boss_notice"
+  | "boss_intro"
+  | "boss_mastered"
+  | "reward_notice"
+  | "reward_results"
+  | "evolution_panel";
+
 export type GameEvent =
   | { type: "ball_spawned"; ball: BallState }
   | { type: "ball_despawned"; ballId: string; reason: string; position?: Vec2; velocity?: Vec2; effect?: string }
@@ -111,7 +120,8 @@ export type GameEvent =
   | { type: "combo_popup"; projectileId: string; label: string; streak: number; tier: number; position: Vec2 }
   | { type: "session_clear"; launchedCount: number }
   | { type: "session_reboot" }
-  | { type: "level_changed"; levelIndex: number; levelId: number; levelName: string };
+  | { type: "level_changed"; levelIndex: number; levelId: number; levelName: string }
+  | { type: "phase_changed"; phase: RuntimePhase };
 
 export interface GameState {
   balls: Map<string, BallState>;

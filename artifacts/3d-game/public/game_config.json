@@ -790,6 +790,7 @@
     ]
   },
   "release_notes": [
+    "Transitions de phase mieux tracées",
     "Commandes debug développeur",
     "Lancement GitHub Pages fiabilisé",
     "Popups étoiles plus visibles",
@@ -808,8 +809,7 @@
     "Moteur plus typé et allégé",
     "Game engine découpé en modules",
     "Refonte interne des menus",
-    "Instant cible mieux les formulaires",
-    "Panneau Instant ajouté au menu"
+    "Instant cible mieux les formulaires"
   ],
   "debug": {
     "show_velocities": false,
