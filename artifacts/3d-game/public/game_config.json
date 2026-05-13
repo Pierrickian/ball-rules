@@ -790,7 +790,8 @@
     ]
   },
   "release_notes": [
-    "Overlay debug événements au volume",
+    "Overlay debug piloté aux doigts",
+    "Overlay debug événements en jeu",
     "Boss après annonce temps écoulé",
     "Lancement GitHub Pages fiabilisé",
     "Popups étoiles plus visibles",
@@ -808,8 +809,7 @@
     "Les choix évoluent selon votre partie",
     "Moteur plus typé et allégé",
     "Game engine découpé en modules",
-    "Refonte interne des menus",
-    "Instant cible mieux les formulaires"
+    "Refonte interne des menus"
   ],
   "debug": {
     "show_velocities": false,

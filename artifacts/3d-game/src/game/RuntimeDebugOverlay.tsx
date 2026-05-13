@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { GameEvent, GameState } from "../engine/types";
 import type { BreathingWaveState } from "../engine/useGameEngine";
 import { useI18n } from "./i18n";
@@ -53,20 +53,22 @@ function enemyCount(gameState: GameState): number {
   }).length;
 }
 
-function useVolumeDebugCursor(items: DebugItem[]): { cursor: number; visible: boolean } {
+function useTouchDebugCursor(items: DebugItem[]): { cursor: number; visible: boolean } {
   const [visible, setVisible] = useState(false);
   const [cursor, setCursor] = useState(0);
+  const lastGestureAtRef = useRef(0);
 
   useEffect(() => {
     const firstActive = () => Math.max(0, items.findIndex((item) => item.active));
-    const onKeyDown = (event: KeyboardEvent) => {
-      const direction = event.key === "AudioVolumeUp" || event.code === "AudioVolumeUp"
-        ? 1
-        : event.key === "AudioVolumeDown" || event.code === "AudioVolumeDown"
-          ? -1
-          : 0;
+    const onTouchStart = (event: TouchEvent) => {
+      const touchCount = event.touches.length;
+      const direction = touchCount === 4 ? 1 : touchCount === 3 ? -1 : 0;
       if (direction === 0 || items.length === 0) return;
-      event.preventDefault();
+      if (event.cancelable) event.preventDefault();
+
+      const now = performance.now();
+      if (now - lastGestureAtRef.current < 360) return;
+      lastGestureAtRef.current = now;
 
       if (!visible) {
         setVisible(true);
@@ -76,8 +78,8 @@ function useVolumeDebugCursor(items: DebugItem[]): { cursor: number; visible: bo
 
       setCursor((current) => (current + direction + items.length) % items.length);
     };
-    window.addEventListener("keydown", onKeyDown, { capture: true });
-    return () => window.removeEventListener("keydown", onKeyDown, { capture: true });
+    window.addEventListener("touchstart", onTouchStart, { capture: true, passive: false });
+    return () => window.removeEventListener("touchstart", onTouchStart, { capture: true });
   }, [items, visible]);
 
   return { cursor, visible };
@@ -113,7 +115,7 @@ export function RuntimeDebugOverlay({ gameState, lastEvents, breathingWave, wave
   ];
 
   const items = [...eventItems, ...stateItems];
-  const { cursor, visible } = useVolumeDebugCursor(items);
+  const { cursor, visible } = useTouchDebugCursor(items);
   if (!visible) return null;
   const selectedKey = items[cursor]?.key;
 
