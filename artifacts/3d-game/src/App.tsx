@@ -56,8 +56,9 @@ function AppContent() {
   const [grenadeAwardPopups, setGrenadeAwardPopups] = useState<Array<{ id: number; amount: number }>>([]);
   const [starPopups, setStarPopups] = useState<Array<{ id: number; label: string; kind: "earned" | "lost" | "reloadLost" }>>([]);
   const [ammoWarningPopups, setAmmoWarningPopups] = useState<Array<{ id: number }>>([]);
-  const [impactPopups, setImpactPopups] = useState<Array<{ id: number; kind: "ammo" | "balls" | "hp"; label: string; from: number; to: number; current: number }>>([]);
+  const [impactPopups, setImpactPopups] = useState<Array<{ id: number; kind: "ammo" | "balls" | "hp" | "grenade"; label: string; from: number; to: number; current: number }>>([]);
   const [animatedAmmoRemaining, setAnimatedAmmoRemaining] = useState<number | null>(null);
+  const [animatedGrenadesLeft, setAnimatedGrenadesLeft] = useState<number | null>(null);
   const [timeUpNoticeUntil, setTimeUpNoticeUntil] = useState(0);
   const [reloadFlashKey, setReloadFlashKey] = useState(0);
   const [grenadeFlashKey, setGrenadeFlashKey] = useState(0);
@@ -82,12 +83,14 @@ function AppContent() {
   const reloadStarLostShownRef = useRef(false);
   const lastAmmoWarningAtRef = useRef(0);
   const ammoAnimationTimerRef = useRef<number | null>(null);
+  const grenadeAnimationTimerRef = useRef<number | null>(null);
   const hadPlayerInputRef = useRef(false);
   useEffect(() => { localStorage.setItem("bg_effect_ball", ballEffect); }, [ballEffect]);
   useEffect(() => { localStorage.setItem("bg_effect_grenade", grenadeEffect); }, [grenadeEffect]);
   useEffect(() => { localStorage.setItem("bg_debug_explosion_texture", debugExplosionTexture ? "1" : "0"); }, [debugExplosionTexture]);
   useEffect(() => () => {
     if (ammoAnimationTimerRef.current !== null) window.clearInterval(ammoAnimationTimerRef.current);
+    if (grenadeAnimationTimerRef.current !== null) window.clearInterval(grenadeAnimationTimerRef.current);
   }, []);
   const showStarPopup = (label: string, kind: "earned" | "lost" | "reloadLost" = "earned", durationMs = 2300) => {
     const id = Date.now() + Math.random();
@@ -115,7 +118,26 @@ function AppContent() {
     }, 34);
   };
 
-  const showImpactPopup = (kind: "ammo" | "balls" | "hp", label: string, from: number, to: number) => {
+
+  const animateGrenadeCounter = (from: number, to: number) => {
+    if (grenadeAnimationTimerRef.current !== null) window.clearInterval(grenadeAnimationTimerRef.current);
+    if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return;
+    let current = Math.max(0, Math.round(from));
+    const target = Math.max(current, Math.round(to));
+    setAnimatedGrenadesLeft(current);
+    setGrenadeFlashKey((prev) => prev + 1);
+    grenadeAnimationTimerRef.current = window.setInterval(() => {
+      current += 1;
+      setAnimatedGrenadesLeft(current);
+      if (current >= target) {
+        if (grenadeAnimationTimerRef.current !== null) window.clearInterval(grenadeAnimationTimerRef.current);
+        grenadeAnimationTimerRef.current = null;
+        window.setTimeout(() => setAnimatedGrenadesLeft(null), 420);
+      }
+    }, 60);
+  };
+
+  const showImpactPopup = (kind: "ammo" | "balls" | "hp" | "grenade", label: string, from: number, to: number) => {
     const id = Date.now() + Math.random();
     const start = Math.round(from);
     const target = Math.max(start, Math.round(to));
@@ -195,13 +217,21 @@ function AppContent() {
   useEffect(() => { homingOnRef.current = homingOn; }, [homingOn]);
 
   useEffect(() => {
-    if (breathingWave.phase !== "breathing") return;
+    if (breathingWave.phase === "active") return;
     const id = window.setInterval(() => setUiNow(Date.now()), 250);
     return () => window.clearInterval(id);
   }, [breathingWave.phase]);
 
   useEffect(() => {
-    if (breathingWave.phase === "breathing" && breathingWave.outcome) {
+    if (breathingWave.phase === "boss_notice") {
+      const noticeUntil = Date.now() + 2000;
+      setTimeUpNoticeUntil(noticeUntil);
+      setWaveNoticeUntil(noticeUntil);
+      setWaveUiStage("none");
+      setSelectedAlveoleIds([]);
+      setBetterShotSelected(false);
+      setAmmoEndNoticeVisible(false);
+    } else if (breathingWave.phase === "breathing" && breathingWave.outcome) {
       const result = {
         outcome: breathingWave.outcome,
         durationSeconds: Math.max(0, (performance.now() - waveStartedAtRef.current) / 1000),
@@ -557,7 +587,8 @@ function AppContent() {
   const finalCountdownSeconds = Number.isFinite(rawTimerSeconds) ? rawTimerSeconds : null;
   const reloadNeedsAttention = !isBossPhase && shotsRemaining <= 0;
   const showWaveNotice = breathingWave.phase === "breathing" && waveUiStage === "notice" && uiNow < waveNoticeUntil;
-  const showTimeUpNotice = showWaveNotice && uiNow < timeUpNoticeUntil;
+  const showBossNotice = breathingWave.phase === "boss_notice" && uiNow < timeUpNoticeUntil;
+  const showTimeUpNotice = (showWaveNotice || showBossNotice) && uiNow < timeUpNoticeUntil;
   const showResultsFrame = breathingWave.phase === "breathing" && waveUiStage === "results" && waveResult !== null;
   const showGameFunnel = breathingWave.phase === "breathing" && waveUiStage === "evolution";
   const selectedAlveoles = selectedAlveoleIds
@@ -565,10 +596,15 @@ function AppContent() {
     .filter((alveole): alveole is GameplayAlveole => Boolean(alveole));
   const handleGameplayReload = () => {
     const ammoBefore = Number.isFinite(shotsRemaining) ? shotsRemaining : 0;
+    const grenadesBefore = grenadesLeft;
     const feedback = reloadWave();
     if (feedback.ammoAdded > 0) {
       animateAmmoCounter(ammoBefore, ammoBefore + feedback.ammoAdded);
       showImpactPopup("ammo", "Recharge", ammoBefore, ammoBefore + feedback.ammoAdded);
+    }
+    if (feedback.grenadesAdded > 0) {
+      animateGrenadeCounter(grenadesBefore, grenadesBefore + feedback.grenadesAdded);
+      showImpactPopup("grenade", language === "en" ? "Grenades +" : "Grenades +", grenadesBefore, grenadesBefore + feedback.grenadesAdded);
     }
     const targetReloadRef = breathingWave.phase === "breathing" ? preWaveReloadCountRef : waveReloadCountRef;
     targetReloadRef.current += 1;
@@ -749,7 +785,7 @@ function AppContent() {
         onClick={() => toggleGrenade(lastDirectionRef.current, grenadeEffect)}
         style={{position:"absolute", right:16, bottom:140, width:56, height:56, borderRadius:"50%", border:"2px solid #ffcc66", background:"radial-gradient(circle at 30% 30%, #667, #223)", color:"#fff", zIndex:12, fontWeight:"bold", animation: grenadeFlashKey > 0 ? "grenade-helper-flash 0.35s ease-in-out 4" : undefined}}
       >
-        💣 {grenadesLeft}
+        💣 {animatedGrenadesLeft ?? grenadesLeft}
       </button>
       <button
         onClick={() => setMinePlacementMode((v) => !v)}
@@ -795,7 +831,7 @@ function AppContent() {
         >
           <div style={{ display:"flex", alignItems:"center", gap:10 }}>
             <span style={{ display:"inline-grid", placeItems:"center", width:42, height:42, borderRadius:"50%", background:"rgba(122,252,255,.12)", animation:"impact-icon-bump .55s ease-in-out 3" }}>
-              {popup.kind === "ammo" ? <CartridgeIcon /> : popup.kind === "balls" ? <span style={{ display:"flex", gap:3 }}>{[0,1,2].map((i) => <span key={i} style={{ width:12, height:12, borderRadius:"50%", background:["#7afcff", "#ffd166", "#c084fc"][i], boxShadow:"0 0 8px currentColor" }} />)}</span> : <span style={{ position:"relative", width:26, height:26, borderRadius:"50%", background:"radial-gradient(circle at 30% 25%, #ffe8a3, #ff4d7a)", boxShadow:"0 0 14px rgba(255,77,122,.75)" }} />}
+              {popup.kind === "ammo" ? <CartridgeIcon /> : popup.kind === "grenade" ? <span style={{ fontSize:24 }}>💣</span> : popup.kind === "balls" ? <span style={{ display:"flex", gap:3 }}>{[0,1,2].map((i) => <span key={i} style={{ width:12, height:12, borderRadius:"50%", background:["#7afcff", "#ffd166", "#c084fc"][i], boxShadow:"0 0 8px currentColor" }} />)}</span> : <span style={{ position:"relative", width:26, height:26, borderRadius:"50%", background:"radial-gradient(circle at 30% 25%, #ffe8a3, #ff4d7a)", boxShadow:"0 0 14px rgba(255,77,122,.75)" }} />}
             </span>
             <span style={{ flex:1 }}>
               <div style={{ fontSize:12, color:"#9db8d6", letterSpacing:1.5, textTransform:"uppercase" }}>{popup.label}</div>

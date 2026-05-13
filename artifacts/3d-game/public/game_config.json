@@ -790,6 +790,7 @@
     ]
   },
   "release_notes": [
+    "Boss après annonce temps écoulé",
     "Lancement GitHub Pages fiabilisé",
     "Popups étoiles plus visibles",
     "Impacts evolution plus lisibles",
@@ -808,8 +809,7 @@
     "Game engine découpé en modules",
     "Refonte interne des menus",
     "Instant cible mieux les formulaires",
-    "Panneau Instant ajouté au menu",
-    "Random Add valide directement les prompts sans ouvrir Evolution"
+    "Panneau Instant ajouté au menu"
   ],
   "debug": {
     "show_velocities": false,
