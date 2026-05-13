@@ -790,6 +790,7 @@
     ]
   },
   "release_notes": [
+    "Lancement GitHub Pages fiabilisé",
     "Popups étoiles plus visibles",
     "Impacts evolution plus lisibles",
     "Time up et tirs légers réinitialisés",
@@ -808,8 +809,7 @@
     "Refonte interne des menus",
     "Instant cible mieux les formulaires",
     "Panneau Instant ajouté au menu",
-    "Random Add valide directement les prompts sans ouvrir Evolution",
-    "Random profond ajoute éléments MTC et hormones avant validation directe"
+    "Random Add valide directement les prompts sans ouvrir Evolution"
   ],
   "debug": {
     "show_velocities": false,

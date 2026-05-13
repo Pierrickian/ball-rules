@@ -5,6 +5,7 @@
 
 import type { GameConfig, GameState } from "../engine/types";
 import type { BreathingWaveState } from "../engine/useGameEngine";
+import { useI18n } from "./i18n";
 
 interface HUDProps {
   gameState: GameState;
@@ -32,6 +33,7 @@ const BTN: React.CSSProperties = {
 };
 
 export function HUD({ gameState, config, isRunning, levelTimerSeconds, shotsRemaining, onPause, onResume, onReset, breathingWave }: HUDProps) {
+  const { t } = useI18n();
   const activeBalls = Array.from(gameState.balls.values()).filter(
     (b) => b.isAlive && b.color !== "orange" && b.metadata?.isProjectile !== true
   ).length;
