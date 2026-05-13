@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState, type PointerEvent } from "react";
 import type { GameConfig, GameState, RuntimePhase } from "../engine/types";
 import type { RuntimeStepperSnapshot } from "./runtimeStepper";
 import { currentCheckpoint } from "./runtimeStepper";
@@ -37,6 +37,14 @@ type DebugCategory = {
   id: string;
   label: string;
   steps: DebugStep[];
+};
+
+type DragState = {
+  pointerId: number;
+  startX: number;
+  startY: number;
+  originX: number;
+  originY: number;
 };
 
 const DEBUG_BUTTON: React.CSSProperties = {
@@ -90,6 +98,8 @@ export function DebugPhaseNavigator({
   onLaunchNextWave,
 }: DebugPhaseNavigatorProps) {
   const [forcedConditions, setForcedConditions] = useState<Record<string, true>>({});
+  const [position, setPosition] = useState({ x: 14, y: 14 });
+  const dragRef = useRef<DragState | null>(null);
   const checkpoint = currentCheckpoint(snapshot);
 
   const categories = useMemo<DebugCategory[]>(() => {
@@ -276,17 +286,29 @@ export function DebugPhaseNavigator({
   const stepIsForcedReady = (step: DebugStep) => step.conditions.some((condition) => conditionIsForced(step.id, condition.id));
   const stepCanRun = (step: DebugStep) => step.conditions.every((condition) => condition.met || conditionIsForced(step.id, condition.id));
   const eventSummary = snapshot.lastEventTypes.length > 0 ? snapshot.lastEventTypes.join(" · ") : "aucun événement récent";
+  const beginDrag = (event: PointerEvent<HTMLDivElement>) => {
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragRef.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, originX: position.x, originY: position.y };
+  };
+  const updateDrag = (event: PointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    setPosition({ x: drag.originX + event.clientX - drag.startX, y: drag.originY + event.clientY - drag.startY });
+  };
+  const endDrag = (event: PointerEvent<HTMLDivElement>) => {
+    if (dragRef.current?.pointerId === event.pointerId) dragRef.current = null;
+  };
 
   return (
-    <div style={{ position: "absolute", inset: 0, zIndex: 90, background: "rgba(0,7,16,.82)", backdropFilter: "blur(8px)", color: "#e7faff", fontFamily: "'Courier New', monospace", pointerEvents: "all" }}>
-      <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: 14, boxSizing: "border-box", gap: 10 }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 1000, pointerEvents: "none", fontFamily: "'Courier New', monospace" }}>
+      <div style={{ position: "absolute", left: position.x, top: position.y, width: "min(92vw, 560px)", maxHeight: "86vh", display: "flex", flexDirection: "column", padding: 14, boxSizing: "border-box", gap: 10, borderRadius: 18, border: "1px solid rgba(122,252,255,.32)", background: "rgba(0,7,16,.86)", backdropFilter: "blur(8px)", boxShadow: "0 18px 50px rgba(0,0,0,.42)", color: "#e7faff", pointerEvents: "all" }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
-          <div>
+          <div onPointerDown={beginDrag} onPointerMove={updateDrag} onPointerUp={endDrag} onPointerCancel={endDrag} style={{ flex: 1, cursor: "grab", touchAction: "none", userSelect: "none" }}>
             <div style={{ fontSize: 12, color: "#7afcff", letterSpacing: 2, textTransform: "uppercase" }}>Debug navigation phases</div>
             <div style={{ fontSize: 18, fontWeight: 900 }}>Checkpoint courant: {checkpoint}</div>
             <div title={eventSummary} style={{ marginTop: 4, fontSize: 11, color: "#a8c7df", lineHeight: 1.35, height: "4.05em", overflow: "hidden", wordBreak: "break-word" }}>{eventSummary}</div>
           </div>
-          <button aria-label="Fermer le debug" onClick={onClose} style={{ width: 38, height: 38, borderRadius: 999, border: "1px solid rgba(255,255,255,.35)", background: "rgba(255,255,255,.08)", color: "#fff", fontSize: 24, cursor: "pointer", lineHeight: 1 }}>×</button>
+          <button aria-label="Fermer le debug" onClick={onClose} style={{ width: 38, height: 38, borderRadius: 999, border: "1px solid rgba(255,255,255,.35)", background: "rgba(255,255,255,.08)", color: "#fff", fontSize: 24, cursor: "pointer", lineHeight: 1, flex: "0 0 auto" }}>×</button>
         </div>
 
         <div style={{ overflow: "auto", display: "grid", gap: 12, paddingBottom: 12 }}>

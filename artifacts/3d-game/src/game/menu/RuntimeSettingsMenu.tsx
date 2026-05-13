@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { RuntimeModifierKey, RuntimeModifiers } from "../../engine/runtimeModifiers";
 import { DEFAULT_RUNTIME_MODIFIERS } from "../../engine/runtimeModifiers";
 import { CLOSE_BTN, MENU_BTN, PANEL, TITLE } from "./menuStyles";
+import { useI18n } from "../i18n";
 
 const HORMONES = ["dopamine", "serotonine", "ocytocine", "endorphines", "adrénaline"] as const;
 type HormoneId = typeof HORMONES[number];
@@ -93,7 +94,8 @@ function RangeSlider({ value, min = 0, max = 100, readOnly, onChange }: { value:
   return <input type="range" min={min} max={max} step="1" value={value} disabled={readOnly} onChange={(e) => onChange?.(Number(e.target.value))} style={{ width: "100%", accentColor: readOnly ? "#7afcff" : "#c084fc" }} />;
 }
 
-export function RuntimeSettingsMenu({ language, onLanguageChange, runtimeModifiers, onRuntimeModifiersChange, onReset, onBack }: { language: "fr" | "en"; onLanguageChange: (language: "fr" | "en") => void; runtimeModifiers: RuntimeModifiers; onRuntimeModifiersChange: (m: RuntimeModifiers) => void; onReset: () => void; onBack: () => void }) {
+export function RuntimeSettingsMenu({ runtimeModifiers, onRuntimeModifiersChange, onReset, onBack }: { runtimeModifiers: RuntimeModifiers; onRuntimeModifiersChange: (m: RuntimeModifiers) => void; onReset: () => void; onBack: () => void }) {
+  const { t } = useI18n();
   const [tab, setTab] = useState(0);
   const [hormones, setHormones] = useState<Record<HormoneId, number>>({ dopamine: 50, serotonine: 50, ocytocine: 50, endorphines: 50, adrénaline: 50 });
   const [ranges, setRanges] = useState(DEFAULT_RANGES);
@@ -123,11 +125,7 @@ export function RuntimeSettingsMenu({ language, onLanguageChange, runtimeModifie
 
   return (
     <div style={PANEL}>
-      <div><div style={TITLE}>Settings</div><div style={{ fontSize: 20, color: "#7afcff", fontWeight: 900 }}>Game</div></div>
-      <div style={{ display: "flex", gap: 8 }}>
-        <button style={{ ...MENU_BTN, justifyContent: "center", background: language === "fr" ? "#1e90ff" : MENU_BTN.background }} onClick={() => onLanguageChange("fr")}>Français</button>
-        <button style={{ ...MENU_BTN, justifyContent: "center", background: language === "en" ? "#1e90ff" : MENU_BTN.background }} onClick={() => onLanguageChange("en")}>English</button>
-      </div>
+      <div><div style={TITLE}>{t("menu.settings")}</div><div style={{ fontSize: 20, color: "#7afcff", fontWeight: 900 }}>Game</div></div>
       <div style={{ display: "flex", gap: 6, overflowX: "auto" }}>
         {["Hormones", ...INTENTIONS.map((i) => i.label)].map((label, i) => <button key={label} onClick={() => setTab(i)} style={{ ...CLOSE_BTN, borderColor: tab === i ? "#7afcff" : "rgba(30,144,255,0.3)", color: tab === i ? "#eaffff" : "#668", whiteSpace: "nowrap" }}>{label}</button>)}
       </div>
