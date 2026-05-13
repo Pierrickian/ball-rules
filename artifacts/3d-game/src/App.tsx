@@ -10,7 +10,7 @@
 // 6. Menu            — Game menu
 // ============================================================
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useGameEngine } from "./engine/useGameEngine";
 import { GameScene } from "./scenes/GameScene";
 import { HUD } from "./game/HUD";
@@ -20,7 +20,7 @@ import { AddFeaturePortal } from "./game/AddFeaturePortal";
 import { submitEvolutionRequest } from "./game/evolutionRequest";
 import { LanguageToggle } from "./game/LanguageToggle";
 import { I18nProvider, readStoredLanguage, useI18n, type Language } from "./game/i18n";
-import type { GameConfig, GameState, ShotKind, Vec2 } from "./engine/types";
+import type { GameConfig, GameState, RuntimePhase, ShotKind, Vec2 } from "./engine/types";
 import type { GameplayAlveole, RuntimeModifiers } from "./engine/runtimeModifiers";
 import { ChargeBar, IncomingBallsOverlay, PlayerQueue } from "./AppOverlays";
 import { currentCheckpoint, debugLabel, type RuntimeStepperSnapshot } from "./game/runtimeStepper";
@@ -31,7 +31,7 @@ function AppContent() {
   const {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
-    shoot, setCustomTerrainDistribution, setActiveLevel, setLevelWeights, applyRuntimeConfig, openRetryMenu, goToBoss, playBossRush, classifyHold, toggleGrenade, placeMine, upgradeBetterShot, grenadesLeft, setDifficulty, difficulty, setHpAdjustment, hpAdjustment, breathingWave, runtimeModifiers, applyAlveole, reloadWave, launchNextWave, requestContextualAlveoles, setRuntimeModifiersFromSettings, resetRuntimeModifiers,
+    shoot, setCustomTerrainDistribution, setActiveLevel, setLevelWeights, applyRuntimeConfig, openRetryMenu, goToBoss, playBossRush, classifyHold, toggleGrenade, placeMine, upgradeBetterShot, grenadesLeft, setDifficulty, difficulty, setHpAdjustment, hpAdjustment, breathingWave, runtimeModifiers, applyAlveole, reloadWave, launchNextWave, requestContextualAlveoles, setRuntimeModifiersFromSettings, resetRuntimeModifiers, recordRuntimePhaseChange,
   } = useGameEngine();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -71,6 +71,15 @@ function AppContent() {
   const [uiNow, setUiNow] = useState(() => Date.now());
   const [waveUiStage, setWaveUiStage] = useState<"none" | "notice" | "results" | "evolution">("none");
   const [waveResult, setWaveResult] = useState<null | { outcome: "victory" | "defeat"; durationSeconds: number; reloadCount: number; maxCombo: number; previousRecord: number; combos: Record<string, number> }>(null);
+  const setWaveUiStageWithEvent = useCallback((stage: "none" | "notice" | "results" | "evolution") => {
+    const phaseByStage: Partial<Record<typeof stage, RuntimePhase>> = {
+      results: "reward_results",
+      evolution: "evolution_panel",
+    };
+    const phase = phaseByStage[stage];
+    if (phase) recordRuntimePhaseChange(phase);
+    setWaveUiStage(stage);
+  }, [recordRuntimePhaseChange]);
   const waveStartedAtRef = useRef(performance.now());
   const waveReloadCountRef = useRef(0);
   const preWaveReloadCountRef = useRef(0);
@@ -203,9 +212,9 @@ function AppContent() {
   }, [breathingWave.phase]);
 
   useEffect(() => installBallDebugApi({
-    debugOpenRewardResults: () => { setWaveUiStage("results"); },
-    debugOpenEvolution: () => { setWaveUiStage("evolution"); },
-  }), []);
+    debugOpenRewardResults: () => { setWaveUiStageWithEvent("results"); },
+    debugOpenEvolution: () => { setWaveUiStageWithEvent("evolution"); },
+  }), [setWaveUiStageWithEvent]);
 
   useEffect(() => {
     if (breathingWave.phase === "breathing" && breathingWave.outcome) {
@@ -240,9 +249,9 @@ function AppContent() {
   useEffect(() => {
     if (waveUiStage !== "notice") return;
     const delay = Math.max(0, waveNoticeUntil - Date.now());
-    const timer = window.setTimeout(() => setWaveUiStage("results"), delay);
+    const timer = window.setTimeout(() => setWaveUiStageWithEvent("results"), delay);
     return () => window.clearTimeout(timer);
-  }, [waveUiStage, waveNoticeUntil]);
+  }, [setWaveUiStageWithEvent, waveUiStage, waveNoticeUntil]);
 
   const handleMenuOpen = () => { setEvolutionInitialText(""); setAddFeaturePortalOpen(false); pause(); setMenuOpen(true); };
   const handleApplyInstantConfig = (nextConfig: GameConfig, options?: { reset?: boolean; playtestTarget?: unknown }) => {
@@ -930,7 +939,7 @@ function AppContent() {
             <div style={{ marginTop:10, fontSize:12, color:"#b8d8ff" }}>
               {Object.entries(waveResult.combos).length === 0 ? "Aucun combo" : Object.entries(waveResult.combos).map(([name, count]) => <div key={name}>{name} × {count}</div>)}
             </div>
-            <button onClick={() => setWaveUiStage("evolution")} style={{ marginTop:12, border:"1px solid #7afcff", background:"rgba(122,252,255,.14)", color:"#eaffff", borderRadius:999, padding:"8px 14px", fontWeight:900, cursor:"pointer", width:"100%" }}>Suivant</button>
+            <button onClick={() => setWaveUiStageWithEvent("evolution")} style={{ marginTop:12, border:"1px solid #7afcff", background:"rgba(122,252,255,.14)", color:"#eaffff", borderRadius:999, padding:"8px 14px", fontWeight:900, cursor:"pointer", width:"100%" }}>Suivant</button>
           </div>
         )}
         {showGameFunnel && (

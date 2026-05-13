@@ -868,6 +868,7 @@ export class GameEngine {
 
   private startBossMasteredOverlay(): void {
     this.bossMasteredRemaining = Math.max(0, this.config.levels?.boss_mastered_overlay_seconds ?? 2);
+    this.emitEvent({ type: "phase_changed", phase: "boss_mastered" }, this.isInsideUpdate ? "update" : "external");
   }
 
 

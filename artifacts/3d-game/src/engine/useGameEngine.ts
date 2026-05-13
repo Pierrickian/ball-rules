@@ -20,7 +20,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { GameEngine } from "./game_engine";
 import { addGrenadeZones, createGrenadeZoneStore, updateGrenadeZones } from "./grenade_lingering";
-import type { BallColor, GameConfig, GameEvent, GameState, LevelEntry, ShotKind, Vec2 } from "./types";
+import type { BallColor, GameConfig, GameEvent, GameState, LevelEntry, RuntimePhase, ShotKind, Vec2 } from "./types";
 import { LocalRandomAlveoleProvider } from "./localAlveoleProvider";
 import { DEFAULT_RUNTIME_MODIFIERS, applyAlveoleModifier, applyRuntimeModifiersToConfig, toEngineRuntimeModifiers, type GameplayAlveole, type RuntimeModifiers } from "./runtimeModifiers";
 import { DEFAULT_DIFFICULTY, DEFAULT_LEVEL_AMMO_COUNT, DEFAULT_LEVEL_TIMER_SECONDS, DEFAULT_STATE, FALLBACK_DIFFICULTY_HP_PRESETS, buildQueue, clampDifficultyHpValue, getDefaultDifficulty, getDifficultyHpValue } from "./useGameEngineHelpers";
@@ -83,6 +83,7 @@ export interface UseGameEngineResult {
   requestContextualAlveoles: () => void;
   setRuntimeModifiersFromSettings: (modifiers: RuntimeModifiers) => void;
   resetRuntimeModifiers: () => void;
+  recordRuntimePhaseChange: (phase: RuntimePhase) => void;
 }
 
 export function useGameEngine(): UseGameEngineResult {
@@ -144,6 +145,11 @@ export function useGameEngine(): UseGameEngineResult {
   const bossNoticeRemainingRef = useRef(0);
 
   useEffect(() => { runtimeModifiersRef.current = runtimeModifiers; }, [runtimeModifiers]);
+
+
+  const recordRuntimePhaseChange = useCallback((phase: RuntimePhase) => {
+    setLastEvents([{ type: "phase_changed", phase }]);
+  }, []);
 
   const publishRetryReason = useCallback((reason: "timeout" | "ammo" | "manual" | null) => {
     retryReasonRef.current = reason;
@@ -225,6 +231,7 @@ export function useGameEngine(): UseGameEngineResult {
 
   const beginBreathingWave = useCallback((outcome: "victory" | "defeat") => {
     if (breathingActiveRef.current || !engineRef.current) return;
+    recordRuntimePhaseChange("reward_notice");
     breathingActiveRef.current = true;
     const activeEnemies = engineRef.current.getEnemyBallCount();
     nextWaveSpawnBudgetRef.current = Math.max(4, Math.ceil((activeEnemies + Math.max(1, DEFAULT_LEVEL_AMMO_COUNT)) * 0.55 * runtimeModifiersRef.current.enemy_density));
@@ -250,7 +257,7 @@ export function useGameEngine(): UseGameEngineResult {
       outcome,
     }));
     requestBreathingAlveoles("breathing_wave");
-  }, [requestBreathingAlveoles, syncRuntimeConfig]);
+  }, [recordRuntimePhaseChange, requestBreathingAlveoles, syncRuntimeConfig]);
 
   // Load config and initialize engine
   useEffect(() => {
@@ -888,8 +895,9 @@ export function useGameEngine(): UseGameEngineResult {
     breathingActiveRef.current = false;
     breathingCountdownRef.current = 0;
     engineRef.current.spawnChaosBurst(3);
+    recordRuntimePhaseChange("wave_active");
     setBreathingWave((prev) => ({ ...prev, waveNumber: waveNumberRef.current, phase: "active", countdownRemaining: 0, message: `vague ${waveNumberRef.current} active`, victoryPulse: false, outcome: null }));
-  }, [pickDifferentWaveColor, syncRuntimeConfig, withSingleWaveColor]);
+  }, [pickDifferentWaveColor, recordRuntimePhaseChange, syncRuntimeConfig, withSingleWaveColor]);
 
   const requestContextualAlveoles = useCallback(() => {
     requestBreathingAlveoles("idle_micro_pause", ["longer_waves", "different_enemy_balls"]);
@@ -912,6 +920,6 @@ export function useGameEngine(): UseGameEngineResult {
     pause, resume, reset, setArena,
     shoot, setLauncherColor, setCustomTerrainDistribution, setPlayerProjectileDistribution, setActiveLevel, setLevelWeights, applyRuntimeConfig, launchLevel, launchBossLevel, launchTemporaryBallTest, openRetryMenu, goToBoss, playBossRush, classifyHold, toggleGrenade, placeMine, upgradeBetterShot, grenadesLeft,
     setDifficulty, difficulty, setHpAdjustment, hpAdjustment,
-    breathingWave, runtimeModifiers, applyAlveole, reloadWave, launchNextWave, requestContextualAlveoles, setRuntimeModifiersFromSettings, resetRuntimeModifiers,
+    breathingWave, runtimeModifiers, applyAlveole, reloadWave, launchNextWave, requestContextualAlveoles, setRuntimeModifiersFromSettings, resetRuntimeModifiers, recordRuntimePhaseChange,
   };
 }
