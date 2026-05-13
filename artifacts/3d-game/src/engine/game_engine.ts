@@ -295,6 +295,20 @@ export class GameEngine {
     return Boolean(this.getCurrentLevel()?.boss);
   }
 
+  hasPendingCurrentLevelBoss(): boolean {
+    return this.hasCurrentLevelBoss() && !this.bossSpawned;
+  }
+
+  resetBossPhaseForNextWave(): void {
+    this.bossSpawned = false;
+    this.bossDefeated = false;
+    this.bossIntroRemaining = 0;
+    this.bossHintRemaining = 0;
+    this.bossHintMessage = "";
+    this.bossMasteredRemaining = 0;
+    this.grenadeHelperShownForBossIds.clear();
+  }
+
   /**
    * When the regular wave is cleared during the low-ammo end phase, stop
    * waiting for the original spawn cap so a configured boss can enter before

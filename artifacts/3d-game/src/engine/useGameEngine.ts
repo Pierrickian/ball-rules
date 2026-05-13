@@ -20,10 +20,73 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { GameEngine } from "./game_engine";
 import { addGrenadeZones, createGrenadeZoneStore, updateGrenadeZones } from "./grenade_lingering";
-import type { BallColor, GameConfig, GameEvent, GameState, LevelEntry, ShotKind, Vec2 } from "./types";
+import type { BallColor, GameConfig, GameEvent, GameState, LevelBossConfig, LevelEntry, ShotKind, Vec2 } from "./types";
+import { BallSize } from "./types";
 import { LocalRandomAlveoleProvider } from "./localAlveoleProvider";
 import { DEFAULT_RUNTIME_MODIFIERS, applyAlveoleModifier, applyRuntimeModifiersToConfig, toEngineRuntimeModifiers, type GameplayAlveole, type RuntimeModifiers } from "./runtimeModifiers";
 import { DEFAULT_DIFFICULTY, DEFAULT_LEVEL_AMMO_COUNT, DEFAULT_LEVEL_TIMER_SECONDS, DEFAULT_STATE, FALLBACK_DIFFICULTY_HP_PRESETS, buildQueue, clampDifficultyHpValue, getDefaultDifficulty, getDifficultyHpValue } from "./useGameEngineHelpers";
+
+
+const bossTemplateDefaults: LevelBossConfig = {
+  color: "white",
+  size: BallSize.LARGE,
+  hp: 100,
+  maxHp: 100,
+  diameter_multiplier: 2.4,
+  launcher_size: BallSize.LARGE,
+  launcher_diameter_multiplier: 2.2,
+  intro_overlay_seconds: 1.6,
+  horizontal_speed: 10,
+};
+
+function majorityWaveColor(weights: Partial<Record<BallColor, number>>): BallColor | null {
+  let best: { color: BallColor; weight: number } | null = null;
+  for (const [rawColor, rawWeight] of Object.entries(weights)) {
+    const weight = Number(rawWeight);
+    if (!Number.isFinite(weight) || weight <= 0) continue;
+    const color = rawColor as BallColor;
+    if (!best || weight > best.weight) best = { color, weight };
+  }
+  return best?.color ?? null;
+}
+
+function bossTemplateForColor(cfg: GameConfig, color: BallColor, levelBoss?: LevelBossConfig): LevelBossConfig {
+  const matchingTemplate = cfg.levels?.list
+    ?.map((level) => level.boss)
+    .find((boss): boss is LevelBossConfig => Boolean(boss && boss.color === color));
+  if (matchingTemplate) return { ...matchingTemplate };
+  if (levelBoss?.color === color) return { ...levelBoss };
+
+  const hp = color === "yellow" ? 50 : color === "red" ? 25 : bossTemplateDefaults.hp;
+  return {
+    ...bossTemplateDefaults,
+    color,
+    hp,
+    maxHp: hp,
+  };
+}
+
+function withScheduledWaveBoss(cfg: GameConfig, waveNumber: number, currentLevelIndex: number, templateConfig: GameConfig = cfg): GameConfig {
+  if (!cfg.levels?.list?.length) return cfg;
+  const index = ((currentLevelIndex % cfg.levels.list.length) + cfg.levels.list.length) % cfg.levels.list.length;
+  return {
+    ...cfg,
+    levels: {
+      ...cfg.levels,
+      list: cfg.levels.list.map((level, levelIndex) => {
+        if (levelIndex !== index) return level;
+        const color = majorityWaveColor(level.launch_color_weights);
+        const shouldSpawnBoss = waveNumber % 2 === 1 && color !== null;
+        if (!shouldSpawnBoss) {
+          const { boss: _boss, ...levelWithoutBoss } = level;
+          void _boss;
+          return levelWithoutBoss;
+        }
+        return { ...level, boss: bossTemplateForColor(templateConfig, color, level.boss) };
+      }),
+    },
+  };
+}
 
 export interface BreathingWaveState {
   waveNumber: number;
@@ -112,6 +175,7 @@ export function useGameEngine(): UseGameEngineResult {
   const pausedRef          = useRef(false);
   const configRef          = useRef<GameConfig | null>(null);
   const baseConfigRef      = useRef<GameConfig | null>(null);
+  const bossTemplateConfigRef = useRef<GameConfig | null>(null);
   const queueRef           = useRef<ShotKind[]>([]);
   const rebootingRef       = useRef(false);
   const currentLevelIdxRef = useRef(0);
@@ -241,8 +305,9 @@ export function useGameEngine(): UseGameEngineResult {
     fetch(configUrl)
       .then((r) => r.json())
       .then((cfg: GameConfig) => {
-        baseConfigRef.current = cfg;
-        configRef.current = applyRuntimeModifiersToConfig(cfg, runtimeModifiersRef.current);
+        bossTemplateConfigRef.current = cfg;
+        baseConfigRef.current = withScheduledWaveBoss(cfg, waveNumberRef.current, currentLevelIdxRef.current, cfg);
+        configRef.current = applyRuntimeModifiersToConfig(baseConfigRef.current, runtimeModifiersRef.current);
         defaultMaxSpawnRef.current = cfg.game_session?.max_balls_spawned ?? 20;
         setConfig(configRef.current);
         const configuredDifficulty = getDefaultDifficulty(cfg);
@@ -317,7 +382,7 @@ export function useGameEngine(): UseGameEngineResult {
               const activeEnemies = engineRef.current.getEnemyBallCount();
               const waveHadActivity = engineRef.current.getLaunchedCount() > 0 || waveEndSpawnPausedRef.current || finalCountdownActiveRef.current;
               const regularWaveCleared = activeEnemies === 0 && waveHadActivity;
-              if (regularWaveCleared && engineRef.current.hasCurrentLevelBoss() && !visibleState.sessionCleared) {
+              if (regularWaveCleared && engineRef.current.hasPendingCurrentLevelBoss() && !visibleState.sessionCleared) {
                 engineRef.current.completeRegularWaveForBoss();
                 finalCountdownActiveRef.current = false;
                 finalCountdownRemainingRef.current = Infinity;
@@ -401,8 +466,12 @@ export function useGameEngine(): UseGameEngineResult {
   }, [isRunning]);
 
   const doReset = useCallback(() => {
-    const cfg = configRef.current;
+    let cfg = configRef.current;
     if (!cfg) return;
+    cfg = withScheduledWaveBoss(cfg, 1, currentLevelIdxRef.current, bossTemplateConfigRef.current ?? cfg);
+    configRef.current = cfg;
+    baseConfigRef.current = cfg;
+    setConfig(cfg);
     retryResetInProgressRef.current = true;
     publishRetryReason(null);
     engineRef.current = new GameEngine(cfg, currentLevelIdxRef.current);
@@ -828,11 +897,13 @@ export function useGameEngine(): UseGameEngineResult {
     const baseForWave = baseConfigRef.current ?? cfg;
     const waveColor = pickDifferentWaveColor(baseForWave);
     const coloredBase = withSingleWaveColor(baseForWave, waveColor);
-    const currentMax = coloredBase.game_session?.max_balls_spawned ?? engineRef.current.getLaunchedCount();
-    const nextConfig = { ...coloredBase, game_session: { ...coloredBase.game_session, max_balls_spawned: Math.max(currentMax, engineRef.current.getLaunchedCount() + spawnBudget) } };
+    const bossScheduledBase = withScheduledWaveBoss(coloredBase, waveNumberRef.current, currentLevelIdxRef.current, bossTemplateConfigRef.current ?? coloredBase);
+    const currentMax = bossScheduledBase.game_session?.max_balls_spawned ?? engineRef.current.getLaunchedCount();
+    const nextConfig = { ...bossScheduledBase, game_session: { ...bossScheduledBase.game_session, max_balls_spawned: Math.max(currentMax, engineRef.current.getLaunchedCount() + spawnBudget) } };
     baseConfigRef.current = nextConfig;
     configRef.current = nextConfig;
     setConfig(nextConfig);
+    engineRef.current.resetBossPhaseForNextWave();
     engineRef.current.updateConfig(nextConfig);
     syncRuntimeConfig(runtimeModifiersRef.current, 1);
     breathingActiveRef.current = false;

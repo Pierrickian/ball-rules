@@ -380,8 +380,8 @@
       "mine_trigger": "La mine n’a plus de timer: elle explose quand une balle de terrain passe dessus."
     },
     "yellow_blinker": {
-      "default_hp": 4,
-      "max_hp": 4,
+      "default_hp": 2,
+      "max_hp": 2,
       "invisible_duration_seconds": 0.8,
       "cycle_seconds": 1
     },
@@ -661,14 +661,14 @@
       {
         "id": 5,
         "name": "Niveau 5 — Éclipse jaune",
-        "description": "100% de balles jaunes. Elles ont 4 PV et clignotent: invisibles 0,8 s toutes les 1 s, ce qui perturbe visée et timing.",
+        "description": "100% de balles jaunes. Elles ont 2 PV et clignotent: invisibles 0,8 s toutes les 1 s, ce qui perturbe visée et timing.",
         "launch_color_weights": {
           "yellow": 1
         },
         "boss": {
           "color": "yellow",
-          "hp": 100,
-          "maxHp": 100,
+          "hp": 50,
+          "maxHp": 50,
           "intro_overlay_seconds": 1.6,
           "horizontal_speed": 10
         },
