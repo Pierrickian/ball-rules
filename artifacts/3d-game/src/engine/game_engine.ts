@@ -313,6 +313,102 @@ export class GameEngine {
     };
   }
 
+
+  private setCurrentSpawnCapToLaunched(): void {
+    const launchedCap = Math.max(0, this.launchedCount);
+    const level = this.getCurrentLevel();
+    this.config = {
+      ...this.config,
+      game_session: {
+        ...this.config.game_session,
+        max_balls_spawned: Math.min(this.config.game_session?.max_balls_spawned ?? launchedCap, launchedCap),
+      },
+      levels: level && this.config.levels?.list
+        ? {
+            ...this.config.levels,
+            list: this.config.levels.list.map((entry, index) => (
+              index === this.currentLevelIndex
+                ? { ...entry, max_balls_spawned: Math.min(entry.max_balls_spawned ?? launchedCap, launchedCap) }
+                : entry
+            )),
+          }
+        : this.config.levels,
+    };
+  }
+
+  debugClearRegularWave(): number {
+    if (!import.meta.env.DEV) return 0;
+    let cleared = 0;
+    for (const ball of this.balls.values()) {
+      if (!ball.isAlive) continue;
+      if (ball.isBoss || ball.color === "orange" || ball.isProjectile()) continue;
+      if (this.config.ball_colors[ball.color]?.for_terrain !== true) continue;
+      ball.isAlive = false;
+      cleared += 1;
+      this.emitEvent({
+        type: "ball_despawned",
+        ballId: ball.id,
+        reason: "debug_regular_wave_cleared",
+        position: { ...ball.position },
+        velocity: { ...ball.velocity },
+        effect: String(ball.metadata?.effect ?? ""),
+      }, this.isInsideUpdate ? "update" : "external");
+    }
+    this.pendingLaunches = this.pendingLaunches.filter((entry) => {
+      const launcher = this.balls.get(entry.launcherId);
+      return Boolean(launcher && launcher.isAlive);
+    });
+    this.setCurrentSpawnCapToLaunched();
+    return cleared;
+  }
+
+  debugFinishBossNotice(): void {
+    if (!import.meta.env.DEV) return;
+    this.bossIntroRemaining = 0;
+    this.bossHintRemaining = 0;
+  }
+
+  debugWeakenBoss(): number {
+    if (!import.meta.env.DEV) return 0;
+    let weakened = 0;
+    for (const ball of this.balls.values()) {
+      if (!ball.isAlive || !ball.isBoss || ball.hp <= 1) continue;
+      const previousHp = ball.hp;
+      ball.hp = 1;
+      this.syncBossDiameterWithHp(ball);
+      weakened += 1;
+      this.emitEvent({
+        type: "ball_damaged",
+        ballId: ball.id,
+        amount: previousHp - ball.hp,
+        remainingHp: ball.hp,
+        position: { ...ball.position },
+      }, this.isInsideUpdate ? "update" : "external");
+    }
+    return weakened;
+  }
+
+  debugKillBoss(): number {
+    if (!import.meta.env.DEV) return 0;
+    let killed = 0;
+    for (const ball of this.balls.values()) {
+      if (!ball.isAlive || !ball.isBoss) continue;
+      ball.hp = 0;
+      ball.isAlive = false;
+      killed += 1;
+      this.startBossMasteredOverlay();
+      this.emitEvent({
+        type: "ball_despawned",
+        ballId: ball.id,
+        reason: "debug_boss_killed",
+        position: { ...ball.position },
+        velocity: { ...ball.velocity },
+        effect: String(ball.metadata?.effect ?? ""),
+      }, this.isInsideUpdate ? "update" : "external");
+    }
+    return killed;
+  }
+
   /** Number of "enemy" balls currently alive (excludes orange launchers and player projectiles). */
   isBossPhase(): boolean {
     if (this.bossIntroRemaining > 0 || this.bossMasteredRemaining > 0) return true;

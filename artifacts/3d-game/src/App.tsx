@@ -24,6 +24,7 @@ import type { GameConfig, GameState, ShotKind, Vec2 } from "./engine/types";
 import type { GameplayAlveole, RuntimeModifiers } from "./engine/runtimeModifiers";
 import { ChargeBar, IncomingBallsOverlay, PlayerQueue } from "./AppOverlays";
 import { currentCheckpoint, debugLabel, type RuntimeStepperSnapshot } from "./game/runtimeStepper";
+import { installBallDebugApi } from "./engine/debugApi";
 
 function AppContent() {
   const { t, language, setLanguage } = useI18n();
@@ -200,6 +201,11 @@ function AppContent() {
     const id = window.setInterval(() => setUiNow(Date.now()), 250);
     return () => window.clearInterval(id);
   }, [breathingWave.phase]);
+
+  useEffect(() => installBallDebugApi({
+    debugOpenRewardResults: () => { setWaveUiStage("results"); },
+    debugOpenEvolution: () => { setWaveUiStage("evolution"); },
+  }), []);
 
   useEffect(() => {
     if (breathingWave.phase === "breathing" && breathingWave.outcome) {
