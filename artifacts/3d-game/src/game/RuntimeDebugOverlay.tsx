@@ -62,6 +62,11 @@ function useTouchDebugCursor(items: DebugItem[]): { cursor: number; visible: boo
     const firstActive = () => Math.max(0, items.findIndex((item) => item.active));
     const onTouchStart = (event: TouchEvent) => {
       const touchCount = event.touches.length;
+      if (touchCount === 1 && visible) {
+        setVisible(false);
+        return;
+      }
+
       const direction = touchCount === 4 ? 1 : touchCount === 3 ? -1 : 0;
       if (direction === 0 || items.length === 0) return;
       if (event.cancelable) event.preventDefault();
