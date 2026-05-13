@@ -15,6 +15,7 @@ import { EffectsMenu } from "./EffectsMenu";
 import { DifficultyMenu } from "./DifficultyMenu";
 import { RuntimeSettingsMenu } from "./RuntimeSettingsMenu";
 import { ChangeMenu } from "../change/ChangeMenu";
+import { useI18n } from "../i18n";
 
 function DownloadApkButton() {
   const { t } = useI18n();
@@ -73,6 +74,7 @@ export function Menu({
           onSettings={() => setView("settings")}
           onChange={() => setView("change")}
           onEvolution={() => { setChangeEvolutionText(""); setView("evolution"); }}
+          onEvolutionPrompt={(text) => { setChangeEvolutionText(text); setView("evolution"); }}
           onRules={() => setView("rules")}
           onLevels={() => setView("levels")}
           onBoss={() => setView("boss")}
