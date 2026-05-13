@@ -120,6 +120,10 @@ const fr: I18nDictionary = {
   "effects.grenadeHelp":
     "La grenade explose avec un grand diamètre et inflige des dégâts autour d'elle.",
   "effects.debugTexture": "Debug texture",
+  "debugOverlay.title": "Debug événements",
+  "debugOverlay.hint": "Volume + / - : afficher puis avancer / reculer",
+  "debugOverlay.events": "Game events",
+  "debugOverlay.states": "Game states",
   "instant.entrySubtitle": "Explorer un graphe de créations jouables",
   "instant.graph": "Graphe instant",
   "instant.heading": "Explore une ruche vivante",
@@ -291,6 +295,10 @@ const en: I18nDictionary = {
   "effects.grenadeHelp":
     "The grenade explodes with a large diameter and deals damage around it.",
   "effects.debugTexture": "Debug texture",
+  "debugOverlay.title": "Event debug",
+  "debugOverlay.hint": "Volume + / -: show then step forward / back",
+  "debugOverlay.events": "Game events",
+  "debugOverlay.states": "Game states",
   "instant.entrySubtitle": "Explore a graph of playable creations",
   "instant.graph": "Instant graph",
   "instant.heading": "Explore a living honeycomb",

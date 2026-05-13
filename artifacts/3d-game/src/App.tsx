@@ -19,6 +19,7 @@ import { RetryOverlay } from "./game/RetryOverlay";
 import { AddFeaturePortal } from "./game/AddFeaturePortal";
 import { submitEvolutionRequest } from "./game/evolutionRequest";
 import { LanguageToggle } from "./game/LanguageToggle";
+import { RuntimeDebugOverlay } from "./game/RuntimeDebugOverlay";
 import { I18nProvider, readStoredLanguage, useI18n, type Language } from "./game/i18n";
 import type { GameConfig, GameState, ShotKind, Vec2 } from "./engine/types";
 import type { GameplayAlveole, RuntimeModifiers } from "./engine/runtimeModifiers";
@@ -978,6 +979,12 @@ function AppContent() {
         onResume={resume}
         onReset={reset}
         breathingWave={breathingWave}
+      />
+      <RuntimeDebugOverlay
+        gameState={gameState}
+        lastEvents={lastEvents}
+        breathingWave={breathingWave}
+        waveUiStage={waveUiStage}
       />
 
       {gameState.bossMasteredActive && (
