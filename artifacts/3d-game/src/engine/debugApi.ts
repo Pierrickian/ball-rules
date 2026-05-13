@@ -5,6 +5,7 @@ export interface BallDebugApi {
   debugKillBoss: () => number;
   debugOpenRewardResults: () => void;
   debugOpenEvolution: () => void;
+  debugStartRewardNotice: () => void;
 }
 
 type BallDebugCommands = Partial<BallDebugApi>;

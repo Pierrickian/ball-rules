@@ -24,6 +24,7 @@ import type { GameConfig, GameState, RuntimePhase, ShotKind, Vec2 } from "./engi
 import type { GameplayAlveole, RuntimeModifiers } from "./engine/runtimeModifiers";
 import { ChargeBar, IncomingBallsOverlay, PlayerQueue } from "./AppOverlays";
 import { currentCheckpoint, debugLabel, type RuntimeStepperSnapshot } from "./game/runtimeStepper";
+import { DebugPhaseNavigator } from "./game/DebugPhaseNavigator";
 import { installBallDebugApi } from "./engine/debugApi";
 
 function AppContent() {
@@ -64,6 +65,7 @@ function AppContent() {
   const [reloadFlashKey, setReloadFlashKey] = useState(0);
   const [grenadeFlashKey, setGrenadeFlashKey] = useState(0);
   const [idleMicroPauseOpen, setIdleMicroPauseOpen] = useState(false);
+  const [debugPhaseNavigatorOpen, setDebugPhaseNavigatorOpen] = useState(false);
   const [waveNoticeUntil, setWaveNoticeUntil] = useState(0);
   const [ammoEndNoticeVisible, setAmmoEndNoticeVisible] = useState(false);
   const [selectedAlveoleIds, setSelectedAlveoleIds] = useState<string[]>([]);
@@ -198,6 +200,17 @@ function AppContent() {
   const lockedBallIdRef = useRef<string | null>(lockedBallId);
   const homingOnRef = useRef(homingOn);
   useEffect(() => { menuOpenRef.current = menuOpen; }, [menuOpen]);
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const openOnFourFingers = (event: TouchEvent) => {
+      if (event.touches.length >= 4) {
+        event.preventDefault();
+        setDebugPhaseNavigatorOpen(true);
+      }
+    };
+    window.addEventListener("touchstart", openOnFourFingers, { passive: false });
+    return () => window.removeEventListener("touchstart", openOnFourFingers);
+  }, []);
   useEffect(() => { isRunningRef.current = isRunning; }, [isRunning]);
   useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
   useEffect(() => { configRef.current = config; }, [config]);
@@ -619,6 +632,12 @@ function AppContent() {
     reloadStarLostShownRef.current = waveReloadCountRef.current > 1;
     setAmmoEndNoticeVisible(false);
   };
+  const handleDebugLaunchNextWave = () => {
+    resetWaveTracking();
+    launchNextWave();
+    setWaveUiStage("none");
+  };
+
   const handlePlayFunnel = () => {
     let ammoCursor = Number.isFinite(shotsRemaining) ? shotsRemaining : 0;
     for (const alveole of selectedAlveoles) {
@@ -629,9 +648,7 @@ function AppContent() {
     setSelectedAlveoleIds([]);
     if (betterShotSelected) upgradeBetterShot();
     setBetterShotSelected(false);
-    resetWaveTracking();
-    launchNextWave();
-    setWaveUiStage("none");
+    handleDebugLaunchNextWave();
   };
 
   return (
@@ -963,6 +980,19 @@ function AppContent() {
           </div>
         )}
       </div>
+
+      <DebugPhaseNavigator
+        open={debugPhaseNavigatorOpen}
+        config={config}
+        gameState={gameState}
+        snapshot={runtimeStepperSnapshot}
+        waveResultReady={waveResult !== null}
+        onClose={() => setDebugPhaseNavigatorOpen(false)}
+        onGoToBoss={goToBoss}
+        onRecordPhase={recordRuntimePhaseChange}
+        onLaunchNextWave={handleDebugLaunchNextWave}
+      />
+
       <HUD
         gameState={gameState}
         config={config}

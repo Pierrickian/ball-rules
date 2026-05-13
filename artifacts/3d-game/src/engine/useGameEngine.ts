@@ -499,12 +499,18 @@ export function useGameEngine(): UseGameEngineResult {
     return killed;
   }, [publishDebugState]);
 
+  const debugStartRewardNotice = useCallback((): void => {
+    beginBreathingWave("victory");
+    publishDebugState();
+  }, [beginBreathingWave, publishDebugState]);
+
   useEffect(() => installBallDebugApi({
     debugClearRegularWave,
     debugFinishBossNotice,
     debugWeakenBoss,
     debugKillBoss,
-  }), [debugClearRegularWave, debugFinishBossNotice, debugKillBoss, debugWeakenBoss]);
+    debugStartRewardNotice,
+  }), [debugClearRegularWave, debugFinishBossNotice, debugKillBoss, debugStartRewardNotice, debugWeakenBoss]);
 
   const pause  = useCallback(() => { pausedRef.current = true;  setIsRunning(false); }, []);
   const resume = useCallback(() => { pausedRef.current = false; lastTimeRef.current = performance.now(); setIsRunning(true); }, []);
