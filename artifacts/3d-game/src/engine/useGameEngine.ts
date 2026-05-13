@@ -24,6 +24,7 @@ import type { BallColor, GameConfig, GameEvent, GameState, LevelEntry, ShotKind,
 import { LocalRandomAlveoleProvider } from "./localAlveoleProvider";
 import { DEFAULT_RUNTIME_MODIFIERS, applyAlveoleModifier, applyRuntimeModifiersToConfig, toEngineRuntimeModifiers, type GameplayAlveole, type RuntimeModifiers } from "./runtimeModifiers";
 import { DEFAULT_DIFFICULTY, DEFAULT_LEVEL_AMMO_COUNT, DEFAULT_LEVEL_TIMER_SECONDS, DEFAULT_STATE, FALLBACK_DIFFICULTY_HP_PRESETS, buildQueue, clampDifficultyHpValue, getDefaultDifficulty, getDifficultyHpValue } from "./useGameEngineHelpers";
+import { installBallDebugApi } from "./debugApi";
 
 export interface BreathingWaveState {
   waveNumber: number;
@@ -140,12 +141,29 @@ export function useGameEngine(): UseGameEngineResult {
   const finalCountdownRemainingRef = useRef<number>(Infinity);
   const waveEndSpawnPausedRef = useRef(false);
   const lowAmmoHysteresisArmedRef = useRef(true);
+  const bossNoticeRemainingRef = useRef(0);
 
   useEffect(() => { runtimeModifiersRef.current = runtimeModifiers; }, [runtimeModifiers]);
 
   const publishRetryReason = useCallback((reason: "timeout" | "ammo" | "manual" | null) => {
     retryReasonRef.current = reason;
     setGameState((prev) => prev ? { ...prev, retryReason: reason } : prev);
+  }, []);
+
+  const publishDebugState = useCallback(() => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    const visibleState = engine.getState();
+    setGameState((prev) => ({
+      ...visibleState,
+      time: prev?.time ?? visibleState.time,
+      timerSecondsRemaining: engine.isBossPhase() ? Infinity : (finalCountdownActiveRef.current ? finalCountdownRemainingRef.current : Infinity),
+      ammoRemaining: engine.isBossPhase() ? Infinity : ammoRemainingRef.current,
+      retryReason: retryReasonRef.current,
+      isBossPhase: engine.isBossPhase(),
+      lightShotDamage: engine.getCurrentLightShotDamage(),
+      betterShotLevel: engine.getBetterShotLevel(),
+    }));
   }, []);
 
   const applyLevelLimits = useCallback(() => {
@@ -305,6 +323,7 @@ export function useGameEngine(): UseGameEngineResult {
           updateGrenadeZones(engineRef.current, grenadeZonesRef.current, delta);
         }
         const visibleState = engineRef.current.getState();
+        bossNoticeRemainingRef.current = visibleState.bossIntroActive ? 1 : 0;
         setGrenadesLeft(engineRef.current.getGrenadesLeft());
         const bossPhase = engineRef.current.isBossPhase();
         if (cfg && !bossPhase && !retryResetInProgressRef.current) {
@@ -448,6 +467,37 @@ export function useGameEngine(): UseGameEngineResult {
     setIsRunning(true);
     window.setTimeout(() => { retryResetInProgressRef.current = false; }, 0);
   }, [applyLevelLimits, publishRetryReason]);
+
+  const debugClearRegularWave = useCallback((): number => {
+    const cleared = engineRef.current?.debugClearRegularWave() ?? 0;
+    publishDebugState();
+    return cleared;
+  }, [publishDebugState]);
+
+  const debugFinishBossNotice = useCallback((): void => {
+    bossNoticeRemainingRef.current = 0;
+    engineRef.current?.debugFinishBossNotice();
+    publishDebugState();
+  }, [publishDebugState]);
+
+  const debugWeakenBoss = useCallback((): number => {
+    const weakened = engineRef.current?.debugWeakenBoss() ?? 0;
+    publishDebugState();
+    return weakened;
+  }, [publishDebugState]);
+
+  const debugKillBoss = useCallback((): number => {
+    const killed = engineRef.current?.debugKillBoss() ?? 0;
+    publishDebugState();
+    return killed;
+  }, [publishDebugState]);
+
+  useEffect(() => installBallDebugApi({
+    debugClearRegularWave,
+    debugFinishBossNotice,
+    debugWeakenBoss,
+    debugKillBoss,
+  }), [debugClearRegularWave, debugFinishBossNotice, debugKillBoss, debugWeakenBoss]);
 
   const pause  = useCallback(() => { pausedRef.current = true;  setIsRunning(false); }, []);
   const resume = useCallback(() => { pausedRef.current = false; lastTimeRef.current = performance.now(); setIsRunning(true); }, []);
