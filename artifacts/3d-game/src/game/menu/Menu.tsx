@@ -14,7 +14,8 @@ import { BossMenu } from "./BossMenu";
 import { EffectsMenu } from "./EffectsMenu";
 import { DifficultyMenu } from "./DifficultyMenu";
 import { RuntimeSettingsMenu } from "./RuntimeSettingsMenu";
-import { ChangeMenu } from "../change/ChangeMenu";
+import { RetryMenu } from "./RetryMenu";
+import { LanguageMenu } from "./LanguageMenu";
 import { useI18n } from "../i18n";
 
 function DownloadApkButton() {
@@ -34,8 +35,11 @@ export function Menu({
   onLevelSelect,
   onLevelWeightsChange,
   onPlayBossRush,
-  onApplyInstantConfig,
   onDifficultyChange,
+  retryReason,
+  onRetry,
+  onSkipLevel,
+  onGoToBoss,
   difficulty,
   hpAdjustment,
   onHpAdjustmentChange,
@@ -55,12 +59,10 @@ export function Menu({
   onRuntimeModifiersChange,
   onRuntimeModifiersReset,
 }: MenuProps) {
-  const [view, setView] = useState<MenuView>(evolutionInitialText ? "evolution" : "settings");
-  const [changeEvolutionText, setChangeEvolutionText] = useState("");
+  const [view, setView] = useState<MenuView>(evolutionInitialText ? "evolution" : "main");
 
   useEffect(() => {
     if (evolutionInitialText) {
-      setChangeEvolutionText("");
       setView("evolution");
     }
   }, [evolutionInitialText]);
@@ -70,11 +72,10 @@ export function Menu({
       <DownloadApkButton />
       {view === "main" && (
         <MainMenu
-          config={config}
           onSettings={() => setView("settings")}
-          onChange={() => setView("change")}
-          onEvolution={() => { setChangeEvolutionText(""); setView("evolution"); }}
-          onEvolutionPrompt={(text) => { setChangeEvolutionText(text); setView("evolution"); }}
+          onRetry={() => setView("retry")}
+          onLanguage={() => setView("language")}
+          onEvolution={() => { setView("evolution"); }}
           onRules={() => setView("rules")}
           onLevels={() => setView("levels")}
           onBoss={() => setView("boss")}
@@ -84,14 +85,14 @@ export function Menu({
           onHowToAsk={() => setView("how_to_ask")}
           onReleaseNotes={() => setView("release_notes")}
           onEffects={() => setView("effects")}
-          onApplyInstantConfig={onApplyInstantConfig}
           onDifficulty={() => setView("difficulty")}
           onClose={onClose}
         />
       )}
-      {view === "settings"       && <RuntimeSettingsMenu language={language} onLanguageChange={onLanguageChange} runtimeModifiers={runtimeModifiers} onRuntimeModifiersChange={onRuntimeModifiersChange} onReset={onRuntimeModifiersReset} onBack={() => setView("main")} />}
-      {view === "change"         && <ChangeMenu config={config} currentLevelIndex={currentLevelIndex} currentLevelNumber={currentLevelNumber} onApplyChangeConfig={onApplyInstantConfig} onOpenEvolution={(text) => { setChangeEvolutionText(text); setView("evolution"); }} onClose={onClose} onBack={() => setView("main")} />}
-      {view === "evolution"      && <EvolutionMenu evolutionRequest={evolutionRequest} initialText={changeEvolutionText || evolutionInitialText} currentLevelNumber={currentLevelNumber} difficulty={difficulty} hpAdjustment={hpAdjustment} onBack={() => setView("main")} />}
+      {view === "settings"       && <RuntimeSettingsMenu runtimeModifiers={runtimeModifiers} onRuntimeModifiersChange={onRuntimeModifiersChange} onReset={onRuntimeModifiersReset} onBack={() => setView("main")} />}
+      {view === "retry"          && <RetryMenu reason={retryReason} levelNumber={currentLevelNumber} onRetry={onRetry} onSkipLevel={onSkipLevel} onGoToBoss={onGoToBoss} onBack={() => setView("main")} />}
+      {view === "language"       && <LanguageMenu language={language} onLanguageChange={onLanguageChange} onBack={() => setView("main")} />}
+      {view === "evolution"      && <EvolutionMenu evolutionRequest={evolutionRequest} initialText={evolutionInitialText} currentLevelNumber={currentLevelNumber} difficulty={difficulty} hpAdjustment={hpAdjustment} onBack={() => setView("main")} />}
       {view === "rules"          && <RulesMenu      config={config} onBack={() => setView("main")} />}
       {view === "levels"         && <LevelsMenu config={config} currentLevelIndex={currentLevelIndex} onLevelSelect={onLevelSelect} onLevelWeightsChange={onLevelWeightsChange} onTerrainDistributionPlay={onTerrainDistributionPlay} onClose={onClose} onBack={() => setView("main")} />}
       {view === "boss"           && <BossMenu config={config} onPlayBossRush={onPlayBossRush} onClose={onClose} onBack={() => setView("main")} />}

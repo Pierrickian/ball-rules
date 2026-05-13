@@ -337,7 +337,6 @@ export class GameEngine {
   }
 
   debugClearRegularWave(): number {
-    if (!import.meta.env.DEV) return 0;
     let cleared = 0;
     for (const ball of this.balls.values()) {
       if (!ball.isAlive) continue;
@@ -363,13 +362,11 @@ export class GameEngine {
   }
 
   debugFinishBossNotice(): void {
-    if (!import.meta.env.DEV) return;
     this.bossIntroRemaining = 0;
     this.bossHintRemaining = 0;
   }
 
   debugWeakenBoss(): number {
-    if (!import.meta.env.DEV) return 0;
     let weakened = 0;
     for (const ball of this.balls.values()) {
       if (!ball.isAlive || !ball.isBoss || ball.hp <= 1) continue;
@@ -389,7 +386,6 @@ export class GameEngine {
   }
 
   debugKillBoss(): number {
-    if (!import.meta.env.DEV) return 0;
     let killed = 0;
     for (const ball of this.balls.values()) {
       if (!ball.isAlive || !ball.isBoss) continue;

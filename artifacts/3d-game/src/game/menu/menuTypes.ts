@@ -1,7 +1,7 @@
 import type { BallColor, EvolutionRequestConfig, GameConfig } from "../../engine/types";
 import type { RuntimeModifiers } from "../../engine/runtimeModifiers";
 
-export type MenuView = "main" | "settings" | "change" | "evolution" | "rules" | "balls" | "terrain" | "player_colors" | "how_to_ask" | "release_notes" | "levels" | "boss" | "effects" | "difficulty";
+export type MenuView = "main" | "settings" | "retry" | "language" | "evolution" | "rules" | "balls" | "terrain" | "player_colors" | "how_to_ask" | "release_notes" | "levels" | "boss" | "effects" | "difficulty";
 
 const APK_DOWNLOAD_URL = "https://github.com/Pierrickian/ball-rules/releases/latest/download/ball-rules.apk";
 
@@ -25,8 +25,11 @@ export interface MenuProps {
   onLevelSelect: (index: number) => void;
   onLevelWeightsChange: (index: number, weights: Record<BallColor, number>) => void;
   onPlayBossRush: (levelIds: number[]) => void;
-  onApplyInstantConfig: (nextConfig: GameConfig, options?: { reset?: boolean; playtestTarget?: unknown }) => void;
   onDifficultyChange: (difficulty: Difficulty) => void;
+  retryReason: "timeout" | "ammo" | "manual" | null;
+  onRetry: () => void;
+  onSkipLevel: () => void;
+  onGoToBoss: () => void;
   difficulty: Difficulty;
   hpAdjustment: number;
   onHpAdjustmentChange: (adjustment: number) => void;

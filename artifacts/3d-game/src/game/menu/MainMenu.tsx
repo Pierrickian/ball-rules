@@ -1,16 +1,13 @@
-import type { GameConfig } from "../../engine/types";
-import { InstantCreationMenu } from "../InstantCreationMenu";
 import { CLOSE_BTN, MENU_BTN, PANEL, TITLE } from "./menuStyles";
 import { useI18n } from "../i18n";
 
 export function MainMenu({
-  config, onSettings, onChange, onEvolution, onEvolutionPrompt, onDifficulty, onRules, onLevels, onBoss, onBalls, onTerrain, onPlayerColors, onHowToAsk, onReleaseNotes, onEffects, onApplyInstantConfig, onClose,
+  onSettings, onRetry, onLanguage, onEvolution, onDifficulty, onRules, onLevels, onBoss, onBalls, onTerrain, onPlayerColors, onHowToAsk, onReleaseNotes, onEffects, onClose,
 }: {
-  config:           GameConfig;
   onSettings:       () => void;
-  onChange:         () => void;
+  onRetry:          () => void;
+  onLanguage:       () => void;
   onEvolution:      () => void;
-  onEvolutionPrompt: (preprompt: string) => void;
   onDifficulty:     () => void;
   onRules:          () => void;
   onLevels:         () => void;
@@ -21,7 +18,6 @@ export function MainMenu({
   onHowToAsk:       () => void;
   onReleaseNotes:   () => void;
   onEffects:        () => void;
-  onApplyInstantConfig: (nextConfig: GameConfig, options?: { reset?: boolean; playtestTarget?: unknown }) => void;
   onClose:          () => void;
 }) {
   const { t } = useI18n();
@@ -34,15 +30,22 @@ export function MainMenu({
       <button style={MENU_BTN} onClick={onSettings}>
         <span style={{ fontSize: 20 }}>⚙️</span>
         <div>
-          <div style={{ fontWeight: "bold" }}>Settings</div>
-          <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Langue, hormones et réglages experts</div>
+          <div style={{ fontWeight: "bold" }}>{t("menu.settings")}</div>
+          <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>{t("menu.settings.subtitle")}</div>
         </div>
       </button>
-      <button style={MENU_BTN} onClick={onChange}>
-        <span style={{ fontSize: 20 }}>🍯</span>
+      <button style={MENU_BTN} onClick={onRetry}>
+        <span style={{ fontSize: 20 }}>↻</span>
         <div>
-          <div style={{ fontWeight: "bold" }}>Change</div>
-          <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>Graphe honeycomb vivant de la partie</div>
+          <div style={{ fontWeight: "bold" }}>{t("menu.retry")}</div>
+          <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>{t("menu.retry.subtitle")}</div>
+        </div>
+      </button>
+      <button style={MENU_BTN} onClick={onLanguage}>
+        <span style={{ fontSize: 20 }}>🌐</span>
+        <div>
+          <div style={{ fontWeight: "bold" }}>{t("menu.language")}</div>
+          <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>{t("menu.language.subtitle")}</div>
         </div>
       </button>
       <button style={MENU_BTN} onClick={onEvolution}>
@@ -52,7 +55,6 @@ export function MainMenu({
           <div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>{t("menu.evolution.subtitle")}</div>
         </div>
       </button>
-      <InstantCreationMenu config={config} onApplyInstantConfig={onApplyInstantConfig} onOpenEvolution={onEvolutionPrompt} />
       <button style={MENU_BTN} onClick={onDifficulty}>
         <div>🎚️</div><div><div style={{ fontWeight: "bold" }}>{t("menu.difficulty")}</div><div style={{ fontSize: 11, color: "#556", marginTop: 2 }}>{t("menu.difficulty.subtitle")}</div></div>
       </button>

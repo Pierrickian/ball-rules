@@ -18,12 +18,12 @@ import { Menu } from "./game/Menu";
 import { RetryOverlay } from "./game/RetryOverlay";
 import { AddFeaturePortal } from "./game/AddFeaturePortal";
 import { submitEvolutionRequest } from "./game/evolutionRequest";
-import { LanguageToggle } from "./game/LanguageToggle";
 import { I18nProvider, readStoredLanguage, useI18n, type Language } from "./game/i18n";
 import type { GameConfig, GameState, RuntimePhase, ShotKind, Vec2 } from "./engine/types";
 import type { GameplayAlveole, RuntimeModifiers } from "./engine/runtimeModifiers";
 import { ChargeBar, IncomingBallsOverlay, PlayerQueue } from "./AppOverlays";
 import { currentCheckpoint, debugLabel, type RuntimeStepperSnapshot } from "./game/runtimeStepper";
+import { DebugPhaseNavigator } from "./game/DebugPhaseNavigator";
 import { installBallDebugApi } from "./engine/debugApi";
 
 function AppContent() {
@@ -31,7 +31,7 @@ function AppContent() {
   const {
     gameState, config, lastEvents, isRunning, playerQueue,
     pause, resume, reset, setArena,
-    shoot, setCustomTerrainDistribution, setActiveLevel, setLevelWeights, applyRuntimeConfig, openRetryMenu, goToBoss, playBossRush, classifyHold, toggleGrenade, placeMine, upgradeBetterShot, grenadesLeft, setDifficulty, difficulty, setHpAdjustment, hpAdjustment, breathingWave, runtimeModifiers, applyAlveole, reloadWave, launchNextWave, requestContextualAlveoles, setRuntimeModifiersFromSettings, resetRuntimeModifiers, recordRuntimePhaseChange,
+    shoot, setCustomTerrainDistribution, setActiveLevel, setLevelWeights, goToBoss, playBossRush, classifyHold, toggleGrenade, placeMine, upgradeBetterShot, grenadesLeft, setDifficulty, difficulty, setHpAdjustment, hpAdjustment, breathingWave, runtimeModifiers, applyAlveole, reloadWave, launchNextWave, requestContextualAlveoles, setRuntimeModifiersFromSettings, resetRuntimeModifiers, recordRuntimePhaseChange,
   } = useGameEngine();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -64,6 +64,7 @@ function AppContent() {
   const [reloadFlashKey, setReloadFlashKey] = useState(0);
   const [grenadeFlashKey, setGrenadeFlashKey] = useState(0);
   const [idleMicroPauseOpen, setIdleMicroPauseOpen] = useState(false);
+  const [debugPhaseNavigatorOpen, setDebugPhaseNavigatorOpen] = useState(false);
   const [waveNoticeUntil, setWaveNoticeUntil] = useState(0);
   const [ammoEndNoticeVisible, setAmmoEndNoticeVisible] = useState(false);
   const [selectedAlveoleIds, setSelectedAlveoleIds] = useState<string[]>([]);
@@ -198,6 +199,18 @@ function AppContent() {
   const lockedBallIdRef = useRef<string | null>(lockedBallId);
   const homingOnRef = useRef(homingOn);
   useEffect(() => { menuOpenRef.current = menuOpen; }, [menuOpen]);
+  useEffect(() => {
+    // Keep this hidden gesture available in production builds too: mobile QA
+    // does not run with Vite DEV flags, but still needs phase navigation.
+    const openOnFourFingers = (event: TouchEvent) => {
+      if (event.touches.length >= 4) {
+        event.preventDefault();
+        setDebugPhaseNavigatorOpen(true);
+      }
+    };
+    window.addEventListener("touchstart", openOnFourFingers, { passive: false });
+    return () => window.removeEventListener("touchstart", openOnFourFingers);
+  }, []);
   useEffect(() => { isRunningRef.current = isRunning; }, [isRunning]);
   useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
   useEffect(() => { configRef.current = config; }, [config]);
@@ -254,12 +267,6 @@ function AppContent() {
   }, [setWaveUiStageWithEvent, waveUiStage, waveNoticeUntil]);
 
   const handleMenuOpen = () => { setEvolutionInitialText(""); setAddFeaturePortalOpen(false); pause(); setMenuOpen(true); };
-  const handleApplyInstantConfig = (nextConfig: GameConfig, options?: { reset?: boolean; playtestTarget?: unknown }) => {
-    applyRuntimeConfig(nextConfig, options);
-    setMenuOpen(false);
-    resume();
-  };
-
   const handleMenuClose = () => { setMenuOpen(false); setEvolutionInitialText(""); resume(); };
   const handleAddFeatureOpen = () => { pause(); setAddFeaturePortalOpen(true); };
   const handleAddFeatureClose = () => { setAddFeaturePortalOpen(false); resume(); };
@@ -619,6 +626,12 @@ function AppContent() {
     reloadStarLostShownRef.current = waveReloadCountRef.current > 1;
     setAmmoEndNoticeVisible(false);
   };
+  const handleDebugLaunchNextWave = () => {
+    resetWaveTracking();
+    launchNextWave();
+    setWaveUiStage("none");
+  };
+
   const handlePlayFunnel = () => {
     let ammoCursor = Number.isFinite(shotsRemaining) ? shotsRemaining : 0;
     for (const alveole of selectedAlveoles) {
@@ -629,9 +642,7 @@ function AppContent() {
     setSelectedAlveoleIds([]);
     if (betterShotSelected) upgradeBetterShot();
     setBetterShotSelected(false);
-    resetWaveTracking();
-    launchNextWave();
-    setWaveUiStage("none");
+    handleDebugLaunchNextWave();
   };
 
   return (
@@ -868,25 +879,17 @@ function AppContent() {
       <button
         onClick={handleMenuOpen}
         style={{ position: "absolute", top: 12, right: 12, zIndex: 95, pointerEvents: "all", background: "rgba(10,20,50,0.92)", color: "#c0d8ff", border: "1px solid rgba(30,144,255,0.5)", borderRadius: 8, padding: "7px 12px", fontSize: 13, fontWeight: 900, cursor: "pointer" }}
-        title="Settings"
+        title={t("app.title.menu")}
       >
-        Settings
-      </button>
-      <button
-        onClick={openRetryMenu}
-        style={{ position: "absolute", top: 54, right: 12, width: 42, height: 42, zIndex: 95, pointerEvents: "all", background: "rgba(20,10,35,0.92)", color: "#ffe6f0", border: "1px solid rgba(255,77,122,0.55)", borderRadius: 10, fontSize: 20, cursor: "pointer", display:"grid", placeItems:"center" }}
-        title={t("app.title.retry")}
-      >
-        ↻
+        {t("app.title.menu")}
       </button>
       <button
         onClick={handleAddFeatureOpen}
-        style={{ position: "absolute", top: 102, right: 12, width: 42, height: 42, zIndex: 95, pointerEvents: "all", background: "rgba(10,35,28,0.92)", color: "#d7ffec", border: "1px solid rgba(102,255,187,0.55)", borderRadius: 10, fontSize: 24, fontWeight: 900, cursor: "pointer", display:"grid", placeItems:"center" }}
+        style={{ position: "absolute", top: 54, right: 12, width: 42, height: 42, zIndex: 95, pointerEvents: "all", background: "rgba(10,35,28,0.92)", color: "#d7ffec", border: "1px solid rgba(102,255,187,0.55)", borderRadius: 10, fontSize: 24, fontWeight: 900, cursor: "pointer", display:"grid", placeItems:"center" }}
         title={t("app.title.add")}
       >
         +
       </button>
-      <LanguageToggle />
       <AddFeaturePortal
         open={addFeaturePortalOpen}
         onClose={handleAddFeatureClose}
@@ -963,6 +966,19 @@ function AppContent() {
           </div>
         )}
       </div>
+
+      <DebugPhaseNavigator
+        open={debugPhaseNavigatorOpen}
+        config={config}
+        gameState={gameState}
+        snapshot={runtimeStepperSnapshot}
+        waveResultReady={waveResult !== null}
+        onClose={() => setDebugPhaseNavigatorOpen(false)}
+        onGoToBoss={goToBoss}
+        onRecordPhase={recordRuntimePhaseChange}
+        onLaunchNextWave={handleDebugLaunchNextWave}
+      />
+
       <HUD
         gameState={gameState}
         config={config}
@@ -1002,8 +1018,11 @@ function AppContent() {
           onLevelSelect={setActiveLevel}
           onLevelWeightsChange={setLevelWeights}
           onPlayBossRush={playBossRush}
-          onApplyInstantConfig={handleApplyInstantConfig}
           onDifficultyChange={setDifficulty}
+          retryReason={retryReason}
+          onRetry={reset}
+          onGoToBoss={goToBoss}
+          onSkipLevel={() => setActiveLevel(gameState.currentLevelIndex + 1)}
           difficulty={difficulty}
           hpAdjustment={hpAdjustment}
           onHpAdjustmentChange={setHpAdjustment}
