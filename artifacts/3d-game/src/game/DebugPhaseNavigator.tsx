@@ -275,6 +275,7 @@ export function DebugPhaseNavigator({
   const conditionIsForced = (stepId: string, conditionId: string) => Boolean(forcedConditions[`${stepId}:${conditionId}`]);
   const stepIsForcedReady = (step: DebugStep) => step.conditions.some((condition) => conditionIsForced(step.id, condition.id));
   const stepCanRun = (step: DebugStep) => step.conditions.every((condition) => condition.met || conditionIsForced(step.id, condition.id));
+  const eventSummary = snapshot.lastEventTypes.length > 0 ? snapshot.lastEventTypes.join(" · ") : "aucun événement récent";
 
   return (
     <div style={{ position: "absolute", inset: 0, zIndex: 90, background: "rgba(0,7,16,.82)", backdropFilter: "blur(8px)", color: "#e7faff", fontFamily: "'Courier New', monospace", pointerEvents: "all" }}>
@@ -283,7 +284,7 @@ export function DebugPhaseNavigator({
           <div>
             <div style={{ fontSize: 12, color: "#7afcff", letterSpacing: 2, textTransform: "uppercase" }}>Debug navigation phases</div>
             <div style={{ fontSize: 18, fontWeight: 900 }}>Checkpoint courant: {checkpoint}</div>
-            <div style={{ marginTop: 4, fontSize: 11, color: "#a8c7df", lineHeight: 1.4 }}>{snapshot.lastEventTypes.length > 0 ? snapshot.lastEventTypes.join(" · ") : "aucun événement récent"}</div>
+            <div title={eventSummary} style={{ marginTop: 4, fontSize: 11, color: "#a8c7df", lineHeight: 1.35, height: "4.05em", overflow: "hidden", wordBreak: "break-word" }}>{eventSummary}</div>
           </div>
           <button aria-label="Fermer le debug" onClick={onClose} style={{ width: 38, height: 38, borderRadius: 999, border: "1px solid rgba(255,255,255,.35)", background: "rgba(255,255,255,.08)", color: "#fff", fontSize: 24, cursor: "pointer", lineHeight: 1 }}>×</button>
         </div>
