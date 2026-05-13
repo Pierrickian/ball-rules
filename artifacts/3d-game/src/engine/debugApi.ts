@@ -16,8 +16,10 @@ declare global {
   }
 }
 
+// Installed in all browser builds because the mobile debug overlay is opened by
+// a hidden four-finger gesture even outside Vite dev mode.
 export function installBallDebugApi(commands: BallDebugCommands): () => void {
-  if (!import.meta.env.DEV || typeof window === "undefined") return () => {};
+  if (typeof window === "undefined") return () => {};
 
   window.__ballDebug = {
     ...(window.__ballDebug ?? {}),

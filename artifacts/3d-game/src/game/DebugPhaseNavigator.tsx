@@ -270,7 +270,7 @@ export function DebugPhaseNavigator({
     ];
   }, [config, gameState, onGoToBoss, onLaunchNextWave, onRecordPhase, snapshot, waveResultReady]);
 
-  if (!open || !import.meta.env.DEV) return null;
+  if (!open) return null;
 
   const conditionIsForced = (stepId: string, conditionId: string) => Boolean(forcedConditions[`${stepId}:${conditionId}`]);
   const stepIsForcedReady = (step: DebugStep) => step.conditions.some((condition) => conditionIsForced(step.id, condition.id));

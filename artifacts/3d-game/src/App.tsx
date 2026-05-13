@@ -201,7 +201,8 @@ function AppContent() {
   const homingOnRef = useRef(homingOn);
   useEffect(() => { menuOpenRef.current = menuOpen; }, [menuOpen]);
   useEffect(() => {
-    if (!import.meta.env.DEV) return;
+    // Keep this hidden gesture available in production builds too: mobile QA
+    // does not run with Vite DEV flags, but still needs phase navigation.
     const openOnFourFingers = (event: TouchEvent) => {
       if (event.touches.length >= 4) {
         event.preventDefault();
