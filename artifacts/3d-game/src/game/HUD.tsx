@@ -110,7 +110,7 @@ export function HUD({ gameState, config, isRunning, levelTimerSeconds, shotsRema
         {/* Session progress */}
         <div style={{ width: "56%", minWidth: 150 }}>
           <div style={{ fontSize: 9, color: "#445", textTransform: "uppercase", letterSpacing: 3, marginBottom: 3 }}>
-            Vague {breathingWave.waveNumber} · {launched}/{max}
+            {t("hud.waveNumber", { number: breathingWave.waveNumber, launched, max })}
           </div>
           <div style={{
             height: 6, background: "rgba(30,144,255,0.15)",
