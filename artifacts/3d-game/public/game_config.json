@@ -790,6 +790,7 @@
     ]
   },
   "release_notes": [
+    "Popups UI découplées du moteur",
     "Transitions de phase mieux tracées",
     "Commandes debug développeur",
     "Lancement GitHub Pages fiabilisé",
