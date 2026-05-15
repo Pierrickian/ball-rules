@@ -28,6 +28,8 @@ import { installBallDebugApi } from "./engine/debugApi";
 import { UiEntityLayer } from "./game/ui/UiEntityLayer";
 import { useUiEntities } from "./game/ui/useUiEntities";
 
+const KILL_STAR_ANIMATION_MS = 2300;
+
 function AppContent() {
   const { t, language, setLanguage } = useI18n();
   const {
@@ -69,6 +71,7 @@ function AppContent() {
   const [betterShotSelected, setBetterShotSelected] = useState(false);
   const [uiNow, setUiNow] = useState(() => Date.now());
   const [waveUiStage, setWaveUiStage] = useState<"none" | "notice" | "results" | "evolution">("none");
+  const [waveIntroVisible, setWaveIntroVisible] = useState(false);
   const [waveResult, setWaveResult] = useState<null | { outcome: "victory" | "defeat"; endReason: "time_expired" | "terrain_cleared" | "boss_defeated" | null; durationSeconds: number; reloadCount: number; maxCombo: number; previousRecord: number; combos: Record<string, number> }>(null);
   const setWaveUiStageWithEvent = useCallback((stage: "none" | "notice" | "results" | "evolution") => {
     const phaseByStage: Partial<Record<typeof stage, RuntimePhase>> = {
@@ -135,10 +138,6 @@ function AppContent() {
       if (event.type === "grenade_helper_flash") {
         setGrenadeFlashKey((prev) => prev + 1);
       }
-      if (event.type === "phase_changed" && event.phase === "boss_notice" && !timeStarShownRef.current) {
-        timeStarShownRef.current = true;
-        showStarPopup(language === "en" ? "Kill Star" : "Étoile Kill", "earned");
-      }
       if (event.type === "combo_popup") {
         waveMaxComboRef.current = Math.max(waveMaxComboRef.current, event.streak);
         waveCombosRef.current[event.label] = (waveCombosRef.current[event.label] ?? 0) + 1;
@@ -201,17 +200,18 @@ function AppContent() {
         combos: { ...waveCombosRef.current },
       };
       setWaveResult(result);
-      if (!timeStarShownRef.current) {
+      const timeExpired = result.endReason === "time_expired";
+      const shouldShowKillStar = !timeStarShownRef.current;
+      if (shouldShowKillStar) {
         timeStarShownRef.current = true;
-        const timeExpired = result.endReason === "time_expired";
-        showStarPopup(!timeExpired ? (language === "en" ? "Kill Star" : "Étoile Kill") : (language === "en" ? "Kill Star Lost" : "Étoile Kill perdue"), !timeExpired ? "earned" : "lost");
+        showStarPopup(!timeExpired ? (language === "en" ? "Kill Star" : "Étoile Kill") : (language === "en" ? "Kill Star Lost" : "Étoile Kill perdue"), !timeExpired ? "earned" : "lost", KILL_STAR_ANIMATION_MS);
       }
       previousWaveMaxComboRef.current = result.maxCombo;
-      const timeExpired = result.endReason === "time_expired";
-      const noticeUntil = Date.now() + (timeExpired ? 2000 : 0);
+      const delayResultsUntil = !timeExpired && shouldShowKillStar ? KILL_STAR_ANIMATION_MS : 0;
+      const noticeUntil = Date.now() + (timeExpired ? 2000 : delayResultsUntil);
       setTimeUpNoticeUntil(timeExpired ? noticeUntil : 0);
       setWaveNoticeUntil(noticeUntil);
-      setWaveUiStage(timeExpired ? "notice" : "results");
+      setWaveUiStage(timeExpired || delayResultsUntil > 0 ? "notice" : "results");
       setSelectedAlveoleIds([]);
       setBetterShotSelected(false);
       setAmmoEndNoticeVisible(false);
@@ -228,6 +228,13 @@ function AppContent() {
     const timer = window.setTimeout(() => setWaveUiStageWithEvent("results"), delay);
     return () => window.clearTimeout(timer);
   }, [setWaveUiStageWithEvent, waveUiStage, waveNoticeUntil]);
+
+  useEffect(() => {
+    if (breathingWave.phase !== "active") return;
+    setWaveIntroVisible(true);
+    const timer = window.setTimeout(() => setWaveIntroVisible(false), 1700);
+    return () => window.clearTimeout(timer);
+  }, [breathingWave.phase, breathingWave.waveNumber]);
 
   const handleMenuOpen = () => { setEvolutionInitialText(""); setAddFeaturePortalOpen(false); pause(); setMenuOpen(true); };
   const handleMenuClose = () => { setMenuOpen(false); setEvolutionInitialText(""); resume(); };
@@ -658,6 +665,15 @@ function AppContent() {
         <div style={{ position:"absolute", inset:0, display:"grid", placeItems:"center", pointerEvents:"none", zIndex:11 }}>
           <div style={{ marginTop:118, fontSize:24, fontWeight:800, letterSpacing:1.5, color:"#ffe8a3", textShadow:"0 0 16px #000, 0 0 10px #ff8c00", textTransform:"uppercase" }}>
             {gameState.bossHintMessage}
+          </div>
+        </div>
+      )}
+
+      {waveIntroVisible && breathingWave.phase === "active" && (
+        <div style={{ position:"absolute", inset:0, display:"grid", placeItems:"center", pointerEvents:"none", zIndex:12 }}>
+          <div style={{ marginTop:-90, padding:"12px 22px", borderRadius:18, border:"1px solid rgba(122,252,255,.58)", background:"rgba(3,10,24,.78)", color:"#eaffff", boxShadow:"0 0 28px rgba(122,252,255,.28)", textAlign:"center", textTransform:"uppercase", fontWeight:950, letterSpacing:4, textShadow:"0 0 14px #000, 0 0 18px rgba(122,252,255,.45)" }}>
+            <div style={{ fontSize:13, color:"#7afcff", letterSpacing:3 }}>{t("app.waveIntro.label")}</div>
+            <div style={{ fontSize:44 }}>{t("app.waveIntro.number", { number: breathingWave.waveNumber })}</div>
           </div>
         </div>
       )}

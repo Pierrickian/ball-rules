@@ -377,7 +377,7 @@ export function useGameEngine(): UseGameEngineResult {
                   waveEndSpawnPausedRef.current = true;
                   engineRef.current.setOrangeSpawningPaused(true);
                 }
-                if (lowAmmoHysteresisArmedRef.current && ammoRemainingRef.current <= 10 && !finalCountdownActiveRef.current) {
+                if (lowAmmoHysteresisArmedRef.current && waveEndSpawnPausedRef.current && !finalCountdownActiveRef.current) {
                   finalCountdownActiveRef.current = true;
                   finalCountdownRemainingRef.current = DEFAULT_LEVEL_TIMER_SECONDS;
                   timerRemainingRef.current = finalCountdownRemainingRef.current;

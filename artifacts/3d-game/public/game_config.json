@@ -380,8 +380,8 @@
       "mine_trigger": "La mine n’a plus de timer: elle explose quand une balle de terrain passe dessus."
     },
     "yellow_blinker": {
-      "default_hp": 4,
-      "max_hp": 4,
+      "default_hp": 1,
+      "max_hp": 1,
       "invisible_duration_seconds": 0.8,
       "cycle_seconds": 1
     },
@@ -661,7 +661,7 @@
       {
         "id": 5,
         "name": "Niveau 5 — Éclipse jaune",
-        "description": "100% de balles jaunes. Elles ont 4 PV et clignotent: invisibles 0,8 s toutes les 1 s, ce qui perturbe visée et timing.",
+        "description": "100% de balles jaunes. Elles ont 1 PV et clignotent: invisibles 0,8 s toutes les 1 s, ce qui perturbe visée et timing.",
         "launch_color_weights": {
           "yellow": 1
         },
@@ -724,13 +724,20 @@
       {
         "id": 9,
         "name": "Niveau 9 — Duo rouge/vert",
-        "description": "50% de rouges et 50% de vert foncé. Gère à la fois la division des rouges et la croissance des vertes.",
+        "description": "50% de rouges et 50% de vert foncé. Boss rouge en fin de vague impaire.",
         "launch_color_weights": {
           "red": 0.5,
           "dark_green": 0.5
         },
         "timer_seconds": 65,
-        "ammo_count": 50
+        "ammo_count": 50,
+        "boss": {
+          "color": "red",
+          "hp": 35,
+          "maxHp": 35,
+          "intro_overlay_seconds": 1.6,
+          "horizontal_speed": 10
+        }
       },
       {
         "id": 10,
@@ -754,12 +761,19 @@
       {
         "id": 11,
         "name": "Niveau 11 — Aimant violet",
-        "description": "100% de balles violettes. Leur gabarit transparent attire les autres balles et chaque projectile qui le pénètre déclenche une accélération courte.",
+        "description": "100% de balles violettes. Boss violet en fin de vague impaire après les accélérations aimantées.",
         "launch_color_weights": {
           "purple": 1
         },
         "timer_seconds": 65,
-        "ammo_count": 50
+        "ammo_count": 50,
+        "boss": {
+          "color": "purple",
+          "hp": 80,
+          "maxHp": 80,
+          "intro_overlay_seconds": 1.6,
+          "horizontal_speed": 10
+        }
       }
     ],
     "boss_notice_overlay_seconds": 1.2,
@@ -791,6 +805,7 @@
     ]
   },
   "release_notes": [
+    "Vagues impaires et récompenses synchronisées",
     "Récompenses fiables après chaque vague",
     "Popups UI découplées du moteur",
     "Transitions de phase mieux tracées",
@@ -809,8 +824,7 @@
     "Mines et tirs évolutifs",
     "Prototype de waves respirantes adaptatives",
     "Les choix évoluent selon votre partie",
-    "Moteur plus typé et allégé",
-    "Game engine découpé en modules"
+    "Moteur plus typé et allégé"
   ],
   "debug": {
     "show_velocities": false,
