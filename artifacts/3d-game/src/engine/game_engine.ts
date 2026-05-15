@@ -38,6 +38,7 @@ import {
   resolveBallCollisions,
 } from "./collisionSystem";
 import { maybeSpawnLevelBoss } from "./bossSystem";
+import { getRewardNoticeTrigger } from "./rewardPhase";
 import {
   performOrangeLaunch,
   spawnOrangeLauncher,
@@ -96,6 +97,8 @@ export class GameEngine {
   private logEnabled: boolean;
   private elapsedTime = 0;
   private sessionCleared = false;
+  private rewardNoticeEmitted = false;
+  private bossRewardNoticeEmitted = false;
   private currentLevelIndex = 0;
   // When true, the game ignores the levels system: the orange launcher
   // uses launch_config.color directly (no level weights), and getCurrentLevel
@@ -295,6 +298,11 @@ export class GameEngine {
     return Boolean(this.getCurrentLevel()?.boss);
   }
 
+  prepareNextRewardWave(): void {
+    this.rewardNoticeEmitted = false;
+    this.sessionCleared = false;
+  }
+
   /**
    * When the regular wave is cleared during the low-ammo end phase, stop
    * waiting for the original spawn cap so a configured boss can enter before
@@ -313,6 +321,30 @@ export class GameEngine {
     };
   }
 
+
+  private maybeCompleteRegularWaveForBoss(): void {
+    if (!this.hasCurrentLevelBoss() || this.bossSpawned) return;
+    if (this.launchedCount <= 0) return;
+    if (this.getEnemyBallCount() > 0) return;
+    this.completeRegularWaveForBoss();
+  }
+
+  private maybeEmitRewardNotice(): void {
+    const trigger = getRewardNoticeTrigger({
+      rewardNoticeAlreadyEmitted: this.rewardNoticeEmitted,
+      bossRewardAlreadyEmitted: this.bossRewardNoticeEmitted,
+      activeEnemyCount: this.getEnemyBallCount(),
+      launchedCount: this.launchedCount,
+      bossConfigured: this.hasCurrentLevelBoss(),
+      bossSpawned: this.bossSpawned,
+      bossDefeated: this.bossDefeated,
+      bossMasteredActive: this.bossMasteredRemaining > 0,
+    });
+    if (!trigger) return;
+    this.rewardNoticeEmitted = true;
+    if (trigger === "boss_defeated") this.bossRewardNoticeEmitted = true;
+    this.emitEvent({ type: "phase_changed", phase: "reward_notice" }, this.isInsideUpdate ? "update" : "external");
+  }
 
   private setCurrentSpawnCapToLaunched(): void {
     const launchedCap = Math.max(0, this.launchedCount);
@@ -645,6 +677,7 @@ export class GameEngine {
     // Fire orange launchers whose visibility delay has elapsed.
     this.updatePendingLaunches(delta, arena);
     // Spawn level boss when regular wave is fully cleared.
+    this.maybeCompleteRegularWaveForBoss();
     this.maybeSpawnLevelBoss(arena, delta);
     this.updateHospitalMotion(delta, arena);
     if (this.bossHintRemaining > 0) this.bossHintRemaining = Math.max(0, this.bossHintRemaining - delta);
@@ -707,6 +740,7 @@ export class GameEngine {
       this.bossDefeated = !Array.from(this.balls.values()).some((b) => b.isAlive && b.isBoss);
     }
     this.sessionCleared = this.bossMasteredRemaining <= 0 && this.isSessionFinished();
+    this.maybeEmitRewardNotice();
 
     const state = this.getState();
     this.isInsideUpdate = false;
