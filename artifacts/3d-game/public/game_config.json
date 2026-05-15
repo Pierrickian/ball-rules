@@ -762,6 +762,7 @@
         "ammo_count": 50
       }
     ],
+    "boss_notice_overlay_seconds": 1.2,
     "boss_intro_overlay_seconds": 1.5,
     "_limit_note": "Chaque niveau peut définir timer_seconds et ammo_count. Sans override, le runtime applique 60 secondes et 50 munitions; Retry recharge ces mêmes valeurs pour le niveau courant.",
     "boss_mastered_overlay_seconds": 2

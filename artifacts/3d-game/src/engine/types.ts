@@ -121,7 +121,7 @@ export type GameEvent =
   | { type: "session_clear"; launchedCount: number }
   | { type: "session_reboot" }
   | { type: "level_changed"; levelIndex: number; levelId: number; levelName: string }
-  | { type: "phase_changed"; phase: RuntimePhase };
+  | { type: "phase_changed"; phase: RuntimePhase; rewardTrigger?: "regular_wave_no_boss" | "boss_defeated" };
 
 export interface GameState {
   balls: Map<string, BallState>;
@@ -170,6 +170,7 @@ export interface LevelBossConfig {
   diameter_multiplier?: number;
   launcher_size?: BallSize;
   launcher_diameter_multiplier?: number;
+  notice_overlay_seconds?: number;
   intro_overlay_seconds?: number;
   horizontal_speed?: number;
   spawn_count?: number;
@@ -219,6 +220,7 @@ export interface LevelEntry {
 
 export interface LevelsConfig {
   _description?: string;
+  boss_notice_overlay_seconds?: number;
   boss_intro_overlay_seconds?: number;
   boss_mastered_overlay_seconds?: number;
   list: LevelEntry[];

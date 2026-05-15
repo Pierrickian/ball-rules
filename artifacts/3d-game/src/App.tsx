@@ -69,7 +69,7 @@ function AppContent() {
   const [betterShotSelected, setBetterShotSelected] = useState(false);
   const [uiNow, setUiNow] = useState(() => Date.now());
   const [waveUiStage, setWaveUiStage] = useState<"none" | "notice" | "results" | "evolution">("none");
-  const [waveResult, setWaveResult] = useState<null | { outcome: "victory" | "defeat"; durationSeconds: number; reloadCount: number; maxCombo: number; previousRecord: number; combos: Record<string, number> }>(null);
+  const [waveResult, setWaveResult] = useState<null | { outcome: "victory" | "defeat"; endReason: "time_expired" | "terrain_cleared" | "boss_defeated" | null; durationSeconds: number; reloadCount: number; maxCombo: number; previousRecord: number; combos: Record<string, number> }>(null);
   const setWaveUiStageWithEvent = useCallback((stage: "none" | "notice" | "results" | "evolution") => {
     const phaseByStage: Partial<Record<typeof stage, RuntimePhase>> = {
       results: "reward_results",
@@ -135,6 +135,10 @@ function AppContent() {
       if (event.type === "grenade_helper_flash") {
         setGrenadeFlashKey((prev) => prev + 1);
       }
+      if (event.type === "phase_changed" && event.phase === "boss_notice" && !timeStarShownRef.current) {
+        timeStarShownRef.current = true;
+        showStarPopup(language === "en" ? "Kill Star" : "Étoile Kill", "earned");
+      }
       if (event.type === "combo_popup") {
         waveMaxComboRef.current = Math.max(waveMaxComboRef.current, event.streak);
         waveCombosRef.current[event.label] = (waveCombosRef.current[event.label] ?? 0) + 1;
@@ -189,6 +193,7 @@ function AppContent() {
     if (breathingWave.phase === "breathing" && breathingWave.outcome) {
       const result = {
         outcome: breathingWave.outcome,
+        endReason: breathingWave.endReason ?? null,
         durationSeconds: Math.max(0, (performance.now() - waveStartedAtRef.current) / 1000),
         reloadCount: waveReloadCountRef.current,
         maxCombo: waveMaxComboRef.current,
@@ -198,13 +203,15 @@ function AppContent() {
       setWaveResult(result);
       if (!timeStarShownRef.current) {
         timeStarShownRef.current = true;
-        showStarPopup(result.outcome === "victory" ? (language === "en" ? "Kill Star" : "Étoile Kill") : (language === "en" ? "Kill Star Lost" : "Étoile Kill perdue"), result.outcome === "victory" ? "earned" : "lost");
+        const timeExpired = result.endReason === "time_expired";
+        showStarPopup(!timeExpired ? (language === "en" ? "Kill Star" : "Étoile Kill") : (language === "en" ? "Kill Star Lost" : "Étoile Kill perdue"), !timeExpired ? "earned" : "lost");
       }
       previousWaveMaxComboRef.current = result.maxCombo;
-      const noticeUntil = Date.now() + 2000;
-      setTimeUpNoticeUntil(noticeUntil);
+      const timeExpired = result.endReason === "time_expired";
+      const noticeUntil = Date.now() + (timeExpired ? 2000 : 0);
+      setTimeUpNoticeUntil(timeExpired ? noticeUntil : 0);
       setWaveNoticeUntil(noticeUntil);
-      setWaveUiStage("notice");
+      setWaveUiStage(timeExpired ? "notice" : "results");
       setSelectedAlveoleIds([]);
       setBetterShotSelected(false);
       setAmmoEndNoticeVisible(false);
@@ -549,7 +556,7 @@ function AppContent() {
   const finalCountdownSeconds = Number.isFinite(rawTimerSeconds) ? rawTimerSeconds : null;
   const reloadNeedsAttention = !isBossPhase && shotsRemaining <= 0;
   const showWaveNotice = breathingWave.phase === "breathing" && waveUiStage === "notice" && uiNow < waveNoticeUntil;
-  const showTimeUpNotice = showWaveNotice && uiNow < timeUpNoticeUntil;
+  const showTimeUpNotice = showWaveNotice && breathingWave.endReason === "time_expired" && uiNow < timeUpNoticeUntil;
   const showResultsFrame = breathingWave.phase === "breathing" && waveUiStage === "results" && waveResult !== null;
   const showGameFunnel = breathingWave.phase === "breathing" && waveUiStage === "evolution";
   const selectedAlveoles = selectedAlveoleIds
@@ -815,7 +822,7 @@ function AppContent() {
             </div>
             <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:10, marginTop:14 }}>
               {[
-                { key:"fast", title:"Rapide", condition:"Kill Star", earned: waveResult.outcome === "victory" },
+                { key:"fast", title:"Rapide", condition:"Kill Star", earned: waveResult.endReason !== "time_expired" },
                 { key:"expert", title:"Expert", condition:"1 seule recharge", earned: waveResult.reloadCount <= 1 },
                 { key:"pro", title:"Pro", condition:"Record multiplicateur battu", earned: waveResult.maxCombo > waveResult.previousRecord },
               ].map((star, index) => (

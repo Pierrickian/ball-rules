@@ -108,6 +108,7 @@ export class GameEngine {
   private singleColorMode = false;
   private bossSpawned = false;
   private bossDefeated = false;
+  private bossNoticeRemaining = -1;
   private bossIntroRemaining = 0;
   private bossHintRemaining = 0;
   private bossHintMessage = "";
@@ -343,7 +344,7 @@ export class GameEngine {
     if (!trigger) return;
     this.rewardNoticeEmitted = true;
     if (trigger === "boss_defeated") this.bossRewardNoticeEmitted = true;
-    this.emitEvent({ type: "phase_changed", phase: "reward_notice" }, this.isInsideUpdate ? "update" : "external");
+    this.emitEvent({ type: "phase_changed", phase: "reward_notice", rewardTrigger: trigger }, this.isInsideUpdate ? "update" : "external");
   }
 
   private setCurrentSpawnCapToLaunched(): void {
@@ -394,6 +395,7 @@ export class GameEngine {
   }
 
   debugFinishBossNotice(): void {
+    this.bossNoticeRemaining = 0;
     this.bossIntroRemaining = 0;
     this.bossHintRemaining = 0;
   }
@@ -439,7 +441,7 @@ export class GameEngine {
 
   /** Number of "enemy" balls currently alive (excludes orange launchers and player projectiles). */
   isBossPhase(): boolean {
-    if (this.bossIntroRemaining > 0 || this.bossMasteredRemaining > 0) return true;
+    if (this.bossNoticeRemaining > 0 || this.bossIntroRemaining > 0 || this.bossMasteredRemaining > 0) return true;
     for (const b of this.balls.values()) {
       if (b.isAlive && b.isBoss) return true;
     }

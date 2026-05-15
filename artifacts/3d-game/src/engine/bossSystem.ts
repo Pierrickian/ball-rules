@@ -14,8 +14,18 @@ export function maybeSpawnLevelBoss(this: any, arena: Arena2D, delta: number): v
   if (this.launchedCount < max) return;
   if (this.getEnemyBallCount() > 0) return;
 
-  if (this.bossIntroRemaining <= 0) {
+  if (this.bossNoticeRemaining < 0) {
     this.pendingEvents.push({ type: "phase_changed", phase: "boss_notice" });
+    this.bossNoticeRemaining = boss.notice_overlay_seconds ?? this.config.levels?.boss_notice_overlay_seconds ?? 1.2;
+    return;
+  }
+
+  if (this.bossNoticeRemaining > 0) {
+    this.bossNoticeRemaining = Math.max(0, this.bossNoticeRemaining - delta);
+    if (this.bossNoticeRemaining > 0) return;
+  }
+
+  if (this.bossIntroRemaining <= 0) {
     this.bossIntroRemaining = boss.intro_overlay_seconds ?? this.config.levels?.boss_intro_overlay_seconds ?? 1.4;
     this.pendingEvents.push({ type: "phase_changed", phase: "boss_intro" });
     return;
