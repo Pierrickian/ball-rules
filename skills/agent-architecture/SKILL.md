@@ -42,7 +42,56 @@ Pour l'interface:
 - sous-composants par écran de menu,
 - helpers purs pour couleurs, poids et labels,
 - styles partagés isolés,
-- types de props séparés si le fichier grossit.
+- types de props séparés si le fichier grossit,
+- entités UI autonomes pour les overlays, popups, messages temporaires et panneaux runtime,
+- hooks dédiés pour traduire les événements gameplay en affichages UI.
+
+# Event / callback et objets UI autonomes
+
+Quand une action gameplay peut déclencher plusieurs réactions indépendantes, privilégier un mécanisme event / callback plutôt qu'un appel direct depuis un orchestrateur.
+
+Exemples typiques:
+
+- fin de vague,
+- apparition ou défaite d'un boss,
+- récompense gagnée,
+- grenade accordée,
+- combo battu,
+- changement de phase runtime,
+- ouverture d'un panneau de résultats ou d'évolution.
+
+Règle de découplage:
+
+- l'émetteur annonce ce qui arrive (`wave_completed`, `phase_changed`, `grenade_awarded`, etc.),
+- les callbacks ou systèmes abonnés décident quoi faire,
+- l'émetteur ne connaît pas l'UI, le son, les analytics ou les récompenses,
+- `App.tsx` ne doit pas devenir le lieu où tous les effets secondaires sont câblés à la main.
+
+Pour l'interface, représenter les éléments temporaires comme des équivalents de game objects UI:
+
+- un type clair (`star_popup`, `wave_notice`, `reward_results`, `evolution_panel`, etc.),
+- un `id`,
+- un payload typé,
+- un instant de création,
+- une durée ou condition de disparition,
+- éventuellement une phase runtime associée,
+- un renderer isolé.
+
+Ces objets UI doivent pouvoir apparaître en réaction à un event et disparaître via leur propre cycle de vie ou via un event de fermeture.
+
+Éviter:
+
+- de multiplier les `useState` et `setTimeout` directement dans `App.tsx`,
+- de faire dépendre le moteur d'un composant React,
+- de mélanger logique gameplay, lifecycle UI et rendu visuel dans le même fichier,
+- de faire deviner à l'UI des capacités qui devraient être déclarées par le moteur ou la config.
+
+Préférer:
+
+- `GameEvent` et `RuntimePhase` typés,
+- un hook UI dédié qui consomme les events et produit une liste d'entités UI,
+- un composant de rendu UI qui affiche ces entités,
+- des callbacks étroits passés uniquement aux composants qui en ont besoin.
 
 # Typage TypeScript
 
