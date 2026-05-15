@@ -42,7 +42,6 @@ export interface ImpactPopupPayload {
   label: string;
   from: number;
   to: number;
-  current: number;
 }
 
 export interface WaveNoticePayload {

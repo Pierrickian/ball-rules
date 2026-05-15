@@ -25,6 +25,8 @@ import { ChargeBar, IncomingBallsOverlay, PlayerQueue } from "./AppOverlays";
 import { currentCheckpoint, debugLabel, type RuntimeStepperSnapshot } from "./game/runtimeStepper";
 import { DebugPhaseNavigator } from "./game/DebugPhaseNavigator";
 import { installBallDebugApi } from "./engine/debugApi";
+import { UiEntityLayer } from "./game/ui/UiEntityLayer";
+import { useUiEntities } from "./game/ui/useUiEntities";
 
 function AppContent() {
   const { t, language, setLanguage } = useI18n();
@@ -55,10 +57,6 @@ function AppContent() {
   const [minePlacementMode, setMinePlacementMode] = useState(false);
   const [addFeaturePortalOpen, setAddFeaturePortalOpen] = useState(false);
   const [evolutionInitialText, setEvolutionInitialText] = useState("");
-  const [grenadeAwardPopups, setGrenadeAwardPopups] = useState<Array<{ id: number; amount: number }>>([]);
-  const [starPopups, setStarPopups] = useState<Array<{ id: number; label: string; kind: "earned" | "lost" | "reloadLost" }>>([]);
-  const [ammoWarningPopups, setAmmoWarningPopups] = useState<Array<{ id: number }>>([]);
-  const [impactPopups, setImpactPopups] = useState<Array<{ id: number; kind: "ammo" | "balls" | "hp"; label: string; from: number; to: number; current: number }>>([]);
   const [animatedAmmoRemaining, setAnimatedAmmoRemaining] = useState<number | null>(null);
   const [timeUpNoticeUntil, setTimeUpNoticeUntil] = useState(0);
   const [reloadFlashKey, setReloadFlashKey] = useState(0);
@@ -92,8 +90,8 @@ function AppContent() {
   const comboStarShownRef = useRef(false);
   const timeStarShownRef = useRef(false);
   const reloadStarLostShownRef = useRef(false);
-  const lastAmmoWarningAtRef = useRef(0);
   const ammoAnimationTimerRef = useRef<number | null>(null);
+  const uiEntities = useUiEntities();
   const hadPlayerInputRef = useRef(false);
   useEffect(() => { localStorage.setItem("bg_effect_ball", ballEffect); }, [ballEffect]);
   useEffect(() => { localStorage.setItem("bg_effect_grenade", grenadeEffect); }, [grenadeEffect]);
@@ -101,13 +99,7 @@ function AppContent() {
   useEffect(() => () => {
     if (ammoAnimationTimerRef.current !== null) window.clearInterval(ammoAnimationTimerRef.current);
   }, []);
-  const showStarPopup = (label: string, kind: "earned" | "lost" | "reloadLost" = "earned", durationMs = 2300) => {
-    const id = Date.now() + Math.random();
-    setStarPopups((prev) => [...prev, { id, label, kind }]);
-    window.setTimeout(() => {
-      setStarPopups((prev) => prev.filter((popup) => popup.id !== id));
-    }, durationMs);
-  };
+  const { showStarPopup, showAmmoWarning, showImpactPopup, spawnForGameEvent } = uiEntities;
 
   const animateAmmoCounter = (from: number, to: number) => {
     if (ammoAnimationTimerRef.current !== null) window.clearInterval(ammoAnimationTimerRef.current);
@@ -127,24 +119,6 @@ function AppContent() {
     }, 34);
   };
 
-  const showImpactPopup = (kind: "ammo" | "balls" | "hp", label: string, from: number, to: number) => {
-    const id = Date.now() + Math.random();
-    const start = Math.round(from);
-    const target = Math.max(start, Math.round(to));
-    setImpactPopups((prev) => [...prev, { id, kind, label, from: start, to: target, current: start }]);
-    let current = start;
-    const step = Math.max(1, Math.ceil(Math.abs(target - start) / 24));
-    const timer = window.setInterval(() => {
-      current = Math.min(target, current + step);
-      setImpactPopups((prev) => prev.map((popup) => popup.id === id ? { ...popup, current } : popup));
-      if (current >= target) window.clearInterval(timer);
-    }, 38);
-    window.setTimeout(() => {
-      window.clearInterval(timer);
-      setImpactPopups((prev) => prev.filter((popup) => popup.id !== id));
-    }, 1900);
-  };
-
   const showEvolutionImpact = (effects: Partial<RuntimeModifiers> | undefined, ammoAdded: number, ammoFrom: number) => {
     if (ammoAdded > 0) {
       animateAmmoCounter(ammoFrom, ammoFrom + ammoAdded);
@@ -155,27 +129,9 @@ function AppContent() {
     if ((effects?.enemy_hp ?? 1) > 1.01) showImpactPopup("hp", "HP ennemis", 100, Math.round(100 * (effects?.enemy_hp ?? 1)));
   };
 
-  const showAmmoWarning = () => {
-    const now = Date.now();
-    if (now - lastAmmoWarningAtRef.current < 700) return;
-    lastAmmoWarningAtRef.current = now;
-    const id = now + Math.random();
-    setAmmoWarningPopups((prev) => [...prev, { id }]);
-    setReloadFlashKey((prev) => prev + 1);
-    window.setTimeout(() => {
-      setAmmoWarningPopups((prev) => prev.filter((popup) => popup.id !== id));
-    }, 1200);
-  };
-
   useEffect(() => {
     for (const event of lastEvents) {
-      if (event.type === "grenade_awarded") {
-        const id = Date.now() + Math.random();
-        setGrenadeAwardPopups((prev) => [...prev, { id, amount: event.amount }]);
-        window.setTimeout(() => {
-          setGrenadeAwardPopups((prev) => prev.filter((popup) => popup.id !== id));
-        }, 900);
-      }
+      spawnForGameEvent(event);
       if (event.type === "grenade_helper_flash") {
         setGrenadeFlashKey((prev) => prev + 1);
       }
@@ -188,7 +144,7 @@ function AppContent() {
         }
       }
     }
-  }, [lastEvents, language]);
+  }, [lastEvents, language, showStarPopup, spawnForGameEvent]);
   // Refs that mirror UI state so window-level listeners (installed once at
   // mount) always read the latest values without re-subscribing.
   const menuOpenRef = useRef(menuOpen);
@@ -297,7 +253,7 @@ function AppContent() {
 
   const tryShootBall = (targetX: number, targetY: number, holdSeconds: number): boolean => {
     if (!isBossPhase && shotsRemaining <= 0) {
-      showAmmoWarning();
+      if (showAmmoWarning()) setReloadFlashKey((prev) => prev + 1);
       return false;
     }
     return shoot(targetX, targetY, holdSeconds) !== null;
@@ -801,59 +757,7 @@ function AppContent() {
         🧨
       </button>
       {minePlacementMode && <div style={{ position:"absolute", right:84, bottom:220, zIndex:12, pointerEvents:"none", color:"#ffd6e2", fontWeight:900, textShadow:"0 0 8px #000" }}>Release in field</div>}
-      {grenadeAwardPopups.map((popup, index) => (
-        <div
-          key={popup.id}
-          style={{ position:"absolute", right:28, bottom:200 + index * 18, zIndex:13, pointerEvents:"none", color:"#ffed9a", fontWeight:900, fontSize:22, textShadow:"0 0 10px #000, 0 0 12px #ff9f1c", animation:"grenade-award-float 0.9s ease-out forwards" }}
-        >
-          +{popup.amount}
-        </div>
-      ))}
-      {starPopups.map((popup, index) => (
-        <div
-          key={`title-${popup.id}`}
-          style={{ position:"absolute", left:"50%", top:158 + index * 64, transform:"translateX(-50%)", zIndex:13, pointerEvents:"none", width:"96vw", textAlign:"center", fontSize:44, fontWeight:950, letterSpacing:5, color:"rgba(255,255,255,.2)", textShadow:"0 0 22px rgba(122,252,255,.36), 0 0 8px #000", textTransform:"uppercase", animation:`${popup.kind === "reloadLost" ? "reload-star-lost-pop" : popup.kind === "lost" ? "star-popup-lost" : "star-popup-earned"} ${popup.kind === "reloadLost" ? 3.3 : 2.3}s ease-out forwards` }}
-        >
-          {popup.label}
-        </div>
-      ))}
-      {starPopups.map((popup, index) => {
-        const isReloadLost = popup.kind === "reloadLost";
-        const isLost = popup.kind === "lost" || isReloadLost;
-        return (
-          <div
-            key={popup.id}
-            style={{ position:"absolute", left:"50%", top:210 + index * 64, zIndex:14, pointerEvents:"none", display:"flex", alignItems:"center", gap:12, padding:isReloadLost ? "12px 18px" : "9px 14px", borderRadius:999, border:`2px solid ${isReloadLost ? "rgba(168,85,247,.95)" : isLost ? "rgba(96,165,250,.82)" : "rgba(255,209,102,.82)"}`, background: isReloadLost ? "linear-gradient(135deg, rgba(35,18,80,.96), rgba(12,35,90,.94))" : isLost ? "rgba(15,23,42,.84)" : "rgba(60,40,5,.82)", color: isReloadLost ? "#f3e8ff" : isLost ? "#dbeafe" : "#fff4b8", fontWeight:1000, fontSize:isReloadLost ? 26 : 21, letterSpacing:isReloadLost ? 1.1 : .5, textTransform:isReloadLost ? "uppercase" : undefined, textShadow:isReloadLost ? "0 0 12px #000, 0 0 18px rgba(168,85,247,.95), 0 0 8px rgba(96,165,250,.9)" : "0 0 10px #000", boxShadow: isReloadLost ? "0 0 28px rgba(168,85,247,.65), 0 0 48px rgba(37,99,235,.38)" : isLost ? "0 0 20px rgba(96,165,250,.32)" : "0 0 24px rgba(255,209,102,.42)", animation:`${isReloadLost ? "reload-star-lost-pop" : isLost ? "star-popup-lost" : "star-popup-earned"} ${isReloadLost ? 3.3 : 2.3}s ease-out forwards` }}
-          >
-            <span style={{ fontSize:isReloadLost ? 40 : 31, color: isReloadLost ? "#a78bfa" : isLost ? "#60a5fa" : "#ffd166", filter: isLost ? "drop-shadow(0 0 12px rgba(96,165,250,.85))" : "drop-shadow(0 0 9px rgba(255,209,102,.88))" }}>★</span>
-            <span>{popup.label}</span>
-          </div>
-        );
-      })}
-      {impactPopups.map((popup, index) => (
-        <div
-          key={popup.id}
-          style={{ position:"absolute", left:18, top:190 + index * 74, zIndex:14, pointerEvents:"none", minWidth:168, padding:"10px 12px", borderRadius:18, border:"1px solid rgba(122,252,255,.58)", background:"rgba(3,10,24,.9)", color:"#eaffff", fontWeight:950, textShadow:"0 0 8px #000", boxShadow:"0 0 24px rgba(122,252,255,.24)", animation:"impact-popup-bump 1.9s ease-out forwards" }}
-        >
-          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-            <span style={{ display:"inline-grid", placeItems:"center", width:42, height:42, borderRadius:"50%", background:"rgba(122,252,255,.12)", animation:"impact-icon-bump .55s ease-in-out 3" }}>
-              {popup.kind === "ammo" ? <CartridgeIcon /> : popup.kind === "balls" ? <span style={{ display:"flex", gap:3 }}>{[0,1,2].map((i) => <span key={i} style={{ width:12, height:12, borderRadius:"50%", background:["#7afcff", "#ffd166", "#c084fc"][i], boxShadow:"0 0 8px currentColor" }} />)}</span> : <span style={{ position:"relative", width:26, height:26, borderRadius:"50%", background:"radial-gradient(circle at 30% 25%, #ffe8a3, #ff4d7a)", boxShadow:"0 0 14px rgba(255,77,122,.75)" }} />}
-            </span>
-            <span style={{ flex:1 }}>
-              <div style={{ fontSize:12, color:"#9db8d6", letterSpacing:1.5, textTransform:"uppercase" }}>{popup.label}</div>
-              <div style={{ fontSize:22, color:"#fff", lineHeight:1.05 }}>{popup.kind === "balls" ? `+${popup.current}` : `${popup.current}`}</div>
-            </span>
-          </div>
-        </div>
-      ))}
-      {ammoWarningPopups.map((popup, index) => (
-        <div
-          key={popup.id}
-          style={{ position:"absolute", left:20, bottom:204 + index * 34, zIndex:14, pointerEvents:"none", padding:"8px 12px", borderRadius:999, border:"1px solid rgba(122,252,255,.55)", background:"rgba(3,10,24,.86)", color:"#eaffff", fontWeight:950, textShadow:"0 0 8px #000", animation:"grenade-award-float 1.2s ease-out forwards" }}
-        >
-          Plus de munitions
-        </div>
-      ))}
+      <UiEntityLayer entities={uiEntities.entities} />
       <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", bottom: 52, display: "flex", gap: 8, zIndex: 12 }}>
         <button
           onClick={() => setLockOn((v) => !v)}
