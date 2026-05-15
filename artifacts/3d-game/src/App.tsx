@@ -135,6 +135,10 @@ function AppContent() {
       if (event.type === "grenade_helper_flash") {
         setGrenadeFlashKey((prev) => prev + 1);
       }
+      if (event.type === "phase_changed" && event.phase === "boss_notice" && !timeStarShownRef.current) {
+        timeStarShownRef.current = true;
+        showStarPopup(language === "en" ? "Kill Star" : "Étoile Kill", "earned");
+      }
       if (event.type === "combo_popup") {
         waveMaxComboRef.current = Math.max(waveMaxComboRef.current, event.streak);
         waveCombosRef.current[event.label] = (waveCombosRef.current[event.label] ?? 0) + 1;

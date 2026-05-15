@@ -170,6 +170,7 @@ export interface LevelBossConfig {
   diameter_multiplier?: number;
   launcher_size?: BallSize;
   launcher_diameter_multiplier?: number;
+  notice_overlay_seconds?: number;
   intro_overlay_seconds?: number;
   horizontal_speed?: number;
   spawn_count?: number;
@@ -219,6 +220,7 @@ export interface LevelEntry {
 
 export interface LevelsConfig {
   _description?: string;
+  boss_notice_overlay_seconds?: number;
   boss_intro_overlay_seconds?: number;
   boss_mastered_overlay_seconds?: number;
   list: LevelEntry[];
