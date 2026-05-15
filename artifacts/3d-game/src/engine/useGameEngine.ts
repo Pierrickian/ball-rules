@@ -229,9 +229,9 @@ export function useGameEngine(): UseGameEngineResult {
     });
   }, []);
 
-  const beginBreathingWave = useCallback((outcome: "victory" | "defeat") => {
+  const beginBreathingWave = useCallback((outcome: "victory" | "defeat", options?: { phaseAlreadyRecorded?: boolean }) => {
     if (breathingActiveRef.current || !engineRef.current) return;
-    recordRuntimePhaseChange("reward_notice");
+    if (!options?.phaseAlreadyRecorded) recordRuntimePhaseChange("reward_notice");
     breathingActiveRef.current = true;
     const activeEnemies = engineRef.current.getEnemyBallCount();
     nextWaveSpawnBudgetRef.current = Math.max(4, Math.ceil((activeEnemies + Math.max(1, DEFAULT_LEVEL_AMMO_COUNT)) * 0.55 * runtimeModifiersRef.current.enemy_density));
@@ -344,12 +344,9 @@ export function useGameEngine(): UseGameEngineResult {
               const waveHadActivity = engineRef.current.getLaunchedCount() > 0 || waveEndSpawnPausedRef.current || finalCountdownActiveRef.current;
               const regularWaveCleared = activeEnemies === 0 && waveHadActivity;
               if (regularWaveCleared && engineRef.current.hasCurrentLevelBoss() && !visibleState.sessionCleared) {
-                engineRef.current.completeRegularWaveForBoss();
                 finalCountdownActiveRef.current = false;
                 finalCountdownRemainingRef.current = Infinity;
                 timerRemainingRef.current = Infinity;
-              } else if (regularWaveCleared) {
-                beginBreathingWave("victory");
               } else {
                 if (ammoRemainingRef.current > 15) lowAmmoHysteresisArmedRef.current = true;
                 if (lowAmmoHysteresisArmedRef.current && ammoRemainingRef.current <= 15 && !waveEndSpawnPausedRef.current) {
@@ -372,6 +369,8 @@ export function useGameEngine(): UseGameEngineResult {
             }
           }
         }
+        const rewardNoticeStarted = state.events.some((event) => event.type === "phase_changed" && event.phase === "reward_notice");
+        if (rewardNoticeStarted) beginBreathingWave("victory", { phaseAlreadyRecorded: true });
         if (state.events.length > 0) setLastEvents(state.events);
         setGameState({
           ...visibleState,
@@ -897,6 +896,7 @@ export function useGameEngine(): UseGameEngineResult {
     configRef.current = nextConfig;
     setConfig(nextConfig);
     engineRef.current.updateConfig(nextConfig);
+    engineRef.current.prepareNextRewardWave();
     syncRuntimeConfig(runtimeModifiersRef.current, 1);
     breathingActiveRef.current = false;
     breathingCountdownRef.current = 0;
