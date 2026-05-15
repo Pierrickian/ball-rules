@@ -121,7 +121,7 @@ export type GameEvent =
   | { type: "session_clear"; launchedCount: number }
   | { type: "session_reboot" }
   | { type: "level_changed"; levelIndex: number; levelId: number; levelName: string }
-  | { type: "phase_changed"; phase: RuntimePhase };
+  | { type: "phase_changed"; phase: RuntimePhase; rewardTrigger?: "regular_wave_no_boss" | "boss_defeated" };
 
 export interface GameState {
   balls: Map<string, BallState>;

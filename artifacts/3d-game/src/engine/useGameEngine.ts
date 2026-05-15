@@ -26,6 +26,8 @@ import { DEFAULT_RUNTIME_MODIFIERS, applyAlveoleModifier, applyRuntimeModifiersT
 import { DEFAULT_DIFFICULTY, DEFAULT_LEVEL_AMMO_COUNT, DEFAULT_LEVEL_TIMER_SECONDS, DEFAULT_STATE, FALLBACK_DIFFICULTY_HP_PRESETS, buildQueue, clampDifficultyHpValue, getDefaultDifficulty, getDifficultyHpValue } from "./useGameEngineHelpers";
 import { installBallDebugApi } from "./debugApi";
 
+export type BreathingWaveEndReason = "time_expired" | "terrain_cleared" | "boss_defeated";
+
 export interface BreathingWaveState {
   waveNumber: number;
   phase: "active" | "breathing";
@@ -35,6 +37,7 @@ export interface BreathingWaveState {
   alveoles: GameplayAlveole[];
   victoryPulse: boolean;
   outcome?: "victory" | "defeat" | null;
+  endReason?: BreathingWaveEndReason | null;
 }
 
 export interface GameplayFeedback {
@@ -105,6 +108,7 @@ export function useGameEngine(): UseGameEngineResult {
     alveoles: [],
     victoryPulse: false,
     outcome: null,
+    endReason: null,
   });
 
   const engineRef          = useRef<GameEngine | null>(null);
@@ -229,7 +233,7 @@ export function useGameEngine(): UseGameEngineResult {
     });
   }, []);
 
-  const beginBreathingWave = useCallback((outcome: "victory" | "defeat", options?: { phaseAlreadyRecorded?: boolean }) => {
+  const beginBreathingWave = useCallback((outcome: "victory" | "defeat", options?: { phaseAlreadyRecorded?: boolean; endReason?: BreathingWaveEndReason }) => {
     if (breathingActiveRef.current || !engineRef.current) return;
     if (!options?.phaseAlreadyRecorded) recordRuntimePhaseChange("reward_notice");
     breathingActiveRef.current = true;
@@ -245,19 +249,21 @@ export function useGameEngine(): UseGameEngineResult {
       engineRef.current.updateConfig(frozenConfig);
     }
     engineRef.current.setRuntimeModifiers(toEngineRuntimeModifiers(runtimeModifiersRef.current, 99));
+    const endReason = options?.endReason ?? (outcome === "victory" ? "terrain_cleared" : "time_expired");
     setBreathingWave((prev) => ({
       ...prev,
       waveNumber: waveNumberRef.current,
       phase: "breathing",
       countdownRemaining: breathingCountdownRef.current,
-      message: "Time up / Temps écoulé",
+      message: endReason === "time_expired" ? "Time up / Temps écoulé" : "Rewards / Récompenses",
       aiAnalyzing: true,
       alveoles: [],
       victoryPulse: outcome === "victory",
       outcome,
+      endReason,
     }));
     requestBreathingAlveoles("breathing_wave");
-  }, [recordRuntimePhaseChange, requestBreathingAlveoles, syncRuntimeConfig]);
+  }, [recordRuntimePhaseChange, requestBreathingAlveoles]);
 
   // Load config and initialize engine
   useEffect(() => {
@@ -361,7 +367,7 @@ export function useGameEngine(): UseGameEngineResult {
                 if (finalCountdownActiveRef.current) {
                   finalCountdownRemainingRef.current = Math.max(0, Math.round((finalCountdownRemainingRef.current - 0.1) * 10) / 10);
                   timerRemainingRef.current = finalCountdownRemainingRef.current;
-                  if (finalCountdownRemainingRef.current <= 0) beginBreathingWave("defeat");
+                  if (finalCountdownRemainingRef.current <= 0 && activeEnemies > 0) beginBreathingWave("defeat", { endReason: "time_expired" });
                 } else {
                   timerRemainingRef.current = Infinity;
                 }
@@ -369,8 +375,13 @@ export function useGameEngine(): UseGameEngineResult {
             }
           }
         }
-        const rewardNoticeStarted = state.events.some((event) => event.type === "phase_changed" && event.phase === "reward_notice");
-        if (rewardNoticeStarted) beginBreathingWave("victory", { phaseAlreadyRecorded: true });
+        const rewardNoticeEvent = state.events.find((event): event is Extract<GameEvent, { type: "phase_changed" }> => event.type === "phase_changed" && event.phase === "reward_notice");
+        if (rewardNoticeEvent) {
+          beginBreathingWave("victory", {
+            phaseAlreadyRecorded: true,
+            endReason: rewardNoticeEvent.rewardTrigger === "boss_defeated" ? "boss_defeated" : "terrain_cleared",
+          });
+        }
         if (state.events.length > 0) setLastEvents(state.events);
         setGameState({
           ...visibleState,

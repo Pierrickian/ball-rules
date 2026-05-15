@@ -343,7 +343,7 @@ export class GameEngine {
     if (!trigger) return;
     this.rewardNoticeEmitted = true;
     if (trigger === "boss_defeated") this.bossRewardNoticeEmitted = true;
-    this.emitEvent({ type: "phase_changed", phase: "reward_notice" }, this.isInsideUpdate ? "update" : "external");
+    this.emitEvent({ type: "phase_changed", phase: "reward_notice", rewardTrigger: trigger }, this.isInsideUpdate ? "update" : "external");
   }
 
   private setCurrentSpawnCapToLaunched(): void {
