@@ -588,8 +588,8 @@
     "list": [
       {
         "id": 1,
-        "name": "Niveau 1 — Vague puis boss blanc",
-        "description": "Vague de blanches, puis boss blanc unique à 100 PV quand le terrain est vidé. Le niveau ne se termine qu’après sa défaite.",
+        "name": "Niveau 1 — Vague puis boss noir",
+        "description": "Vague de blanches, puis boss BLANC à 100 PV quand le terrain est vidé. Le niveau ne se termine qu’après sa défaite.",
         "timer_seconds": 60,
         "ammo_count": 50,
         "launch_color_weights": {
@@ -609,35 +609,24 @@
           "defeat_hint_seconds": 2,
           "defeat_rule": "grenade_last_hit",
           "non_matching_kill_recharge_hp": 10,
-          "reward_grenades_on_spawn": 1,
-          "spawn_count": 1
+          "reward_grenades_on_spawn": 1
         }
       },
       {
         "id": 2,
         "name": "Niveau 2 — Premier vert",
-        "description": "Mélange : 80% de balles blanches et 20% de balles vert foncé. Un boss vert foncé unique conclut la vague après le nettoyage du terrain.",
+        "description": "Mélange : 80% de balles blanches et 20% de balles vert foncé. Les vert foncé ont 2 PV de départ et grossissent quand elles se traversent — vise-les vite avant qu'elles ne deviennent énormes.",
         "launch_color_weights": {
           "white": 0.8,
           "dark_green": 0.2
         },
         "timer_seconds": 55,
-        "ammo_count": 45,
-        "boss": {
-          "color": "dark_green",
-          "hp": 70,
-          "maxHp": 70,
-          "diameter_multiplier": 2.4,
-          "intro_overlay_seconds": 1.6,
-          "horizontal_speed": 10,
-          "dark_green_heal_bonus_percent": 900,
-          "spawn_count": 1
-        }
+        "ammo_count": 45
       },
       {
         "id": 3,
         "name": "Niveau 3 — Forêt verte",
-        "description": "100% de balles vert foncé. Le terrain se remplit vite de gros boulets qui s'auto-renforcent, puis un boss vert foncé unique arrive en fin de vague.",
+        "description": "100% de balles vert foncé. Le terrain se remplit vite de gros boulets qui s'auto-renforcent. Privilégie les méga tirs pour traverser la mêlée et toucher plusieurs balles à la fois.",
         "timer_seconds": 65,
         "ammo_count": 52,
         "launch_color_weights": {
@@ -648,9 +637,10 @@
           "hp": 70,
           "maxHp": 70,
           "diameter_multiplier": 2.4,
-          "spawn_count": 1,
+          "spawn_count": 3,
           "intro_overlay_seconds": 1.6,
           "horizontal_speed": 10,
+          "spawn_spacing_x": 1.8,
           "spawn_position": {
             "x": 0,
             "y": 6.35
@@ -661,26 +651,17 @@
       {
         "id": 4,
         "name": "Niveau 4 — Marée bleue",
-        "description": "100% de balles bleues. Elles gagnent des PV au contact et grossissent vite, puis un boss bleu unique conclut la vague.",
+        "description": "100% de balles bleues. Elles gagnent des PV au contact et grossissent vite: concentre tes tirs pour éviter l'effet boule de neige.",
         "launch_color_weights": {
           "blue": 1
         },
         "timer_seconds": 50,
-        "ammo_count": 42,
-        "boss": {
-          "color": "blue",
-          "hp": 80,
-          "maxHp": 80,
-          "diameter_multiplier": 2.2,
-          "intro_overlay_seconds": 1.6,
-          "horizontal_speed": 10,
-          "spawn_count": 1
-        }
+        "ammo_count": 42
       },
       {
         "id": 5,
         "name": "Niveau 5 — Éclipse jaune",
-        "description": "100% de balles jaunes. Elles ont 1 PV et clignotent: invisibles 0,8 s toutes les 1 s, puis un boss jaune unique arrive.",
+        "description": "100% de balles jaunes. Elles ont 1 PV et clignotent: invisibles 0,8 s toutes les 1 s, ce qui perturbe visée et timing.",
         "launch_color_weights": {
           "yellow": 1
         },
@@ -689,8 +670,7 @@
           "hp": 100,
           "maxHp": 100,
           "intro_overlay_seconds": 1.6,
-          "horizontal_speed": 10,
-          "spawn_count": 1
+          "horizontal_speed": 10
         },
         "timer_seconds": 70,
         "ammo_count": 55
@@ -698,29 +678,19 @@
       {
         "id": 6,
         "name": "Niveau 6 — Triade cachée",
-        "description": "Répartition équilibrée: 33% jaune, 33% vert foncé, 33% bleu. Un boss vert foncé unique conclut cette vague mixte.",
+        "description": "Répartition équilibrée: 33% jaune, 33% vert foncé, 33% bleu. Alterne clignotement, PV évolutifs et rebonds sous pression.",
         "launch_color_weights": {
           "yellow": 0.33,
           "dark_green": 0.33,
           "blue": 0.33
         },
         "timer_seconds": 55,
-        "ammo_count": 48,
-        "boss": {
-          "color": "dark_green",
-          "hp": 80,
-          "maxHp": 80,
-          "diameter_multiplier": 2.3,
-          "intro_overlay_seconds": 1.6,
-          "horizontal_speed": 10,
-          "dark_green_heal_bonus_percent": 900,
-          "spawn_count": 1
-        }
+        "ammo_count": 48
       },
       {
         "id": 7,
         "name": "Niveau 7 — Ombre noire",
-        "description": "100% de balles noires. Un boss noir unique arrive en fin de vague.",
+        "description": "100% de balles noires. Boss noir en fin de vague.",
         "launch_color_weights": {
           "black": 1
         },
@@ -729,8 +699,7 @@
           "hp": 100,
           "maxHp": 100,
           "intro_overlay_seconds": 1.6,
-          "horizontal_speed": 10,
-          "spawn_count": 1
+          "horizontal_speed": 10
         },
         "timer_seconds": 75,
         "ammo_count": 58
@@ -738,7 +707,7 @@
       {
         "id": 8,
         "name": "Niveau 8 — Vague rouge",
-        "description": "100% de balles rouges. Elles se divisent en deux à chaque impact non létal, puis un boss rouge unique conclut la vague.",
+        "description": "100% de balles rouges. Elles se divisent en deux à chaque impact non létal, ce qui multiplie rapidement les cibles.",
         "launch_color_weights": {
           "red": 1
         },
@@ -747,8 +716,7 @@
           "hp": 25,
           "maxHp": 25,
           "intro_overlay_seconds": 1.6,
-          "horizontal_speed": 10,
-          "spawn_count": 1
+          "horizontal_speed": 10
         },
         "timer_seconds": 60,
         "ammo_count": 46
@@ -756,7 +724,7 @@
       {
         "id": 9,
         "name": "Niveau 9 — Duo rouge/vert",
-        "description": "50% de rouges et 50% de vert foncé. Un boss rouge unique arrive en fin de vague.",
+        "description": "50% de rouges et 50% de vert foncé. Boss rouge en fin de vague impaire.",
         "launch_color_weights": {
           "red": 0.5,
           "dark_green": 0.5
@@ -768,14 +736,13 @@
           "hp": 35,
           "maxHp": 35,
           "intro_overlay_seconds": 1.6,
-          "horizontal_speed": 10,
-          "spawn_count": 1
+          "horizontal_speed": 10
         }
       },
       {
         "id": 10,
         "name": "Niveau 10 — Hôpital central",
-        "description": "50% de bleues et 50% de rouges. Un hôpital central soigne les balles, puis un boss bleu unique conclut la vague.",
+        "description": "50% de bleues et 50% de rouges. Un hôpital au centre soigne +1 PV par contact jusqu’à épuisement de sa réserve.",
         "launch_color_weights": {
           "blue": 0.5,
           "red": 0.5
@@ -789,21 +756,12 @@
           "diameter_from_boss_hp": 100
         },
         "timer_seconds": 60,
-        "ammo_count": 50,
-        "boss": {
-          "color": "blue",
-          "hp": 90,
-          "maxHp": 90,
-          "diameter_multiplier": 2.2,
-          "intro_overlay_seconds": 1.6,
-          "horizontal_speed": 10,
-          "spawn_count": 1
-        }
+        "ammo_count": 50
       },
       {
         "id": 11,
         "name": "Niveau 11 — Aimant violet",
-        "description": "100% de balles violettes. Un boss violet unique arrive en fin de vague après les accélérations aimantées.",
+        "description": "100% de balles violettes. Boss violet en fin de vague impaire après les accélérations aimantées.",
         "launch_color_weights": {
           "purple": 1
         },
@@ -814,8 +772,7 @@
           "hp": 80,
           "maxHp": 80,
           "intro_overlay_seconds": 1.6,
-          "horizontal_speed": 10,
-          "spawn_count": 1
+          "horizontal_speed": 10
         }
       }
     ],
@@ -848,7 +805,7 @@
     ]
   },
   "release_notes": [
-    "Un boss unique à chaque vague",
+    "Boss fiables une vague sur deux",
     "Étoile Kill avant boss",
     "Vagues impaires et récompenses synchronisées",
     "Récompenses fiables après chaque vague",

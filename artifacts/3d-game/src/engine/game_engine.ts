@@ -38,6 +38,7 @@ import {
   resolveBallCollisions,
 } from "./collisionSystem";
 import { maybeSpawnLevelBoss } from "./bossSystem";
+import { shouldWaveHaveBoss } from "./bossSchedule";
 import { getRewardNoticeTrigger } from "./rewardPhase";
 import {
   performOrangeLaunch,
@@ -108,6 +109,7 @@ export class GameEngine {
   private singleColorMode = false;
   private bossSpawned = false;
   private bossDefeated = false;
+  private bossPendingForCurrentWave = false;
   private bossNoticeRemaining = -1;
   private bossIntroRemaining = 0;
   private bossHintRemaining = 0;
@@ -133,6 +135,7 @@ export class GameEngine {
     this.currentLevelIndex = levelCount > 0
       ? ((initialLevelIndex % levelCount) + levelCount) % levelCount
       : 0;
+    this.prepareBossStateForWave(1);
     this.configureHospitalForCurrentLevel();
     this.registerAllHandlers();
   }
@@ -299,8 +302,32 @@ export class GameEngine {
     return Boolean(this.getCurrentLevel()?.boss);
   }
 
-  prepareNextRewardWave(): void {
+  hasBossPendingForCurrentWave(): boolean {
+    return this.bossPendingForCurrentWave;
+  }
+
+  /**
+   * Start-of-wave boss/reward reset. Wave numbers are 1-based; odd waves
+   * (1, 3, 5, …) are boss waves when the active level provides a boss
+   * template. Even waves intentionally skip the boss and can reward as soon
+   * as their regular terrain is clear.
+   */
+  prepareBossStateForWave(waveNumber: number): void {
     this.rewardNoticeEmitted = false;
+    this.bossRewardNoticeEmitted = false;
+    this.bossSpawned = false;
+    this.bossDefeated = false;
+    this.bossPendingForCurrentWave = Boolean(this.getCurrentLevel()?.boss) && shouldWaveHaveBoss(waveNumber);
+    this.bossNoticeRemaining = -1;
+    this.bossIntroRemaining = 0;
+    this.bossHintRemaining = 0;
+    this.bossHintMessage = "";
+    this.bossMasteredRemaining = 0;
+    this.grenadeHelperShownForBossIds.clear();
+  }
+
+  prepareNextRewardWave(waveNumber: number): void {
+    this.prepareBossStateForWave(waveNumber);
     this.sessionCleared = false;
   }
 
@@ -310,7 +337,7 @@ export class GameEngine {
    * the inter-wave evolution menu is shown.
    */
   completeRegularWaveForBoss(): void {
-    if (!this.hasCurrentLevelBoss() || this.bossSpawned) return;
+    if (!this.bossPendingForCurrentWave || this.bossSpawned) return;
     const currentMax = this.config.game_session?.max_balls_spawned ?? 20;
     if (this.launchedCount >= currentMax) return;
     this.config = {
@@ -324,7 +351,7 @@ export class GameEngine {
 
 
   private maybeCompleteRegularWaveForBoss(): void {
-    if (!this.hasCurrentLevelBoss() || this.bossSpawned) return;
+    if (!this.bossPendingForCurrentWave || this.bossSpawned) return;
     if (this.launchedCount <= 0) return;
     if (this.getEnemyBallCount() > 0) return;
     this.completeRegularWaveForBoss();
@@ -336,14 +363,17 @@ export class GameEngine {
       bossRewardAlreadyEmitted: this.bossRewardNoticeEmitted,
       activeEnemyCount: this.getEnemyBallCount(),
       launchedCount: this.launchedCount,
-      bossConfigured: this.hasCurrentLevelBoss(),
+      bossPendingForCurrentWave: this.bossPendingForCurrentWave,
       bossSpawned: this.bossSpawned,
       bossDefeated: this.bossDefeated,
       bossMasteredActive: this.bossMasteredRemaining > 0,
     });
     if (!trigger) return;
     this.rewardNoticeEmitted = true;
-    if (trigger === "boss_defeated") this.bossRewardNoticeEmitted = true;
+    if (trigger === "boss_defeated") {
+      this.bossRewardNoticeEmitted = true;
+      this.bossPendingForCurrentWave = false;
+    }
     this.emitEvent({ type: "phase_changed", phase: "reward_notice", rewardTrigger: trigger }, this.isInsideUpdate ? "update" : "external");
   }
 
@@ -463,8 +493,7 @@ export class GameEngine {
   isSessionFinished(): boolean {
     const max = this.getCurrentLevel()?.max_balls_spawned ?? this.config.game_session?.max_balls_spawned ?? 20;
     if (this.launchedCount < max) return false;
-    const bossConfigured = !!this.getCurrentLevel()?.boss;
-    if (!bossConfigured) return this.getEnemyBallCount() === 0;
+    if (!this.bossPendingForCurrentWave) return this.getEnemyBallCount() === 0;
     if (!this.bossSpawned) return false;
     if (!this.bossDefeated) return false;
     if (this.bossMasteredRemaining > 0) return false;

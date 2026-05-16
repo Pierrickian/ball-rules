@@ -6,10 +6,13 @@ interface Arena2D {
 }
 
 export function maybeSpawnLevelBoss(this: any, arena: Arena2D, delta: number): void {
-  if (this.bossSpawned) return;
+  if (!this.bossPendingForCurrentWave || this.bossSpawned) return;
   const lvl = this.getCurrentLevel();
   const boss = lvl?.boss;
-  if (!boss) return;
+  if (!boss) {
+    this.bossPendingForCurrentWave = false;
+    return;
+  }
   const max = lvl?.max_balls_spawned ?? this.config.game_session?.max_balls_spawned ?? 20;
   if (this.launchedCount < max) return;
   if (this.getEnemyBallCount() > 0) return;
