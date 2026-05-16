@@ -805,6 +805,7 @@
     ]
   },
   "release_notes": [
+    "Boss fiables une vague sur deux",
     "Étoile Kill avant boss",
     "Vagues impaires et récompenses synchronisées",
     "Récompenses fiables après chaque vague",
@@ -823,8 +824,7 @@
     "Résultats de vague et Play",
     "Entonnoir Game et réglages hormones",
     "Mines et tirs évolutifs",
-    "Prototype de waves respirantes adaptatives",
-    "Les choix évoluent selon votre partie"
+    "Prototype de waves respirantes adaptatives"
   ],
   "debug": {
     "show_velocities": false,

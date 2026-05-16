@@ -367,7 +367,7 @@ export function useGameEngine(): UseGameEngineResult {
               const activeEnemies = engineRef.current.getEnemyBallCount();
               const waveHadActivity = engineRef.current.getLaunchedCount() > 0 || waveEndSpawnPausedRef.current || finalCountdownActiveRef.current;
               const regularWaveCleared = activeEnemies === 0 && waveHadActivity;
-              if (regularWaveCleared && engineRef.current.hasCurrentLevelBoss() && !visibleState.sessionCleared) {
+              if (regularWaveCleared && engineRef.current.hasBossPendingForCurrentWave() && !visibleState.sessionCleared) {
                 finalCountdownActiveRef.current = false;
                 finalCountdownRemainingRef.current = Infinity;
                 timerRemainingRef.current = Infinity;
@@ -925,7 +925,7 @@ export function useGameEngine(): UseGameEngineResult {
     configRef.current = nextConfig;
     setConfig(nextConfig);
     engineRef.current.updateConfig(nextConfig);
-    engineRef.current.prepareNextRewardWave();
+    engineRef.current.prepareNextRewardWave(waveNumberRef.current);
     syncRuntimeConfig(runtimeModifiersRef.current, 1);
     breathingActiveRef.current = false;
     breathingCountdownRef.current = 0;
