@@ -805,6 +805,7 @@
     ]
   },
   "release_notes": [
+    "Boss aligné sur les ennemis non blancs",
     "Boss fiables une vague sur deux",
     "Étoile Kill avant boss",
     "Vagues impaires et récompenses synchronisées",
@@ -823,8 +824,7 @@
     "Better Shot dans le Game",
     "Résultats de vague et Play",
     "Entonnoir Game et réglages hormones",
-    "Mines et tirs évolutifs",
-    "Prototype de waves respirantes adaptatives"
+    "Mines et tirs évolutifs"
   ],
   "debug": {
     "show_velocities": false,

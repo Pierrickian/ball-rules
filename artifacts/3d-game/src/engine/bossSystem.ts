@@ -5,6 +5,21 @@ interface Arena2D {
   halfH: number;
 }
 
+function resolveBossColor(lvl: any, boss: any): string {
+  const defaultColor = boss.color;
+  const weights = lvl?.launch_color_weights;
+  if (!weights || typeof weights !== "object") return defaultColor;
+
+  const nonWhiteColors = Object.entries(weights)
+    .filter(([color, weight]) => color !== "white" && typeof weight === "number" && weight > 0)
+    .map(([color]) => color);
+
+  if (nonWhiteColors.length === 0) return defaultColor;
+  if (defaultColor !== "white" && nonWhiteColors.includes(defaultColor)) return defaultColor;
+
+  return nonWhiteColors[Math.floor(Math.random() * nonWhiteColors.length)];
+}
+
 export function maybeSpawnLevelBoss(this: any, arena: Arena2D, delta: number): void {
   if (!this.bossPendingForCurrentWave || this.bossSpawned) return;
   const lvl = this.getCurrentLevel();
@@ -48,6 +63,7 @@ export function maybeSpawnLevelBoss(this: any, arena: Arena2D, delta: number): v
     launcher.diameter *= launcherMul;
   }
 
+  const bossColor = resolveBossColor(lvl, boss);
   const requestedHp = boss.hp;
   const requestedMaxHp = boss.maxHp ?? boss.hp;
   const spawnCount = Math.max(1, Math.floor(boss.spawn_count ?? 1));
@@ -65,7 +81,7 @@ export function maybeSpawnLevelBoss(this: any, arena: Arena2D, delta: number): v
       x: baseVelocity.x * cos - baseVelocity.y * sin,
       y: baseVelocity.x * sin + baseVelocity.y * cos,
     };
-    const spawnedBoss = this.spawnBall(boss.color, boss.size ?? BallSize.LARGE, { x: launcher.position.x + spreadX, y: launcher.position.y }, velocity, undefined, { hp: requestedHp, maxHp: requestedMaxHp }, { isBoss: true });
+    const spawnedBoss = this.spawnBall(bossColor, boss.size ?? BallSize.LARGE, { x: launcher.position.x + spreadX, y: launcher.position.y }, velocity, undefined, { hp: requestedHp, maxHp: requestedMaxHp }, { isBoss: true });
     const bossHealBonus = boss.dark_green_heal_bonus_percent ?? lvl?.dark_green_heal_bonus_percent;
     if (typeof bossHealBonus === "number" && spawnedBoss.color === "dark_green") {
       spawnedBoss.metadata.hpGrowHealMultiplier = Math.max(0, 1 + bossHealBonus / 100);
