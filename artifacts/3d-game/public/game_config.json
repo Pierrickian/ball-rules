@@ -302,7 +302,7 @@
     },
     "red": {
       "rule": "red_split_bouncer",
-      "_description": "Rebondit sur les murs avec 5 PV. Si un tir la touche sans la détruire, elle se divise en 2 rouges, chacune avec les PV restants de la mère après impact (5→4→3→2→1)."
+      "_description": "Rebondit sur les murs avec 5 PV. Si un tir la touche sans la détruire, elle se divise en 5 rouges, chacune avec les PV restants de la mère après impact (5→4→3→2→1)."
     },
     "purple": {
       "rule": "magnet_field",
@@ -387,7 +387,10 @@
     },
     "red_split_bouncer": {
       "default_hp": 5,
-      "max_hp": 5
+      "max_hp": 5,
+      "split_count": 5,
+      "split_speed_scale": 1,
+      "_description": "Paramètres de la balle rouge: PV de départ/max et nombre de fragments générés sur un impact non létal."
     },
     "magnet_field": {
       "_description": "Paramètres de la balle violette: diamètre du gabarit transparent, force d'attraction, boost déclenché par projectile et amortissement du contact sans rebond.",
@@ -805,6 +808,7 @@
     ]
   },
   "release_notes": [
+    "Rouge explose maintenant en cinq balles",
     "Boss aligné sur les ennemis non blancs",
     "Boss fiables une vague sur deux",
     "Étoile Kill avant boss",
@@ -823,8 +827,7 @@
     "Décompte final et étoiles animées",
     "Better Shot dans le Game",
     "Résultats de vague et Play",
-    "Entonnoir Game et réglages hormones",
-    "Mines et tirs évolutifs"
+    "Entonnoir Game et réglages hormones"
   ],
   "debug": {
     "show_velocities": false,

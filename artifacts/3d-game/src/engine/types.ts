@@ -382,6 +382,8 @@ export interface GameConfig {
     red_split_bouncer?: {
       default_hp: number;
       max_hp: number;
+      split_count?: number;
+      split_speed_scale?: number;
     };
     player_projectile?: {
       max_lifetime_seconds: number;

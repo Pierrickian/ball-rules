@@ -388,24 +388,35 @@ export function trySplitRedAfterNonLethalHit(target: Ball, hpBeforeHit: number, 
   const childHp = Math.max(1, Math.min(redCap, target.hp - 1));
   const speed = Math.sqrt(target.velocity.x ** 2 + target.velocity.y ** 2);
   const dir = speed > 0.01 ? normalize(target.velocity) : { x: 1, y: 0 };
-  const perp = normalize({ x: -dir.y, y: dir.x });
   const childSpeed = Math.max(speed, 12);
-  const b1 = ctx.spawnBall("red", target.size, { ...target.position }, {
-    x: dir.x * childSpeed * 0.75 + perp.x * childSpeed * 0.55,
-    y: dir.y * childSpeed * 0.75 + perp.y * childSpeed * 0.55,
-  }, "red_split_bouncer", { hp: childHp, maxHp: childHp });
-  const b2 = ctx.spawnBall("red", target.size, { ...target.position }, {
-    x: dir.x * childSpeed * 0.75 - perp.x * childSpeed * 0.55,
-    y: dir.y * childSpeed * 0.75 - perp.y * childSpeed * 0.55,
-  }, "red_split_bouncer", { hp: childHp, maxHp: childHp });
-  b1.maxHp = childHp; b1.hp = childHp; b1.isBoss = target.isBoss;
-  b2.maxHp = childHp; b2.hp = childHp; b2.isBoss = target.isBoss;
+  const splitCount = Math.max(2, Math.floor(ctx.config.rule_parameters.red_split_bouncer?.split_count ?? 5));
+  const speedScale = ctx.config.rule_parameters.red_split_bouncer?.split_speed_scale ?? 1;
   const ignoreUntil = ctx.elapsedTime + getProjectileHitImmunitySeconds(ctx.config);
-  b1.metadata.ignoreProjectileId = sourceProjectileId;
-  b1.metadata.ignoreProjectileUntil = ignoreUntil;
-  b2.metadata.ignoreProjectileId = sourceProjectileId;
-  b2.metadata.ignoreProjectileUntil = ignoreUntil;
-  ctx.events.push({ type: "ball_split", originalId: target.id, newIds: [b1.id, b2.id] });
+  const newIds: string[] = [];
+
+  for (let i = 0; i < splitCount; i++) {
+    const angle = (Math.PI * 2 * i) / splitCount;
+    const offset = { x: Math.cos(angle), y: Math.sin(angle) };
+    const blend = 0.45;
+    const mixed = normalize({
+      x: dir.x * (1 - blend) + offset.x * blend,
+      y: dir.y * (1 - blend) + offset.y * blend,
+    });
+
+    const child = ctx.spawnBall("red", target.size, { ...target.position }, {
+      x: mixed.x * childSpeed * speedScale,
+      y: mixed.y * childSpeed * speedScale,
+    }, "red_split_bouncer", { hp: childHp, maxHp: childHp });
+
+    child.maxHp = childHp;
+    child.hp = childHp;
+    child.isBoss = target.isBoss;
+    child.metadata.ignoreProjectileId = sourceProjectileId;
+    child.metadata.ignoreProjectileUntil = ignoreUntil;
+    newIds.push(child.id);
+  }
+
+  ctx.events.push({ type: "ball_split", originalId: target.id, newIds });
   ctx.despawnBall(target, "red_split_after_hit");
 }
 
