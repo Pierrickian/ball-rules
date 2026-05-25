@@ -96,6 +96,7 @@ function AppContent() {
   const timeStarShownRef = useRef(false);
   const reloadStarLostShownRef = useRef(false);
   const ammoAnimationTimerRef = useRef<number | null>(null);
+  const autoFireReloadGraceUntilRef = useRef(0);
   const uiEntities = useUiEntities();
   const hadPlayerInputRef = useRef(false);
   useEffect(() => { localStorage.setItem("bg_effect_ball", ballEffect); }, [ballEffect]);
@@ -273,7 +274,8 @@ function AppContent() {
 
   const tryShootBall = (targetX: number, targetY: number, holdSeconds: number): boolean => {
     if (!isBossPhase && shotsRemaining <= 0) {
-      if (showAmmoWarning()) setReloadFlashKey((prev) => prev + 1);
+      const shouldShowWarning = breathingWave.phase === "active" && Date.now() >= autoFireReloadGraceUntilRef.current;
+      if (shouldShowWarning && showAmmoWarning()) setReloadFlashKey((prev) => prev + 1);
       return false;
     }
     return shoot(targetX, targetY, holdSeconds) !== null;
@@ -396,6 +398,7 @@ function AppContent() {
       // releasing still fires manually, and no pointer held lets the virtual
       // charge shoot as soon as the mega tier is available.
       if (menuOpenRef.current || !isRunningRef.current || pointerActiveRef.current) return;
+      if (breathingWave.phase !== "active" || waveUiStage !== "none") return;
       const types = config.gameplay_controls.shot_types;
       const assistScale = lockOnRef.current && homingOnRef.current ? 0.5 : 1;
       const threshold = (types.heavy?.max_hold_seconds ?? 0.8) * assistScale;
@@ -409,7 +412,7 @@ function AppContent() {
       }
     }, 100);
     return () => window.clearInterval(interval);
-  }, [autoFire, config, shoot, classifyHold]);
+  }, [autoFire, config, shoot, classifyHold, breathingWave.phase, waveUiStage]);
 
   const handlePointerUp = (gameX: number, gameY: number) => {
     hadPlayerInputRef.current = true;
@@ -451,8 +454,8 @@ function AppContent() {
       case "grant_homing_auto": setLockOn(true); setHomingOn(true); setAutoFire(true); break;
       case "half_hold_thresholds": break;
       case "remove_auto": if (autoFire) setAutoFire(false); break;
-      case "remove_homing": if (homingOn) setHomingOn(false); break;
-      case "remove_homing_auto": if (homingOn) setHomingOn(false); if (autoFire) setAutoFire(false); break;
+      case "remove_homing": if (homingOn) setHomingOn(false); if (lockOn) setLockOn(false); break;
+      case "remove_homing_auto": if (homingOn) setHomingOn(false); if (lockOn) setLockOn(false); if (autoFire) setAutoFire(false); break;
       default: break;
     }
     showAssistPopup(`${side === "plus" ? "Assist +" : "Assist -"}: ${action.label}`);
@@ -606,6 +609,7 @@ function AppContent() {
     .filter((alveole): alveole is GameplayAlveole => Boolean(alveole));
   const handleGameplayReload = () => {
     const ammoBefore = Number.isFinite(shotsRemaining) ? shotsRemaining : 0;
+    autoFireReloadGraceUntilRef.current = Date.now() + 500;
     const feedback = reloadWave();
     if (feedback.ammoAdded > 0) {
       animateAmmoCounter(ammoBefore, ammoBefore + feedback.ammoAdded);
