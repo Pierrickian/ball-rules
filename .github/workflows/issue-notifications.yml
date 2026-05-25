@@ -1,0 +1,26 @@
+name: Issue Notifications
+
+on:
+  issues:
+    types:
+      - opened
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate notification secrets
+        env:
+          NOTIFICATION_PHONE: ${{ secrets.NOTIFICATION_PHONE }}
+          NOTIFICATION_API_KEY: ${{ secrets.NOTIFICATION_API_KEY }}
+        run: |
+          if [ -z "$NOTIFICATION_PHONE" ] || [ -z "$NOTIFICATION_API_KEY" ]; then
+            echo "Missing notification secrets"
+            exit 1
+          fi
+
+      - name: Notification placeholder
+        run: |
+          echo "New issue detected"
+          echo "Configure your notification provider using repository secrets"
