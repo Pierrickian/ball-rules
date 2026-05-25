@@ -154,14 +154,14 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
   },
   {
     id: "new_weapon",
-    title: "NEW WEAPON",
+    title: "TIRS",
     icon: "⚔️",
-    subtitle: "Give players new ways to act",
+    subtitle: "Test and tune shot profiles",
     accent: { primary: "#ffdf5d", secondary: "#ff6b35", gradient: "linear-gradient(135deg, #ffe45d, #ff9f1c, #ff4d4d)", glow: "rgba(255, 223, 93, 0.55)" },
     proposals: [
-      { title: "Forge a Weapon", subtitle: "Create a brand new attack" },
-      { title: "Invent a Shot", subtitle: "Imagine unique projectile behavior" },
-      { title: "Create an Arsenal", subtitle: "Expand combat possibilities" },
+      { title: "Build a Shot Loadout", subtitle: "Distribute 10 points between speed, power and bounces" },
+      { title: "Test the Fast Shot", subtitle: "First bar slot stays the fastest shot" },
+      { title: "Balance Three Shots", subtitle: "Order: fastest, then second, then third" },
     ],
   },
   {

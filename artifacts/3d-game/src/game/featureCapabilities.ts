@@ -130,12 +130,16 @@ export const FEATURE_CAPABILITY_REGISTRY: FeatureCapabilityRegistry = {
     },
     {
       key: "weapon",
-      label: "New Weapon",
-      description: "Tune existing shot kinds before creating new weapon code.",
+      label: "Shots",
+      description: "Configure three charge shots with a 10-point distribution and ordering.",
       capabilities: [
-        { key: "shot.light", label: "Light shot tuning", status: "instant", valueType: "object" },
-        { key: "shot.heavy", label: "Heavy shot tuning", status: "instant", valueType: "object" },
-        { key: "shot.mega", label: "Mega shot tuning", status: "instant", valueType: "object" },
+        { key: "shot.light", label: "Shot 1 tuning (fastest)", status: "instant", valueType: "object" },
+        { key: "shot.heavy", label: "Shot 2 tuning", status: "instant", valueType: "object" },
+        { key: "shot.mega", label: "Shot 3 tuning", status: "instant", valueType: "object" },
+        { key: "shot.point_budget", label: "10-point stat budget", status: "instant", valueType: "number", min: 10, max: 10 },
+        { key: "shot.stats.speed", label: "Speed points", status: "instant", valueType: "number", min: 0, max: 10 },
+        { key: "shot.stats.power", label: "Power points", status: "instant", valueType: "number", min: 0, max: 10 },
+        { key: "shot.stats.bounces", label: "Bounce points", status: "instant", valueType: "number", min: 0, max: 10 },
         { key: "projectile_distribution", label: "Projectile distribution", status: "instant", valueType: "weights" },
         { key: "queue_size", label: "Projectile queue size", status: "instant", valueType: "number", min: 1, max: 30 },
         {

@@ -805,6 +805,7 @@
     ]
   },
   "release_notes": [
+    "Menu Tirs pour tester trois profils",
     "Notif PR ouverte distincte de PR fermée",
     "Retrait de Longer Waves des modificateurs",
     "Notif commit Codex pointe vers le commit",
@@ -823,8 +824,7 @@
     "Étoiles live et recharge manuelle",
     "Boss attendu avant évolution",
     "Oranges stoppées en fin de vague",
-    "Décompte final et étoiles animées",
-    "Better Shot dans le Game"
+    "Décompte final et étoiles animées"
   ],
   "debug": {
     "show_velocities": false,
