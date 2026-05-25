@@ -12,6 +12,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useGameEngine } from "./engine/useGameEngine";
+import { GAMEPLAY_ALVEOLES } from "./engine/runtimeModifiers";
 import { GameScene } from "./scenes/GameScene";
 import { HUD } from "./game/HUD";
 import { Menu } from "./game/Menu";
@@ -52,11 +53,12 @@ function AppContent() {
   const [lockOn, setLockOn] = useState(false);
   const [lockedBallId, setLockedBallId] = useState<string | null>(null);
   const [homingOn, setHomingOn] = useState(false);
+  const [autoFire, setAutoFire] = useState(false);
   const [ballEffect, setBallEffect] = useState(() => localStorage.getItem("bg_effect_ball") ?? "spark");
   const [grenadeEffect, setGrenadeEffect] = useState(() => localStorage.getItem("bg_effect_grenade") ?? "spark");
   const [debugExplosionTexture, setDebugExplosionTexture] = useState(() => localStorage.getItem("bg_debug_explosion_texture") === "1");
-  const [autoFire, setAutoFire] = useState(false);
   const [minePlacementMode, setMinePlacementMode] = useState(false);
+  const [assistPopup, setAssistPopup] = useState<string | null>(null);
   const [addFeaturePortalOpen, setAddFeaturePortalOpen] = useState(false);
   const [evolutionInitialText, setEvolutionInitialText] = useState("");
   const [animatedAmmoRemaining, setAnimatedAmmoRemaining] = useState<number | null>(null);
@@ -395,10 +397,11 @@ function AppContent() {
       // charge shoot as soon as the mega tier is available.
       if (menuOpenRef.current || !isRunningRef.current || pointerActiveRef.current) return;
       const types = config.gameplay_controls.shot_types;
-      const threshold = types.heavy?.max_hold_seconds ?? 0.8;
+      const assistScale = lockOnRef.current && homingOnRef.current ? 0.5 : 1;
+      const threshold = (types.heavy?.max_hold_seconds ?? 0.8) * assistScale;
       const currentHold = (performance.now() - cycleStartRef.current) / 1000;
       if (currentHold < threshold) return;
-      const injectedHold = Math.max(types.mega?.min_hold_seconds ?? threshold, threshold + 0.01);
+      const injectedHold = Math.max((types.mega?.min_hold_seconds ?? threshold) * assistScale, threshold + 0.01);
       const target = resolveShotTarget(lastTargetRef.current.x, lastTargetRef.current.y, injectedHold);
       if (tryShootBall(target.x, target.y, injectedHold)) {
         cycleStartRef.current = performance.now();
@@ -425,6 +428,34 @@ function AppContent() {
     }
     cycleStartRef.current = performance.now();
     setHoldTime(0);
+  };
+
+  const showAssistPopup = (text: string) => {
+    setAssistPopup(text);
+    window.setTimeout(() => setAssistPopup((v) => (v === text ? null : v)), 1700);
+  };
+
+  const pickAssistAction = (side: "plus" | "minus") => {
+    const actions = side === "plus" ? config?.assistance?.plus_actions : config?.assistance?.minus_actions;
+    if (!actions || actions.length === 0) return null;
+    return actions[Math.floor(Math.random() * actions.length)] ?? null;
+  };
+
+  const applyAssistAction = (side: "plus" | "minus") => {
+    const action = pickAssistAction(side);
+    if (!action) return;
+    const alveole = action.alveole_id ? GAMEPLAY_ALVEOLES.find((a) => a.id === action.alveole_id) : undefined;
+    if (alveole) applyAlveole(alveole);
+    switch (action.id) {
+      case "grant_homing": setLockOn(true); setHomingOn(true); break;
+      case "grant_homing_auto": setLockOn(true); setHomingOn(true); setAutoFire(true); break;
+      case "half_hold_thresholds": break;
+      case "remove_auto": if (autoFire) setAutoFire(false); break;
+      case "remove_homing": if (homingOn) setHomingOn(false); break;
+      case "remove_homing_auto": if (homingOn) setHomingOn(false); if (autoFire) setAutoFire(false); break;
+      default: break;
+    }
+    showAssistPopup(`${side === "plus" ? "Assist +" : "Assist -"}: ${action.label}`);
   };
 
   const handlePointerCancel = () => {
@@ -786,26 +817,10 @@ function AppContent() {
       {minePlacementMode && <div style={{ position:"absolute", right:84, bottom:220, zIndex:12, pointerEvents:"none", color:"#ffd6e2", fontWeight:900, textShadow:"0 0 8px #000" }}>Release in field</div>}
       <UiEntityLayer entities={uiEntities.entities} />
       <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", bottom: 52, display: "flex", gap: 8, zIndex: 12 }}>
-        <button
-          onClick={() => setLockOn((v) => !v)}
-          style={{ border:"1px solid #1e90ff", background: lockOn ? "#1e90ff" : "rgba(0,0,0,.55)", color:"#fff", borderRadius:8, padding:"6px 12px", minWidth: 106, whiteSpace: "nowrap" }}
-        >
-          {lockOn ? t("app.lock.on") : t("app.lock.off")}
-        </button>
-        <button
-          onClick={() => { if (lockOn) setHomingOn((v) => !v); }}
-          disabled={!lockOn}
-          style={{ border:"1px solid #00d4aa", background: !lockOn ? "rgba(180,180,180,.55)" : homingOn ? "#00d4aa" : "rgba(0,0,0,.55)", color: !lockOn ? "#1a1a1a" : "#001e1a", borderRadius:8, padding:"6px 12px", fontWeight:700, minWidth: 106, whiteSpace: "nowrap" }}
-        >
-          {homingOn ? t("app.homing.on") : t("app.homing.off")}
-        </button>
-        <button
-          onClick={() => setAutoFire((v) => !v)}
-          style={{ border:"1px solid #ff9f1c", background: autoFire ? "#ff9f1c" : "rgba(0,0,0,.55)", color: autoFire ? "#2d1400" : "#ffe8c2", borderRadius:8, padding:"6px 12px", fontWeight:700, minWidth: 106, whiteSpace: "nowrap" }}
-        >
-          {autoFire ? t("app.autoFire.on") : t("app.autoFire.off")}
-        </button>
+        <button onClick={() => applyAssistAction("plus")} style={{ border:"1px solid #66ffbb", background:"rgba(0,0,0,.55)", color:"#cffff0", borderRadius:8, padding:"6px 12px", fontWeight:800, minWidth: 106 }}>assist +</button>
+        <button onClick={() => applyAssistAction("minus")} style={{ border:"1px solid #ff7aa8", background:"rgba(0,0,0,.55)", color:"#ffd4e4", borderRadius:8, padding:"6px 12px", fontWeight:800, minWidth: 106 }}>assist -</button>
       </div>
+      {assistPopup && <div style={{ position:"absolute", left:"50%", bottom:90, transform:"translateX(-50%)", zIndex:14, padding:"8px 12px", borderRadius:12, background:"rgba(3,10,24,.9)", border:"1px solid rgba(122,252,255,.4)", color:"#eaffff", fontWeight:900 }}>{assistPopup}</div>}
 
       <button
         onClick={handleMenuOpen}
