@@ -444,6 +444,14 @@ function AppContent() {
     return actions[Math.floor(Math.random() * actions.length)] ?? null;
   };
 
+
+  useEffect(() => {
+    if (breathingWave.phase !== "breathing") return;
+    if (lockOn) setLockOn(false);
+    if (homingOn) setHomingOn(false);
+    if (autoFire) setAutoFire(false);
+  }, [breathingWave.phase, lockOn, homingOn, autoFire]);
+
   const applyAssistAction = (side: "plus" | "minus") => {
     const action = pickAssistAction(side);
     if (!action) return;

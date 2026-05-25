@@ -830,6 +830,7 @@
     ]
   },
   "release_notes": [
+    "Assistances temporaires par vague + slow ennemis",
     "Assist - retire bien homing et tir auto",
     "Le tir auto respecte la pause entre vagues",
     "Assist + et Assist - avec actions aléatoires",
@@ -848,8 +849,7 @@
     "Commandes debug développeur",
     "Lancement GitHub Pages fiabilisé",
     "Popups étoiles plus visibles",
-    "Impacts evolution plus lisibles",
-    "Time up et tirs légers réinitialisés"
+    "Impacts evolution plus lisibles"
   ],
   "debug": {
     "show_velocities": false,
@@ -886,6 +886,11 @@
       {
         "id": "half_hold_thresholds",
         "label": "Temps de charge ÷2"
+      },
+      {
+        "id": "slow_enemies",
+        "label": "Ennemis ralentis",
+        "alveole_id": "slower_enemies"
       }
     ],
     "minus_actions": [
