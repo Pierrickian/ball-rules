@@ -1,0 +1,67 @@
+name: GitHub Notifications
+
+on:
+  push:
+    branches:
+      - "codex/**"
+
+  pull_request:
+    types:
+      - closed
+
+  issues:
+    types:
+      - opened
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Build message
+        id: message
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            {
+              echo "MESSAGE<<EOF"
+              echo "Codex pushed a commit"
+              echo "Repository: ${{ github.repository }}"
+              echo "Branch: ${{ github.ref_name }}"
+              echo "Commit: ${{ github.event.head_commit.message }}"
+              echo "Author: ${{ github.event.head_commit.author.name }}"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          else
+            if [ "${{ github.event.pull_request.merged }}" = "true" ]; then
+              {
+                echo "MESSAGE<<EOF"
+                echo "PR merged"
+                echo "Repository: ${{ github.repository }}"
+                echo "PR #${{ github.event.pull_request.number }}"
+                echo "${{ github.event.pull_request.title }}"
+                echo "${{ github.event.pull_request.html_url }}"
+                echo "EOF"
+              } >> "$GITHUB_OUTPUT"
+            else
+              {
+                echo "MESSAGE<<EOF"
+                echo "PR closed without merge"
+                echo "Repository: ${{ github.repository }}"
+                echo "PR #${{ github.event.pull_request.number }}"
+                echo "${{ github.event.pull_request.title }}"
+                echo "${{ github.event.pull_request.html_url }}"
+                echo "EOF"
+              } >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: Send WhatsApp notification
+        env:
+          PHONE: ${{ secrets.CALLMEBOT_PHONE }}
+          APIKEY: ${{ secrets.CALLMEBOT_APIKEY }}
+          MESSAGE: ${{ steps.message.outputs.MESSAGE }}
+        run: |
+          curl --fail --show-error --silent --get "https://api.callmebot.com/whatsapp.php" \
+            --data-urlencode "phone=${PHONE}" \
+            --data-urlencode "text=${MESSAGE}" \
+            --data-urlencode "apikey=${APIKEY}"
