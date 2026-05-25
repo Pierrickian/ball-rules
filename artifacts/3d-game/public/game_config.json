@@ -238,7 +238,7 @@
       ],
       "_label": "Rose",
       "selectable_by_player": false,
-      "for_terrain": false
+      "for_terrain": true
     },
     "purple": {
       "hex": "#8B5CFF",
@@ -307,6 +307,10 @@
     "purple": {
       "rule": "magnet_field",
       "_description": "Génère un gabarit transparent de 3× son diamètre. Les balles du terrain qui y entrent sont attirées vers elle comme par un aimant, restent au contact sans la traverser ni rebondir. Quand un projectile pénètre le gabarit, la violette accélère 0,5 s puis reprend sa vitesse initiale."
+    },
+    "pink": {
+      "rule": "pink_split_once",
+      "_description": "Se divise dès qu'elle est touchée: la rose d'origine disparaît et crée 2 roses à 10 PV. Les deux nouvelles perdent ensuite leurs PV normalement, sans se re-diviser."
     }
   },
   "bounce_conditions": {
@@ -327,7 +331,8 @@
       "yellow": "against_wall",
       "black": "against_wall",
       "red": "against_wall",
-      "purple": "against_wall"
+      "purple": "against_wall",
+      "pink": "against_wall"
     }
   },
   "rule_parameters": {
@@ -426,7 +431,8 @@
           "yellow",
           "black",
           "red",
-          "purple"
+          "purple",
+          "pink"
         ],
         "_allow_colors_comment": "Couleurs que le lanceur orange peut faire entrer dans l'arène. Le gris est volontairement exclu : c'est une couleur dédiée au joueur (file de tir / projectiles)."
       }
@@ -488,6 +494,14 @@
       }
     },
     "purple": {
+      "spawn": {
+        "condition": "launched_by_orange"
+      },
+      "despawn": {
+        "condition": "killed_at_zero_hp"
+      }
+    },
+    "pink": {
       "spawn": {
         "condition": "launched_by_orange"
       },
@@ -593,7 +607,8 @@
         "timer_seconds": 60,
         "ammo_count": 50,
         "launch_color_weights": {
-          "white": 1
+          "white": 1,
+          "pink": 0.2
         },
         "boss": {
           "color": "white",
@@ -618,7 +633,8 @@
         "description": "Mélange : 80% de balles blanches et 20% de balles vert foncé. Les vert foncé ont 2 PV de départ et grossissent quand elles se traversent — vise-les vite avant qu'elles ne deviennent énormes.",
         "launch_color_weights": {
           "white": 0.8,
-          "dark_green": 0.2
+          "dark_green": 0.2,
+          "pink": 0.2
         },
         "timer_seconds": 55,
         "ammo_count": 45
@@ -630,7 +646,8 @@
         "timer_seconds": 65,
         "ammo_count": 52,
         "launch_color_weights": {
-          "dark_green": 1
+          "dark_green": 1,
+          "pink": 0.2
         },
         "boss": {
           "color": "dark_green",
@@ -653,7 +670,8 @@
         "name": "Niveau 4 — Marée bleue",
         "description": "100% de balles bleues. Elles gagnent des PV au contact et grossissent vite: concentre tes tirs pour éviter l'effet boule de neige.",
         "launch_color_weights": {
-          "blue": 1
+          "blue": 1,
+          "pink": 0.2
         },
         "timer_seconds": 50,
         "ammo_count": 42
@@ -663,7 +681,8 @@
         "name": "Niveau 5 — Éclipse jaune",
         "description": "100% de balles jaunes. Elles ont 1 PV et clignotent: invisibles 0,8 s toutes les 1 s, ce qui perturbe visée et timing.",
         "launch_color_weights": {
-          "yellow": 1
+          "yellow": 1,
+          "pink": 0.2
         },
         "boss": {
           "color": "yellow",
@@ -682,7 +701,8 @@
         "launch_color_weights": {
           "yellow": 0.33,
           "dark_green": 0.33,
-          "blue": 0.33
+          "blue": 0.33,
+          "pink": 0.2
         },
         "timer_seconds": 55,
         "ammo_count": 48
@@ -692,7 +712,8 @@
         "name": "Niveau 7 — Ombre noire",
         "description": "100% de balles noires. Boss noir en fin de vague.",
         "launch_color_weights": {
-          "black": 1
+          "black": 1,
+          "pink": 0.2
         },
         "boss": {
           "color": "black",
@@ -709,7 +730,8 @@
         "name": "Niveau 8 — Vague rouge",
         "description": "100% de balles rouges. Elles se divisent en deux à chaque impact non létal, ce qui multiplie rapidement les cibles.",
         "launch_color_weights": {
-          "red": 1
+          "red": 1,
+          "pink": 0.2
         },
         "boss": {
           "color": "red",
@@ -727,7 +749,8 @@
         "description": "50% de rouges et 50% de vert foncé. Boss rouge en fin de vague impaire.",
         "launch_color_weights": {
           "red": 0.5,
-          "dark_green": 0.5
+          "dark_green": 0.5,
+          "pink": 0.2
         },
         "timer_seconds": 65,
         "ammo_count": 50,
@@ -745,7 +768,8 @@
         "description": "50% de bleues et 50% de rouges. Un hôpital au centre soigne +1 PV par contact jusqu’à épuisement de sa réserve.",
         "launch_color_weights": {
           "blue": 0.5,
-          "red": 0.5
+          "red": 0.5,
+          "pink": 0.2
         },
         "hospital": {
           "x": 0,
@@ -763,7 +787,8 @@
         "name": "Niveau 11 — Aimant violet",
         "description": "100% de balles violettes. Boss violet en fin de vague impaire après les accélérations aimantées.",
         "launch_color_weights": {
-          "purple": 1
+          "purple": 1,
+          "pink": 0.2
         },
         "timer_seconds": 65,
         "ammo_count": 50,
@@ -805,6 +830,7 @@
     ]
   },
   "release_notes": [
+    "Balle rose: split en 2 x 10 PV",
     "Notif PR ouverte distincte de PR fermée",
     "Retrait de Longer Waves des modificateurs",
     "Notif commit Codex pointe vers le commit",
@@ -823,8 +849,7 @@
     "Étoiles live et recharge manuelle",
     "Boss attendu avant évolution",
     "Oranges stoppées en fin de vague",
-    "Décompte final et étoiles animées",
-    "Better Shot dans le Game"
+    "Décompte final et étoiles animées"
   ],
   "debug": {
     "show_velocities": false,

@@ -196,6 +196,7 @@ export class GameEngine {
     this.registerRuleHandler("hp_grow_bouncer",   this.handleHpGrowBouncer);
     this.registerRuleHandler("blink_hp_bouncer",  this.handleBlinkHpBouncer);
     this.registerRuleHandler("red_split_bouncer", this.handleRedSplitBouncer);
+    this.registerRuleHandler("pink_split_once",   this.handleBounce);
     this.registerRuleHandler("player_projectile", this.handlePlayerProjectile);
     this.registerRuleHandler("magnet_field",      this.handleMagnetField);
   }
@@ -872,6 +873,26 @@ export class GameEngine {
   /** Apply damage and despawn at 0 HP. Returns true if killed. */
   private damageBall(ball: Ball, amount: number, reason = "damaged"): boolean {
     if (!ball.isAlive) return false;
+    if (ball.rule === "pink_split_once" && ball.metadata.pinkSplitDone !== true) {
+      ball.metadata.pinkSplitDone = true;
+      const speed = Math.sqrt(ball.velocity.x ** 2 + ball.velocity.y ** 2);
+      const dir = speed > 0.01 ? { x: ball.velocity.x / speed, y: ball.velocity.y / speed } : { x: 1, y: 0 };
+      const perp = { x: -dir.y, y: dir.x };
+      const childSpeed = Math.max(speed, 10);
+      const childHp = 10;
+      const b1 = this.spawnBall("pink", ball.size, { ...ball.position }, {
+        x: dir.x * childSpeed * 0.75 + perp.x * childSpeed * 0.55,
+        y: dir.y * childSpeed * 0.75 + perp.y * childSpeed * 0.55,
+      }, "bounce", { hp: childHp, maxHp: childHp });
+      const b2 = this.spawnBall("pink", ball.size, { ...ball.position }, {
+        x: dir.x * childSpeed * 0.75 - perp.x * childSpeed * 0.55,
+        y: dir.y * childSpeed * 0.75 - perp.y * childSpeed * 0.55,
+      }, "bounce", { hp: childHp, maxHp: childHp });
+      this.emitEvent({ type: "ball_split", originalId: ball.id, newIds: [b1.id, b2.id] }, this.isInsideUpdate ? "update" : "external");
+      ball.isAlive = false;
+      this.emitEvent({ type: "ball_despawned", ballId: ball.id, reason: "pink_split_on_hit", position: { ...ball.position }, velocity: { ...ball.velocity }, effect: String(ball.metadata?.effect ?? "") }, this.isInsideUpdate ? "update" : "external");
+      return true;
+    }
     const died = ball.takeDamage(amount);
     this.emitEvent({
       type: "ball_damaged",

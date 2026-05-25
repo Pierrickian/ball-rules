@@ -44,6 +44,7 @@ export type BallRule =
   | "hp_grow_bouncer"
   | "blink_hp_bouncer"
   | "red_split_bouncer"
+  | "pink_split_once"
   | "player_projectile"
   | "magnet_field";
 
