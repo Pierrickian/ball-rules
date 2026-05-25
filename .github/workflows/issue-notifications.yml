@@ -21,7 +21,17 @@ jobs:
       - name: Build message
         id: message
         run: |
-          if [ "${{ github.event_name }}" = "push" ]; then
+          if [ "${{ github.event_name }}" = "issues" ]; then
+            {
+              echo "MESSAGE<<EOF"
+              echo "New issue created"
+              echo "Repository: ${{ github.repository }}"
+              echo "#${{ github.event.issue.number }}"
+              echo "${{ github.event.issue.title }}"
+              echo "${{ github.event.issue.html_url }}"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "push" ]; then
             {
               echo "MESSAGE<<EOF"
               echo "Codex pushed a commit"
@@ -29,6 +39,7 @@ jobs:
               echo "Branch: ${{ github.ref_name }}"
               echo "Commit: ${{ github.event.head_commit.message }}"
               echo "Author: ${{ github.event.head_commit.author.name }}"
+              echo "https://github.com/${{ github.repository }}/tree/${{ github.ref_name }}"
               echo "EOF"
             } >> "$GITHUB_OUTPUT"
           else
