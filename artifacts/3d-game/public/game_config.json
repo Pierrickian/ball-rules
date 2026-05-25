@@ -830,6 +830,8 @@
     ]
   },
   "release_notes": [
+    "Assist + et Assist - avec actions aléatoires",
+    "Bouton IA unique pour visée et tir auto",
     "Balle rose: split en 2 x 10 PV",
     "Notif PR ouverte distincte de PR fermée",
     "Retrait de Longer Waves des modificateurs",
@@ -847,9 +849,7 @@
     "Impacts evolution plus lisibles",
     "Time up et tirs légers réinitialisés",
     "Étoiles live et recharge manuelle",
-    "Boss attendu avant évolution",
-    "Oranges stoppées en fin de vague",
-    "Décompte final et étoiles animées"
+    "Boss attendu avant évolution"
   ],
   "debug": {
     "show_velocities": false,
@@ -862,5 +862,60 @@
     "mode": "issue",
     "endpoint": "",
     "default_title": "Demande d'évolution depuis le jeu"
+  },
+  "assistance": {
+    "plus_actions": [
+      {
+        "id": "gain_grenades",
+        "label": "Gain de grenades",
+        "alveole_id": "more_grenades"
+      },
+      {
+        "id": "gain_ammo",
+        "label": "Gain de munitions",
+        "alveole_id": "more_bullets"
+      },
+      {
+        "id": "grant_homing",
+        "label": "Tir homing"
+      },
+      {
+        "id": "grant_homing_auto",
+        "label": "Tir homing auto"
+      },
+      {
+        "id": "half_hold_thresholds",
+        "label": "Temps de charge ÷2"
+      }
+    ],
+    "minus_actions": [
+      {
+        "id": "remove_auto",
+        "label": "Retrait auto"
+      },
+      {
+        "id": "remove_homing",
+        "label": "Retrait homing"
+      },
+      {
+        "id": "remove_homing_auto",
+        "label": "Retrait homing + auto"
+      },
+      {
+        "id": "faster_gameplay",
+        "label": "Gameplay accéléré",
+        "alveole_id": "faster_gameplay"
+      },
+      {
+        "id": "more_enemy_hp",
+        "label": "HP ennemis augmentés",
+        "alveole_id": "more_enemy_hp"
+      },
+      {
+        "id": "more_chaos",
+        "label": "Chaos augmenté",
+        "alveole_id": "more_chaos"
+      }
+    ]
   }
 }

@@ -304,6 +304,17 @@ export interface BounceConditionsConfig {
 }
 
 // ---- Top-Level Config ----
+export interface AssistActionConfig {
+  id: string;
+  label: string;
+  alveole_id?: string;
+}
+
+export interface AssistConfig {
+  plus_actions: AssistActionConfig[];
+  minus_actions: AssistActionConfig[];
+}
+
 export interface EvolutionRequestConfig {
   _description?: string;
   /** GitHub owner/repo receiving in-game evolution requests. */
@@ -416,6 +427,7 @@ export interface GameConfig {
    *  level weights override `gameplay.orange.launch_config.color`
    *  for the orange launcher's color pick. */
   levels?: LevelsConfig;
+  assistance?: AssistConfig;
   game_rules_concept: {
     title: string;
     concept: string;
