@@ -1,26 +1,63 @@
-name: Issue Notifications
+name: GitHub Notifications
 
 on:
-  issues:
+  push:
+    branches:
+      - "codex/**"
+
+  pull_request:
     types:
-      - opened
+      - closed
 
 jobs:
   notify:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Validate notification secrets
-        env:
-          NOTIFICATION_PHONE: ${{ secrets.NOTIFICATION_PHONE }}
-          NOTIFICATION_API_KEY: ${{ secrets.NOTIFICATION_API_KEY }}
+      - name: Build message
+        id: message
         run: |
-          if [ -z "$NOTIFICATION_PHONE" ] || [ -z "$NOTIFICATION_API_KEY" ]; then
-            echo "Missing notification secrets"
-            exit 1
+          if [ "${{ github.event_name }}" = "push" ]; then
+            {
+              echo "MESSAGE<<EOF"
+              echo "Codex pushed a commit"
+              echo "Repository: ${{ github.repository }}"
+              echo "Branch: ${{ github.ref_name }}"
+              echo "Commit: ${{ github.event.head_commit.message }}"
+              echo "Author: ${{ github.event.head_commit.author.name }}"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          else
+            if [ "${{ github.event.pull_request.merged }}" = "true" ]; then
+              {
+                echo "MESSAGE<<EOF"
+                echo "PR merged"
+                echo "Repository: ${{ github.repository }}"
+                echo "PR #${{ github.event.pull_request.number }}"
+                echo "${{ github.event.pull_request.title }}"
+                echo "${{ github.event.pull_request.html_url }}"
+                echo "EOF"
+              } >> "$GITHUB_OUTPUT"
+            else
+              {
+                echo "MESSAGE<<EOF"
+                echo "PR closed without merge"
+                echo "Repository: ${{ github.repository }}"
+                echo "PR #${{ github.event.pull_request.number }}"
+                echo "${{ github.event.pull_request.title }}"
+                echo "${{ github.event.pull_request.html_url }}"
+                echo "EOF"
+              } >> "$GITHUB_OUTPUT"
+            fi
           fi
 
-      - name: Notification placeholder
+      - name: Send WhatsApp notification
+        env:
+          PHONE: ${{ secrets.CALLMEBOT_PHONE }}
+          APIKEY: ${{ secrets.CALLMEBOT_APIKEY }}
+          MESSAGE: ${{ steps.message.outputs.MESSAGE }}
         run: |
-          echo "New issue detected"
-          echo "Configure your notification provider using repository secrets"
+          curl --fail --show-error --silent --get "https://api.callmebot.com/whatsapp.php" \
+            --data-urlencode "phone=${PHONE}" \
+            --data-urlencode "text=${MESSAGE}" \
+            --data-urlencode "apikey=${APIKEY}"
