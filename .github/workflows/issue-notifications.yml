@@ -76,7 +76,11 @@ jobs:
               } >> "$GITHUB_OUTPUT"
             fi
           fi
-
+      - name: Debug message
+        run: |
+          echo 'MESSAGE START'
+          echo '${{ steps.message.outputs.MESSAGE }}'
+          echo 'MESSAGE END'
       - name: Send WhatsApp notification
         env:
           PHONE: ${{ secrets.CALLMEBOT_PHONE }}
