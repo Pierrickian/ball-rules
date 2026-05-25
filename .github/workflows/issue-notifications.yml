@@ -43,6 +43,16 @@ jobs:
               echo "https://github.com/${{ github.repository }}/commit/${{ github.sha }}"
               echo "EOF"
             } >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "pull_request" ] && [ "${{ github.event.action }}" = "opened" ]; then
+            {
+              echo "MESSAGE<<EOF"
+              echo "PR opened"
+              echo "Repository: ${{ github.repository }}"
+              echo "PR #${{ github.event.pull_request.number }}"
+              echo "${{ github.event.pull_request.title }}"
+              echo "${{ github.event.pull_request.html_url }}"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
           else
             if [ "${{ github.event.pull_request.merged }}" = "true" ]; then
               {

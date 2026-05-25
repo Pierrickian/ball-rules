@@ -16,7 +16,6 @@ export type GameplayAlveoleId =
   | "more_precision"
   | "slower_enemies"
   | "faster_gameplay"
-  | "longer_waves"
   | "more_enemy_hp"
   | "more_grenades"
   | "more_bullets"
@@ -71,7 +70,6 @@ export const GAMEPLAY_ALVEOLES: GameplayAlveole[] = [
   { id: "more_precision", label: "More precision", description: "Projectiles plus lisibles et waves un peu plus propres.", tags: ["projectile_speed", "enemy_spawn_rate"], effects: { projectile_speed: 1.14, enemy_spawn_rate: 0.94 } },
   { id: "slower_enemies", label: "Slower enemies", description: "Les ennemis respirent plus lentement.", tags: ["enemy_speed"], effects: { enemy_speed: 0.88 } },
   { id: "faster_gameplay", label: "Faster gameplay", description: "Rythme global plus nerveux.", tags: ["gameplay_speed", "enemy_speed"], effects: { gameplay_speed: 1.08, enemy_speed: 1.08 } },
-  { id: "longer_waves", label: "Longer waves", description: "Respirations plus longues, plus de temps pour finir.", tags: ["wave_duration", "ammo_count"], effects: { wave_duration: 1.18, ammo_count: 1.08 } },
   { id: "more_enemy_hp", label: "More enemy HP", description: "Cibles plus robustes, meilleure valeur par grenade.", tags: ["enemy_hp"], effects: { enemy_hp: 1.18 } },
   { id: "more_grenades", label: "More grenades", description: "Ajoute du contrôle explosif au runtime.", tags: ["grenade_count"], effects: { grenade_count: 1.35 } },
   { id: "more_bullets", label: "More bullets", description: "Plus de marge de tir pour rester en flow.", tags: ["ammo_count"], effects: { ammo_count: 1.22 } },
