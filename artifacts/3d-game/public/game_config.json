@@ -830,6 +830,7 @@
     ]
   },
   "release_notes": [
+    "Bouton IA unique pour visée et tir auto",
     "Balle rose: split en 2 x 10 PV",
     "Notif PR ouverte distincte de PR fermée",
     "Retrait de Longer Waves des modificateurs",
@@ -848,8 +849,7 @@
     "Time up et tirs légers réinitialisés",
     "Étoiles live et recharge manuelle",
     "Boss attendu avant évolution",
-    "Oranges stoppées en fin de vague",
-    "Décompte final et étoiles animées"
+    "Oranges stoppées en fin de vague"
   ],
   "debug": {
     "show_velocities": false,

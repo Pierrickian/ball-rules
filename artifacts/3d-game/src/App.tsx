@@ -49,13 +49,14 @@ function AppContent() {
   const lastTargetRef = useRef<{ x: number; y: number }>({ x: 0, y: 1000 });
   const lastDirectionRef = useRef<Vec2>({ x: 0, y: 1 });
   const [aimDirection, setAimDirection] = useState<Vec2>({ x: 0, y: 1 });
-  const [lockOn, setLockOn] = useState(false);
+  const [aiMode, setAiMode] = useState<"manual" | "homing" | "homing_auto">("manual");
   const [lockedBallId, setLockedBallId] = useState<string | null>(null);
-  const [homingOn, setHomingOn] = useState(false);
+  const lockOn = aiMode !== "manual";
+  const homingOn = aiMode === "homing_auto";
+  const autoFire = aiMode === "homing_auto";
   const [ballEffect, setBallEffect] = useState(() => localStorage.getItem("bg_effect_ball") ?? "spark");
   const [grenadeEffect, setGrenadeEffect] = useState(() => localStorage.getItem("bg_effect_grenade") ?? "spark");
   const [debugExplosionTexture, setDebugExplosionTexture] = useState(() => localStorage.getItem("bg_debug_explosion_texture") === "1");
-  const [autoFire, setAutoFire] = useState(false);
   const [minePlacementMode, setMinePlacementMode] = useState(false);
   const [addFeaturePortalOpen, setAddFeaturePortalOpen] = useState(false);
   const [evolutionInitialText, setEvolutionInitialText] = useState("");
@@ -787,23 +788,10 @@ function AppContent() {
       <UiEntityLayer entities={uiEntities.entities} />
       <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", bottom: 52, display: "flex", gap: 8, zIndex: 12 }}>
         <button
-          onClick={() => setLockOn((v) => !v)}
-          style={{ border:"1px solid #1e90ff", background: lockOn ? "#1e90ff" : "rgba(0,0,0,.55)", color:"#fff", borderRadius:8, padding:"6px 12px", minWidth: 106, whiteSpace: "nowrap" }}
+          onClick={() => setAiMode((prev) => prev === "manual" ? "homing" : prev === "homing" ? "homing_auto" : "manual")}
+          style={{ border:"1px solid #1e90ff", background: aiMode === "manual" ? "rgba(0,0,0,.55)" : aiMode === "homing" ? "#00d4aa" : "#ff9f1c", color: aiMode === "manual" ? "#d7e7ff" : "#001e1a", borderRadius:8, padding:"6px 12px", fontWeight:800, minWidth: 160, whiteSpace: "nowrap" }}
         >
-          {lockOn ? t("app.lock.on") : t("app.lock.off")}
-        </button>
-        <button
-          onClick={() => { if (lockOn) setHomingOn((v) => !v); }}
-          disabled={!lockOn}
-          style={{ border:"1px solid #00d4aa", background: !lockOn ? "rgba(180,180,180,.55)" : homingOn ? "#00d4aa" : "rgba(0,0,0,.55)", color: !lockOn ? "#1a1a1a" : "#001e1a", borderRadius:8, padding:"6px 12px", fontWeight:700, minWidth: 106, whiteSpace: "nowrap" }}
-        >
-          {homingOn ? t("app.homing.on") : t("app.homing.off")}
-        </button>
-        <button
-          onClick={() => setAutoFire((v) => !v)}
-          style={{ border:"1px solid #ff9f1c", background: autoFire ? "#ff9f1c" : "rgba(0,0,0,.55)", color: autoFire ? "#2d1400" : "#ffe8c2", borderRadius:8, padding:"6px 12px", fontWeight:700, minWidth: 106, whiteSpace: "nowrap" }}
-        >
-          {autoFire ? t("app.autoFire.on") : t("app.autoFire.off")}
+          {t(`app.ai.${aiMode}`)}
         </button>
       </div>
 
