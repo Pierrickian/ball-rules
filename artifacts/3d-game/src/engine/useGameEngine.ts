@@ -935,7 +935,7 @@ export function useGameEngine(): UseGameEngineResult {
   }, [pickDifferentWaveColor, recordRuntimePhaseChange, syncRuntimeConfig, withSingleWaveColor]);
 
   const requestContextualAlveoles = useCallback(() => {
-    requestBreathingAlveoles("idle_micro_pause", ["longer_waves", "different_enemy_balls"]);
+    requestBreathingAlveoles("idle_micro_pause", ["different_enemy_balls"]);
   }, [requestBreathingAlveoles]);
 
   const setRuntimeModifiersFromSettings = useCallback((next: RuntimeModifiers) => {

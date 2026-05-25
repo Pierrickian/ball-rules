@@ -805,6 +805,7 @@
     ]
   },
   "release_notes": [
+    "Retrait de Longer Waves des modificateurs",
     "Notif commit Codex pointe vers le commit",
     "Boss aligné sur les ennemis non blancs",
     "Boss fiables une vague sur deux",
@@ -823,8 +824,7 @@
     "Oranges stoppées en fin de vague",
     "Décompte final et étoiles animées",
     "Better Shot dans le Game",
-    "Résultats de vague et Play",
-    "Entonnoir Game et réglages hormones"
+    "Résultats de vague et Play"
   ],
   "debug": {
     "show_velocities": false,
