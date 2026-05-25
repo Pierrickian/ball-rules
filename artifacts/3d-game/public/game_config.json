@@ -805,6 +805,7 @@
     ]
   },
   "release_notes": [
+    "Notif commit Codex pointe vers le commit",
     "Boss aligné sur les ennemis non blancs",
     "Boss fiables une vague sur deux",
     "Étoile Kill avant boss",
@@ -823,8 +824,7 @@
     "Décompte final et étoiles animées",
     "Better Shot dans le Game",
     "Résultats de vague et Play",
-    "Entonnoir Game et réglages hormones",
-    "Mines et tirs évolutifs"
+    "Entonnoir Game et réglages hormones"
   ],
   "debug": {
     "show_velocities": false,
