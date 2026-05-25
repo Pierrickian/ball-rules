@@ -9,6 +9,10 @@ on:
     types:
       - closed
 
+  issues:
+    types:
+      - opened
+
 jobs:
   notify:
     runs-on: ubuntu-latest
