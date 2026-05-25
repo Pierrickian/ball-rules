@@ -81,6 +81,19 @@ jobs:
           echo 'MESSAGE START'
           echo '${{ steps.message.outputs.MESSAGE }}'
           echo 'MESSAGE END'
+- name: Send WhatsApp notification
+  env:
+    PHONE: ${{ secrets.CALLMEBOT_PHONE }}
+    APIKEY: ${{ secrets.CALLMEBOT_APIKEY }}
+    MESSAGE: ${{ steps.message.outputs.MESSAGE }}
+  run: |
+    echo "PHONE_PRESENT=$([ -n "$PHONE" ] && echo yes || echo no)"
+    echo "APIKEY_PRESENT=$([ -n "$APIKEY" ] && echo yes || echo no)"
+
+    curl --show-error --get "https://api.callmebot.com/whatsapp.php" \
+      --data-urlencode "phone=${PHONE}" \
+      --data-urlencode "text=${MESSAGE}" \
+      --data-urlencode "apikey=${APIKEY}"
       - name: Send WhatsApp notification
         env:
           PHONE: ${{ secrets.CALLMEBOT_PHONE }}
