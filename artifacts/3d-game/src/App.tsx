@@ -451,8 +451,11 @@ function AppContent() {
       case "grant_homing_auto": setLockOn(true); setHomingOn(true); setAutoFire(true); break;
       case "half_hold_thresholds": break;
       case "remove_auto": if (autoFire) setAutoFire(false); break;
-      case "remove_homing": if (homingOn) setHomingOn(false); break;
-      case "remove_homing_auto": if (homingOn) setHomingOn(false); if (autoFire) setAutoFire(false); break;
+      case "remove_homing":
+        setHomingOn(false);
+        setAutoFire(false);
+        setLockOn(false);
+        break;
       default: break;
     }
     showAssistPopup(`${side === "plus" ? "Assist +" : "Assist -"}: ${action.label}`);
