@@ -1,0 +1,11 @@
+{
+  "buildCommand": "pnpm --filter @workspace/3d-game run build",
+  "outputDirectory": "artifacts/3d-game/dist",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
