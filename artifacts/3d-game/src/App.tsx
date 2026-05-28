@@ -30,7 +30,6 @@ import { UiEntityLayer } from "./game/ui/UiEntityLayer";
 import { useUiEntities } from "./game/ui/useUiEntities";
 
 const KILL_STAR_ANIMATION_MS = 2300;
-const POST_RELOAD_AMMO_WARNING_GRACE_MS = 450;
 
 function AppContent() {
   const { t, language, setLanguage } = useI18n();
@@ -97,7 +96,6 @@ function AppContent() {
   const timeStarShownRef = useRef(false);
   const reloadStarLostShownRef = useRef(false);
   const ammoAnimationTimerRef = useRef<number | null>(null);
-  const lastReloadAtRef = useRef(0);
   const uiEntities = useUiEntities();
   const hadPlayerInputRef = useRef(false);
   useEffect(() => { localStorage.setItem("bg_effect_ball", ballEffect); }, [ballEffect]);
@@ -275,9 +273,6 @@ function AppContent() {
 
   const tryShootBall = (targetX: number, targetY: number, holdSeconds: number): boolean => {
     if (!isBossPhase && shotsRemaining <= 0) {
-      const inGameplayActivePhase = breathingWave.phase === "active" && waveUiStage === "none";
-      const inPostReloadGrace = performance.now() - lastReloadAtRef.current <= POST_RELOAD_AMMO_WARNING_GRACE_MS;
-      if (!inGameplayActivePhase || inPostReloadGrace) return false;
       if (showAmmoWarning()) setReloadFlashKey((prev) => prev + 1);
       return false;
     }
@@ -401,7 +396,6 @@ function AppContent() {
       // releasing still fires manually, and no pointer held lets the virtual
       // charge shoot as soon as the mega tier is available.
       if (menuOpenRef.current || !isRunningRef.current || pointerActiveRef.current) return;
-      if (breathingWave.phase !== "active" || waveUiStage !== "none") return;
       const types = config.gameplay_controls.shot_types;
       const assistScale = lockOnRef.current && homingOnRef.current ? 0.5 : 1;
       const threshold = (types.heavy?.max_hold_seconds ?? 0.8) * assistScale;
@@ -415,7 +409,7 @@ function AppContent() {
       }
     }, 100);
     return () => window.clearInterval(interval);
-  }, [autoFire, config, shoot, classifyHold, breathingWave.phase, waveUiStage]);
+  }, [autoFire, config, shoot, classifyHold]);
 
   const handlePointerUp = (gameX: number, gameY: number) => {
     hadPlayerInputRef.current = true;
@@ -457,11 +451,8 @@ function AppContent() {
       case "grant_homing_auto": setLockOn(true); setHomingOn(true); setAutoFire(true); break;
       case "half_hold_thresholds": break;
       case "remove_auto": if (autoFire) setAutoFire(false); break;
-      case "remove_homing":
-        setHomingOn(false);
-        setAutoFire(false);
-        setLockOn(false);
-        break;
+      case "remove_homing": if (homingOn) setHomingOn(false); break;
+      case "remove_homing_auto": if (homingOn) setHomingOn(false); if (autoFire) setAutoFire(false); break;
       default: break;
     }
     showAssistPopup(`${side === "plus" ? "Assist +" : "Assist -"}: ${action.label}`);
@@ -616,7 +607,6 @@ function AppContent() {
   const handleGameplayReload = () => {
     const ammoBefore = Number.isFinite(shotsRemaining) ? shotsRemaining : 0;
     const feedback = reloadWave();
-    lastReloadAtRef.current = performance.now();
     if (feedback.ammoAdded > 0) {
       animateAmmoCounter(ammoBefore, ammoBefore + feedback.ammoAdded);
       showImpactPopup("ammo", "Recharge", ammoBefore, ammoBefore + feedback.ammoAdded);
@@ -641,12 +631,6 @@ function AppContent() {
     reloadStarLostShownRef.current = waveReloadCountRef.current > 1;
     setAmmoEndNoticeVisible(false);
   };
-
-  useEffect(() => {
-    if (breathingWave.phase !== "breathing") return;
-    // Les assists "in-game" sont temporaires: on les coupe en fin de vague.
-    setAutoFire(false);
-  }, [breathingWave.phase]);
   const handleDebugLaunchNextWave = () => {
     resetWaveTracking();
     launchNextWave();

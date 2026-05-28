@@ -830,9 +830,7 @@
     ]
   },
   "release_notes": [
-    "Déploiement Vercel du jeu fiabilisé",
-    "Tir auto mieux cadré entre les vagues",
-    "Retrait homing ramène bien en manuel",
+    "Déploiement Vercel: sortie dist corrigée",
     "Assist + et Assist - avec actions aléatoires",
     "Bouton IA unique pour visée et tir auto",
     "Balle rose: split en 2 x 10 PV",
@@ -849,7 +847,9 @@
     "Commandes debug développeur",
     "Lancement GitHub Pages fiabilisé",
     "Popups étoiles plus visibles",
-    "Impacts evolution plus lisibles"
+    "Impacts evolution plus lisibles",
+    "Time up et tirs légers réinitialisés",
+    "Étoiles live et recharge manuelle"
   ],
   "debug": {
     "show_velocities": false,
@@ -886,11 +886,6 @@
       {
         "id": "half_hold_thresholds",
         "label": "Temps de charge ÷2"
-      },
-      {
-        "id": "slow_enemies",
-        "label": "Ennemis ralentis",
-        "alveole_id": "slower_enemies"
       }
     ],
     "minus_actions": [
@@ -901,6 +896,10 @@
       {
         "id": "remove_homing",
         "label": "Retrait homing"
+      },
+      {
+        "id": "remove_homing_auto",
+        "label": "Retrait homing + auto"
       },
       {
         "id": "faster_gameplay",
